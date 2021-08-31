@@ -8,6 +8,5 @@ main.py
 __pycache__
 /build/
 /*.egg-info/
-/wheel/
 /tests/tests_results/
 /sphinx/_build/
