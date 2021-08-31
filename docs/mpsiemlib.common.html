@@ -1,0 +1,654 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>mpsiemlib.common package &mdash; mpsiemlib 1.4.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> mpsiemlib
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">mpsiemlib.common package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</div>
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">mpsiemlib</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>mpsiemlib.common package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/mpsiemlib.common.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-mpsiemlib.common">
+<span id="mpsiemlib-common-package"></span><h1>mpsiemlib.common package<a class="headerlink" href="#module-mpsiemlib.common" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.common.AuthInterface">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">AuthInterface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">creds</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.Creds" title="mpsiemlib.common.Interfaces.Creds"><span class="pre">mpsiemlib.common.Interfaces.Creds</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.Settings" title="mpsiemlib.common.Interfaces.Settings"><span class="pre">mpsiemlib.common.Interfaces.Settings</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.AuthInterface" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.AuthInterface.connect">
+<span class="sig-name descname"><span class="pre">connect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">component</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.MPComponents" title="mpsiemlib.common.Interfaces.MPComponents"><span class="pre">mpsiemlib.common.Interfaces.MPComponents</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">creds</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.Creds" title="mpsiemlib.common.Interfaces.Creds"><span class="pre">mpsiemlib.common.Interfaces.Creds</span></a><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">requests.sessions.Session</span></span></span><a class="headerlink" href="#mpsiemlib.common.AuthInterface.connect" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.AuthInterface.disconnect">
+<span class="sig-name descname"><span class="pre">disconnect</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.AuthInterface.disconnect" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.AuthInterface.get_component">
+<span class="sig-name descname"><span class="pre">get_component</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.MPComponents" title="mpsiemlib.common.Interfaces.MPComponents"><span class="pre">mpsiemlib.common.Interfaces.MPComponents</span></a></span></span><a class="headerlink" href="#mpsiemlib.common.AuthInterface.get_component" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.AuthInterface.get_creds">
+<span class="sig-name descname"><span class="pre">get_creds</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.Creds" title="mpsiemlib.common.Interfaces.Creds"><span class="pre">mpsiemlib.common.Interfaces.Creds</span></a></span></span><a class="headerlink" href="#mpsiemlib.common.AuthInterface.get_creds" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.AuthInterface.get_session">
+<span class="sig-name descname"><span class="pre">get_session</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">requests.sessions.Session</span></span></span><a class="headerlink" href="#mpsiemlib.common.AuthInterface.get_session" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.common.AuthType">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">AuthType</span></span><a class="headerlink" href="#mpsiemlib.common.AuthType" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.AuthType.LDAP">
+<span class="sig-name descname"><span class="pre">LDAP</span></span><em class="property"> <span class="pre">=</span> <span class="pre">1</span></em><a class="headerlink" href="#mpsiemlib.common.AuthType.LDAP" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.AuthType.LOCAL">
+<span class="sig-name descname"><span class="pre">LOCAL</span></span><em class="property"> <span class="pre">=</span> <span class="pre">0</span></em><a class="headerlink" href="#mpsiemlib.common.AuthType.LOCAL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.common.Creds">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">Creds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.Creds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="mpsiemlib.common.Creds.core_auth_type">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">core_auth_type</span></span><a class="headerlink" href="#mpsiemlib.common.Creds.core_auth_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mpsiemlib.common.Creds.core_hostname">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">core_hostname</span></span><a class="headerlink" href="#mpsiemlib.common.Creds.core_hostname" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mpsiemlib.common.Creds.core_login">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">core_login</span></span><a class="headerlink" href="#mpsiemlib.common.Creds.core_login" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mpsiemlib.common.Creds.core_pass">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">core_pass</span></span><a class="headerlink" href="#mpsiemlib.common.Creds.core_pass" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mpsiemlib.common.Creds.siem_hostname">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">siem_hostname</span></span><a class="headerlink" href="#mpsiemlib.common.Creds.siem_hostname" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mpsiemlib.common.Creds.storage_hostname">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">storage_hostname</span></span><a class="headerlink" href="#mpsiemlib.common.Creds.storage_hostname" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.common.LoggingHandler">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">LoggingHandler</span></span><a class="headerlink" href="#mpsiemlib.common.LoggingHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPComponents">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">MPComponents</span></span><a class="headerlink" href="#mpsiemlib.common.MPComponents" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Именование компонент. Должны совпадать с названиями в IAM</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPComponents.CORE">
+<span class="sig-name descname"><span class="pre">CORE</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'mpx'</span></em><a class="headerlink" href="#mpsiemlib.common.MPComponents.CORE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPComponents.KB">
+<span class="sig-name descname"><span class="pre">KB</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'ptkb'</span></em><a class="headerlink" href="#mpsiemlib.common.MPComponents.KB" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPComponents.MS">
+<span class="sig-name descname"><span class="pre">MS</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'idmgr'</span></em><a class="headerlink" href="#mpsiemlib.common.MPComponents.MS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPComponents.SIEM">
+<span class="sig-name descname"><span class="pre">SIEM</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'siem'</span></em><a class="headerlink" href="#mpsiemlib.common.MPComponents.SIEM" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPComponents.STORAGE">
+<span class="sig-name descname"><span class="pre">STORAGE</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'storage'</span></em><a class="headerlink" href="#mpsiemlib.common.MPComponents.STORAGE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPContentTypes">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">MPContentTypes</span></span><a class="headerlink" href="#mpsiemlib.common.MPContentTypes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPContentTypes.AGGREGATION">
+<span class="sig-name descname"><span class="pre">AGGREGATION</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'Aggregation'</span></em><a class="headerlink" href="#mpsiemlib.common.MPContentTypes.AGGREGATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPContentTypes.CORRELATION">
+<span class="sig-name descname"><span class="pre">CORRELATION</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'Correlation'</span></em><a class="headerlink" href="#mpsiemlib.common.MPContentTypes.CORRELATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPContentTypes.ENRICHMENT">
+<span class="sig-name descname"><span class="pre">ENRICHMENT</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'Enrichment'</span></em><a class="headerlink" href="#mpsiemlib.common.MPContentTypes.ENRICHMENT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPContentTypes.NORMALIZATION">
+<span class="sig-name descname"><span class="pre">NORMALIZATION</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'Normalization'</span></em><a class="headerlink" href="#mpsiemlib.common.MPContentTypes.NORMALIZATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPContentTypes.TABLE">
+<span class="sig-name descname"><span class="pre">TABLE</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'TabularList'</span></em><a class="headerlink" href="#mpsiemlib.common.MPContentTypes.TABLE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPSIEMAuth">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">MPSIEMAuth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">creds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.Settings" title="mpsiemlib.common.Interfaces.Settings"><span class="pre">mpsiemlib.common.Interfaces.Settings</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.MPSIEMAuth" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.AuthInterface" title="mpsiemlib.common.Interfaces.AuthInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">mpsiemlib.common.Interfaces.AuthInterface</span></code></a>, <a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.LoggingHandler" title="mpsiemlib.common.Interfaces.LoggingHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">mpsiemlib.common.Interfaces.LoggingHandler</span></code></a></p>
+<p>Аутентифиация на компонентах MP, если требуется. 
+Получение текущий версии компонент.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPSIEMAuth.connect">
+<span class="sig-name descname"><span class="pre">connect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">component</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">creds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.MPSIEMAuth.connect" title="Permalink to this definition">¶</a></dt>
+<dd><p>Подключение к выбранным компонентам</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>component</strong> – компонент для подключения Interfaces.MPComponents</p></li>
+<li><p><strong>creds</strong> – креды для подключенмия Interfaces.Creds</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>session или None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPSIEMAuth.disconnect">
+<span class="sig-name descname"><span class="pre">disconnect</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.MPSIEMAuth.disconnect" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPSIEMAuth.get_component">
+<span class="sig-name descname"><span class="pre">get_component</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.MPSIEMAuth.get_component" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPSIEMAuth.get_core_version">
+<span class="sig-name descname"><span class="pre">get_core_version</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#mpsiemlib.common.MPSIEMAuth.get_core_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Текущая версия Core
+:return: StorageVersion</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPSIEMAuth.get_creds">
+<span class="sig-name descname"><span class="pre">get_creds</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.MPSIEMAuth.get_creds" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPSIEMAuth.get_kb_version">
+<span class="sig-name descname"><span class="pre">get_kb_version</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#mpsiemlib.common.MPSIEMAuth.get_kb_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Текущая версия PT KB
+:return: StorageVersion</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPSIEMAuth.get_session">
+<span class="sig-name descname"><span class="pre">get_session</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.MPSIEMAuth.get_session" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.MPSIEMAuth.get_storage_version">
+<span class="sig-name descname"><span class="pre">get_storage_version</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#mpsiemlib.common.MPSIEMAuth.get_storage_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Текущая версия Storage
+:return: StorageVersion</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleInterface">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">ModuleInterface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">auth:</span> <span class="pre">&lt;module</span> <span class="pre">'mpsiemlib.common.MPSIEMAuth'</span> <span class="pre">from</span> <span class="pre">'C:\\Work\\PyProjects\\mpsiemlib\\mpsiemlib\\common\\MPSIEMAuth.py'&gt;</span></em>, <em class="sig-param"><span class="pre">settings:</span> <span class="pre">mpsiemlib.common.Interfaces.Settings</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.ModuleInterface" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleInterface.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.ModuleInterface.close" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleNames">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">ModuleNames</span></span><a class="headerlink" href="#mpsiemlib.common.ModuleNames" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleNames.ASSETS">
+<span class="sig-name descname"><span class="pre">ASSETS</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'assets'</span></em><a class="headerlink" href="#mpsiemlib.common.ModuleNames.ASSETS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleNames.AUTH">
+<span class="sig-name descname"><span class="pre">AUTH</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'auth'</span></em><a class="headerlink" href="#mpsiemlib.common.ModuleNames.AUTH" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleNames.EVENTS">
+<span class="sig-name descname"><span class="pre">EVENTS</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'events'</span></em><a class="headerlink" href="#mpsiemlib.common.ModuleNames.EVENTS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleNames.FILTERS">
+<span class="sig-name descname"><span class="pre">FILTERS</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'filters'</span></em><a class="headerlink" href="#mpsiemlib.common.ModuleNames.FILTERS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleNames.HEALTH">
+<span class="sig-name descname"><span class="pre">HEALTH</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'health'</span></em><a class="headerlink" href="#mpsiemlib.common.ModuleNames.HEALTH" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleNames.INCIDENTS">
+<span class="sig-name descname"><span class="pre">INCIDENTS</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'incidents'</span></em><a class="headerlink" href="#mpsiemlib.common.ModuleNames.INCIDENTS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleNames.KB">
+<span class="sig-name descname"><span class="pre">KB</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'knowledge_base'</span></em><a class="headerlink" href="#mpsiemlib.common.ModuleNames.KB" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleNames.SOURCE_MONITOR">
+<span class="sig-name descname"><span class="pre">SOURCE_MONITOR</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'source_monitor'</span></em><a class="headerlink" href="#mpsiemlib.common.ModuleNames.SOURCE_MONITOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleNames.TABLES">
+<span class="sig-name descname"><span class="pre">TABLES</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'tables'</span></em><a class="headerlink" href="#mpsiemlib.common.ModuleNames.TABLES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleNames.TASKS">
+<span class="sig-name descname"><span class="pre">TASKS</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'tasks'</span></em><a class="headerlink" href="#mpsiemlib.common.ModuleNames.TASKS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleNames.URM">
+<span class="sig-name descname"><span class="pre">URM</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'users_and_roles'</span></em><a class="headerlink" href="#mpsiemlib.common.ModuleNames.URM" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.ModuleNames.get_modules_list">
+<em class="property"><span class="pre">static</span> </em><span class="sig-name descname"><span class="pre">get_modules_list</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.ModuleNames.get_modules_list" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.common.Settings">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">Settings</span></span><a class="headerlink" href="#mpsiemlib.common.Settings" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.Settings.assets_batch_size">
+<span class="sig-name descname"><span class="pre">assets_batch_size</span></span><em class="property"> <span class="pre">=</span> <span class="pre">1000</span></em><a class="headerlink" href="#mpsiemlib.common.Settings.assets_batch_size" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.Settings.connection_timeout">
+<span class="sig-name descname"><span class="pre">connection_timeout</span></span><em class="property"> <span class="pre">=</span> <span class="pre">60</span></em><a class="headerlink" href="#mpsiemlib.common.Settings.connection_timeout" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.Settings.connection_timeout_x">
+<span class="sig-name descname"><span class="pre">connection_timeout_x</span></span><em class="property"> <span class="pre">=</span> <span class="pre">6</span></em><a class="headerlink" href="#mpsiemlib.common.Settings.connection_timeout_x" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.Settings.incidents_batch_size">
+<span class="sig-name descname"><span class="pre">incidents_batch_size</span></span><em class="property"> <span class="pre">=</span> <span class="pre">100</span></em><a class="headerlink" href="#mpsiemlib.common.Settings.incidents_batch_size" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.Settings.kb_objects_batch_size">
+<span class="sig-name descname"><span class="pre">kb_objects_batch_size</span></span><em class="property"> <span class="pre">=</span> <span class="pre">1000</span></em><a class="headerlink" href="#mpsiemlib.common.Settings.kb_objects_batch_size" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.Settings.local_timezone">
+<span class="sig-name descname"><span class="pre">local_timezone</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'Europe/Moscow'</span></em><a class="headerlink" href="#mpsiemlib.common.Settings.local_timezone" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.Settings.source_monitor_batch_size">
+<span class="sig-name descname"><span class="pre">source_monitor_batch_size</span></span><em class="property"> <span class="pre">=</span> <span class="pre">100</span></em><a class="headerlink" href="#mpsiemlib.common.Settings.source_monitor_batch_size" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.Settings.storage_batch_size">
+<span class="sig-name descname"><span class="pre">storage_batch_size</span></span><em class="property"> <span class="pre">=</span> <span class="pre">10000</span></em><a class="headerlink" href="#mpsiemlib.common.Settings.storage_batch_size" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.Settings.storage_bucket_size">
+<span class="sig-name descname"><span class="pre">storage_bucket_size</span></span><em class="property"> <span class="pre">=</span> <span class="pre">33000</span></em><a class="headerlink" href="#mpsiemlib.common.Settings.storage_bucket_size" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.Settings.storage_events_timezone">
+<span class="sig-name descname"><span class="pre">storage_events_timezone</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'UTC'</span></em><a class="headerlink" href="#mpsiemlib.common.Settings.storage_events_timezone" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.Settings.tables_batch_size">
+<span class="sig-name descname"><span class="pre">tables_batch_size</span></span><em class="property"> <span class="pre">=</span> <span class="pre">1000</span></em><a class="headerlink" href="#mpsiemlib.common.Settings.tables_batch_size" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.common.StorageVersion">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">StorageVersion</span></span><a class="headerlink" href="#mpsiemlib.common.StorageVersion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.StorageVersion.ALL">
+<span class="sig-name descname"><span class="pre">ALL</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'ALL'</span></em><a class="headerlink" href="#mpsiemlib.common.StorageVersion.ALL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.StorageVersion.ES17">
+<span class="sig-name descname"><span class="pre">ES17</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'1.7'</span></em><a class="headerlink" href="#mpsiemlib.common.StorageVersion.ES17" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.StorageVersion.ES7">
+<span class="sig-name descname"><span class="pre">ES7</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'7'</span></em><a class="headerlink" href="#mpsiemlib.common.StorageVersion.ES7" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.common.WorkerInterface">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">WorkerInterface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">creds</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.Creds" title="mpsiemlib.common.Interfaces.Creds"><span class="pre">mpsiemlib.common.Interfaces.Creds</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.Settings" title="mpsiemlib.common.Interfaces.Settings"><span class="pre">mpsiemlib.common.Interfaces.Settings</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.WorkerInterface" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Базовый интерфейс любого модуля для работы с MP SIEM</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.common.WorkerInterface.get_module">
+<span class="sig-name descname"><span class="pre">get_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.ModuleNames" title="mpsiemlib.common.Interfaces.ModuleNames"><span class="pre">mpsiemlib.common.Interfaces.ModuleNames</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.WorkerInterface.get_module" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить экземпляр модуля</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>module_name</strong> – имя модуля</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>экземпляр класса</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mpsiemlib.common.exec_request">
+<span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">exec_request</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">requests.sessions.Session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">url</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'GET'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout_up</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">requests.models.Response</span></span></span><a class="headerlink" href="#mpsiemlib.common.exec_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Выполнение HTTP запросов
+Если в окружении MP_DEBUG_LOG_BODY, выводит в DEBUG лог сырой ответ от сервера</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>session</strong> – </p></li>
+<li><p><strong>url</strong> – </p></li>
+<li><p><strong>method</strong> – метод GET|POST</p></li>
+<li><p><strong>timeout</strong> – timeout соединения</p></li>
+<li><p><strong>timeout_up</strong> – увеличение timeout от базового на коэффициент (нужно при генерации отчетов)</p></li>
+<li><p><strong>kwargs</strong> – параметы запроса, передаваемые в requests</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>requests.Response</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mpsiemlib.common.get_metrics_start_time">
+<span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">get_metrics_start_time</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.get_metrics_start_time" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mpsiemlib.common.get_metrics_took_time">
+<span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">get_metrics_took_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_time</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.get_metrics_took_time" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mpsiemlib.common.setup_logging">
+<span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.</span></span><span class="sig-name descname"><span class="pre">setup_logging</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">default_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'logging.yml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">env_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'LOG_CFG'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.setup_logging" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="mpsiemlib.common.BaseFunctions.html">mpsiemlib.common.BaseFunctions module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mpsiemlib.common.Interfaces.html">mpsiemlib.common.Interfaces module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mpsiemlib.common.MPSIEMAuth.html">mpsiemlib.common.MPSIEMAuth module</a></li>
+</ul>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 202X, Nikolai Arefiev.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

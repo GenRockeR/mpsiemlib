@@ -1,0 +1,461 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>mpsiemlib.modules.Assets module &mdash; mpsiemlib 1.4.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> mpsiemlib
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">mpsiemlib.modules.Assets module</a></li>
+</ul>
+</div>
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">mpsiemlib</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>mpsiemlib.modules.Assets module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/mpsiemlib.modules.Assets.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-mpsiemlib.modules.Assets">
+<span id="mpsiemlib-modules-assets-module"></span><h1>mpsiemlib.modules.Assets module<a class="headerlink" href="#module-mpsiemlib.modules.Assets" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.modules.Assets.</span></span><span class="sig-name descname"><span class="pre">Assets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">auth</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="mpsiemlib.common.MPSIEMAuth.html#mpsiemlib.common.MPSIEMAuth.MPSIEMAuth" title="mpsiemlib.common.MPSIEMAuth.MPSIEMAuth"><span class="pre">mpsiemlib.common.MPSIEMAuth.MPSIEMAuth</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.Settings" title="mpsiemlib.common.Interfaces.Settings"><span class="pre">mpsiemlib.common.Interfaces.Settings</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.ModuleInterface" title="mpsiemlib.common.Interfaces.ModuleInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">mpsiemlib.common.Interfaces.ModuleInterface</span></code></a>, <a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.LoggingHandler" title="mpsiemlib.common.Interfaces.LoggingHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">mpsiemlib.common.Interfaces.LoggingHandler</span></code></a></p>
+<p>Assets module</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.close" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.create_assets_request">
+<span class="sig-name descname"><span class="pre">create_assets_request</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pdql</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_ids</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_nested</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">bool</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">utc_offset</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.create_assets_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Создать поисковый pdql-запрос и получить токен для доступа к результатам</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pdql</strong> – PDQL-запрос</p></li>
+<li><p><strong>group_ids</strong> – Список ID групп в которых надо искать активы</p></li>
+<li><p><strong>include_nested</strong> – Искать ли во вложенных группах</p></li>
+<li><p><strong>utc_offset</strong> – Часовой пояс смещение +00:00, по умолчанию +03:00</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Токен запроса</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.create_group_dynamic">
+<span class="sig-name descname"><span class="pre">create_group_dynamic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">predicate</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.create_group_dynamic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Создать динамическую группу</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parent_id</strong> – ID родительской группы</p></li>
+<li><p><strong>group_name</strong> – Название группы</p></li>
+<li><p><strong>predicate</strong> – Фильтр динамической группы</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>‘12f04fc3-3e00-0001-0000-000000000006’</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.create_group_static">
+<span class="sig-name descname"><span class="pre">create_group_static</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.create_group_static" title="Permalink to this definition">¶</a></dt>
+<dd><p>Создать статическую группу</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parent_id</strong> – ID родительской группы</p></li>
+<li><p><strong>group_name</strong> – Название группы</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>‘12f04fc3-3e00-0001-0000-000000000006’</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.delete_group">
+<span class="sig-name descname"><span class="pre">delete_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.delete_group" title="Permalink to this definition">¶</a></dt>
+<dd><p>Удалить группы</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>group_id</strong> – ID групп для удаления</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>status_code</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.get_assets_list_csv">
+<span class="sig-name descname"><span class="pre">get_assets_list_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Iterator</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.get_assets_list_csv" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить список активов в CSV по токену запроса</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>token</strong> – Токен запроса</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Строка CSV</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.get_assets_list_json">
+<span class="sig-name descname"><span class="pre">get_assets_list_json</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Iterator</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.get_assets_list_json" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить список активов в JSON по токену запроса</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>token</strong> – Токен запроса</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Словарь с атрибутами активов</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.get_assets_list_stream">
+<span class="sig-name descname"><span class="pre">get_assets_list_stream</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Iterator</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.get_assets_list_stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить список активов в виде бинарного потока CSV</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>token</strong> – Токен запроса</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Поток</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.get_assets_request_size">
+<span class="sig-name descname"><span class="pre">get_assets_request_size</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.get_assets_request_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить количество записей по токену</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>token</strong> – Токен запроса</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Кол-во записей</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.get_group_id_by_name">
+<span class="sig-name descname"><span class="pre">get_group_id_by_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">do_refresh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.get_group_id_by_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить id группы по имени.
+Регистр важен.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>group_name</strong> – Имя группы</p></li>
+<li><p><strong>do_refresh</strong> – Обновить кэш</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>‘00000000-0000-0000-0000-000000000005’</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.get_groups_hierarchy">
+<span class="sig-name descname"><span class="pre">get_groups_hierarchy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.get_groups_hierarchy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить иерархию групп</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><p>[{‘id’: ‘00000000-0000-0000-0000-000000000002’, ‘name’: ‘Root’, ‘groupType’: ‘static’,
+‘isReadOnly’: True, ‘isRemovable’: False, ‘isRoot’: True, ‘isInvalidPredicate’: False,
+‘isSlow’: False, ‘treePath’: ‘Root’, ‘children’: [</p>
+<blockquote>
+<div><dl class="simple">
+<dt>{‘id’: ‘12e9a858-b700-0001-0000-000000000002’, ‘name’: ‘AD’, ‘groupType’: ‘dynamic’,</dt><dd><p>’isReadOnly’: False, ‘isRemovable’: True, ‘isRoot’: False, ‘isInvalidPredicate’: False,
+‘isSlow’: False, ‘treePath’: ‘AD’, ‘children’: []} ]</p>
+</dd>
+</dl>
+</div></blockquote>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.get_groups_list">
+<span class="sig-name descname"><span class="pre">get_groups_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">do_refresh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.get_groups_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить список всех групп активов</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>{“id”: {“parent_id”: “00000000-0000-0000-0000-000000000002”,</dt><dd><p>”name”: “value”,
+“type”: “static”,
+“is_readonly”: True,
+“is_removable”: False,
+“is_invalid_predicate”: False,
+“is_slow”: False}</p>
+</dd>
+</dl>
+<p>}</p>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.get_scope_id_by_name">
+<span class="sig-name descname"><span class="pre">get_scope_id_by_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scope_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">do_refresh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.get_scope_id_by_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить id инфраструктуры по имени</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>scope_name</strong> – Название инфраструктуры</p></li>
+<li><p><strong>do_refresh</strong> – Обновить кэш</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>‘00000000-0000-0000-0000-000000000005’</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.get_scopes_list">
+<span class="sig-name descname"><span class="pre">get_scopes_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">do_refresh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.get_scopes_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить все инфраструктуры</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>{‘id’: {‘name’: ‘Инфраструктура по умолчанию’,
+‘tenant_id’: ‘97267c62-1455-4db0-8c84-497faf9a679e’}}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.import_assets_from_csv">
+<span class="sig-name descname"><span class="pre">import_assets_from_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">content</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">bytes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scope_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">360</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">bool</span><span class="p"><span class="pre">,</span> </span><span class="pre">int</span><span class="p"><span class="pre">,</span> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.import_assets_from_csv" title="Permalink to this definition">¶</a></dt>
+<dd><p>Импорт активов в MP из CSV</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>content</strong> – Тело CSV для загрузки</p></li>
+<li><p><strong>scope_id</strong> – ID инфраструктуры, куда импортируются активы</p></li>
+<li><p><strong>group_id</strong> – ID группы, куда импортируются активы</p></li>
+<li><p><strong>timeout</strong> – Время ожидания окончания загрузки (сек)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>status, count, errors_log</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Assets.Assets.import_assets_get_groups">
+<span class="sig-name descname"><span class="pre">import_assets_get_groups</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Assets.Assets.import_assets_get_groups" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить список групп, куда можно проводить импорт</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>[‘12f04fc3-3e00-0001-0000-000000000006’, ‘12e9a858-b700-0001-0000-000000000002’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 202X, Nikolai Arefiev.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

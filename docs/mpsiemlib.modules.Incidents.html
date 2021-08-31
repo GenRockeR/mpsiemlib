@@ -1,0 +1,316 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>mpsiemlib.modules.Incidents module &mdash; mpsiemlib 1.4.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> mpsiemlib
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">mpsiemlib.modules.Incidents module</a></li>
+</ul>
+</div>
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">mpsiemlib</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>mpsiemlib.modules.Incidents module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/mpsiemlib.modules.Incidents.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-mpsiemlib.modules.Incidents">
+<span id="mpsiemlib-modules-incidents-module"></span><h1>mpsiemlib.modules.Incidents module<a class="headerlink" href="#module-mpsiemlib.modules.Incidents" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Incidents.Incidents">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.modules.Incidents.</span></span><span class="sig-name descname"><span class="pre">Incidents</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">auth</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="mpsiemlib.common.MPSIEMAuth.html#mpsiemlib.common.MPSIEMAuth.MPSIEMAuth" title="mpsiemlib.common.MPSIEMAuth.MPSIEMAuth"><span class="pre">mpsiemlib.common.MPSIEMAuth.MPSIEMAuth</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.Settings" title="mpsiemlib.common.Interfaces.Settings"><span class="pre">mpsiemlib.common.Interfaces.Settings</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.modules.Incidents.Incidents" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.ModuleInterface" title="mpsiemlib.common.Interfaces.ModuleInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">mpsiemlib.common.Interfaces.ModuleInterface</span></code></a>, <a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.LoggingHandler" title="mpsiemlib.common.Interfaces.LoggingHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">mpsiemlib.common.Interfaces.LoggingHandler</span></code></a></p>
+<p>Incidents worker</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Incidents.Incidents.TimeFilterType">
+<em class="property"><span class="pre">class</span> </em><span class="sig-name descname"><span class="pre">TimeFilterType</span></span><a class="headerlink" href="#mpsiemlib.modules.Incidents.Incidents.TimeFilterType" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Incidents.Incidents.TimeFilterType.APPROVED">
+<span class="sig-name descname"><span class="pre">APPROVED</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'approval'</span></em><a class="headerlink" href="#mpsiemlib.modules.Incidents.Incidents.TimeFilterType.APPROVED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Incidents.Incidents.TimeFilterType.CLOSED">
+<span class="sig-name descname"><span class="pre">CLOSED</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'closing'</span></em><a class="headerlink" href="#mpsiemlib.modules.Incidents.Incidents.TimeFilterType.CLOSED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Incidents.Incidents.TimeFilterType.CREATED">
+<span class="sig-name descname"><span class="pre">CREATED</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'creation'</span></em><a class="headerlink" href="#mpsiemlib.modules.Incidents.Incidents.TimeFilterType.CREATED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Incidents.Incidents.TimeFilterType.DETECTED">
+<span class="sig-name descname"><span class="pre">DETECTED</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'detection'</span></em><a class="headerlink" href="#mpsiemlib.modules.Incidents.Incidents.TimeFilterType.DETECTED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Incidents.Incidents.TimeFilterType.IN_PROGRESS">
+<span class="sig-name descname"><span class="pre">IN_PROGRESS</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'inProgress'</span></em><a class="headerlink" href="#mpsiemlib.modules.Incidents.Incidents.TimeFilterType.IN_PROGRESS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Incidents.Incidents.TimeFilterType.MODIFIED">
+<span class="sig-name descname"><span class="pre">MODIFIED</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'lastModification'</span></em><a class="headerlink" href="#mpsiemlib.modules.Incidents.Incidents.TimeFilterType.MODIFIED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Incidents.Incidents.TimeFilterType.RESOLVED">
+<span class="sig-name descname"><span class="pre">RESOLVED</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'resolving'</span></em><a class="headerlink" href="#mpsiemlib.modules.Incidents.Incidents.TimeFilterType.RESOLVED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Incidents.Incidents.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.modules.Incidents.Incidents.close" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Incidents.Incidents.get_incident_id_by_key">
+<span class="sig-name descname"><span class="pre">get_incident_id_by_key</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">incident_key</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.modules.Incidents.Incidents.get_incident_id_by_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить ID инцидента по его Key (INC-&lt;Number&gt;).
+Поиск возможен только на глубину в 365 дней.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>incident_key</strong> – Key инцидента (INC-&lt;Number&gt;)</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>ID инцидента</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Incidents.Incidents.get_incident_info">
+<span class="sig-name descname"><span class="pre">get_incident_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">incident_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Incidents.Incidents.get_incident_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить информацию по инциденту.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>incident_id</strong> – ID инцидента. Key (INC-&lt;Number&gt;) != ID</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Перечень свойств инцидента</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Incidents.Incidents.get_incidents_list">
+<span class="sig-name descname"><span class="pre">get_incidents_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">begin</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_type</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'creation'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filters</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Iterator</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#mpsiemlib.modules.Incidents.Incidents.get_incidents_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить список инцидентов за временной период</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>begin</strong> – Timestamp. Начало диапазона выгрузки</p></li>
+<li><p><strong>end</strong> – Timestamp. окончание диапазона выгрузки</p></li>
+<li><p><strong>time_type</strong> – Статус инцидента, к которому применяется временное окно. По умолчанию “созданные”</p></li>
+<li><p><strong>filters</strong> – <p>filters = { select”: [“key”, “name”, “category”, “type”, “status”, “created”, “assigned”],
+“where”: “”,
+“orderby”: [{“field”: “created”,</p>
+<blockquote>
+<div><blockquote>
+<div><p>”sortOrder”: “descending”}</p>
+</div></blockquote>
+<p>]},</p>
+</div></blockquote>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Итератор</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 202X, Nikolai Arefiev.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

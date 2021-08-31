@@ -1,0 +1,13 @@
+/venv/
+/.idea/
+*.log
+*.driveupload
+/tmp/
+/.tmp.drivedownload/
+main.py
+__pycache__
+/build/
+/*.egg-info/
+/wheel/
+/tests/tests_results/
+/sphinx/_build/

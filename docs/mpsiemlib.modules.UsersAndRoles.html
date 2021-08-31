@@ -1,0 +1,312 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>mpsiemlib.modules.UsersAndRoles module &mdash; mpsiemlib 1.4.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> mpsiemlib
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">mpsiemlib.modules.UsersAndRoles module</a></li>
+</ul>
+</div>
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">mpsiemlib</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>mpsiemlib.modules.UsersAndRoles module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/mpsiemlib.modules.UsersAndRoles.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-mpsiemlib.modules.UsersAndRoles">
+<span id="mpsiemlib-modules-usersandroles-module"></span><h1>mpsiemlib.modules.UsersAndRoles module<a class="headerlink" href="#module-mpsiemlib.modules.UsersAndRoles" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="mpsiemlib.modules.UsersAndRoles.UsersAndRoles">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.modules.UsersAndRoles.</span></span><span class="sig-name descname"><span class="pre">UsersAndRoles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">auth</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="mpsiemlib.common.MPSIEMAuth.html#mpsiemlib.common.MPSIEMAuth.MPSIEMAuth" title="mpsiemlib.common.MPSIEMAuth.MPSIEMAuth"><span class="pre">mpsiemlib.common.MPSIEMAuth.MPSIEMAuth</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.Settings" title="mpsiemlib.common.Interfaces.Settings"><span class="pre">mpsiemlib.common.Interfaces.Settings</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.modules.UsersAndRoles.UsersAndRoles" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.ModuleInterface" title="mpsiemlib.common.Interfaces.ModuleInterface"><code class="xref py py-class docutils literal notranslate"><span class="pre">mpsiemlib.common.Interfaces.ModuleInterface</span></code></a>, <a class="reference internal" href="mpsiemlib.common.Interfaces.html#mpsiemlib.common.Interfaces.LoggingHandler" title="mpsiemlib.common.Interfaces.LoggingHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">mpsiemlib.common.Interfaces.LoggingHandler</span></code></a></p>
+<p>Users and Roles management</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.UsersAndRoles.UsersAndRoles.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.modules.UsersAndRoles.UsersAndRoles.close" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.UsersAndRoles.UsersAndRoles.create_role">
+<span class="sig-name descname"><span class="pre">create_role</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">role_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.modules.UsersAndRoles.UsersAndRoles.create_role" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.UsersAndRoles.UsersAndRoles.create_user">
+<span class="sig-name descname"><span class="pre">create_user</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">user_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_password</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">role_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.modules.UsersAndRoles.UsersAndRoles.create_user" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.UsersAndRoles.UsersAndRoles.delete_role">
+<span class="sig-name descname"><span class="pre">delete_role</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">role_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.modules.UsersAndRoles.UsersAndRoles.delete_role" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.UsersAndRoles.UsersAndRoles.delete_user">
+<span class="sig-name descname"><span class="pre">delete_user</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">user_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.modules.UsersAndRoles.UsersAndRoles.delete_user" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.UsersAndRoles.UsersAndRoles.get_applications_list">
+<span class="sig-name descname"><span class="pre">get_applications_list</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#mpsiemlib.modules.UsersAndRoles.UsersAndRoles.get_applications_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить информацию по приложениям, включая тенанты</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>{‘app_id’: {‘name’: ‘value’, ‘tenants’: [‘’, ‘’]}}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.UsersAndRoles.UsersAndRoles.get_privileges_list">
+<span class="sig-name descname"><span class="pre">get_privileges_list</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#mpsiemlib.modules.UsersAndRoles.UsersAndRoles.get_privileges_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить полный список всех доступных в системе привелегий</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>{‘component’: {‘priv’: ‘name’}}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.UsersAndRoles.UsersAndRoles.get_role_info">
+<span class="sig-name descname"><span class="pre">get_role_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">role_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">component</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#mpsiemlib.modules.UsersAndRoles.UsersAndRoles.get_role_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить информацию по конкретной роле
+:param role_name: Имя роли
+:param component: MPComponents
+:return: dict</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.UsersAndRoles.UsersAndRoles.get_roles_list">
+<span class="sig-name descname"><span class="pre">get_roles_list</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#mpsiemlib.modules.UsersAndRoles.UsersAndRoles.get_roles_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить полный список ролей</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>{‘component’: {‘role_name’: {‘param1’: ‘value1’}}}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.UsersAndRoles.UsersAndRoles.get_user_info">
+<span class="sig-name descname"><span class="pre">get_user_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">user_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#mpsiemlib.modules.UsersAndRoles.UsersAndRoles.get_user_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить информацию по пользователю</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>user_name</strong> – </p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{“param1”: “value”, “param2”: “value”}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.UsersAndRoles.UsersAndRoles.get_users_list">
+<span class="sig-name descname"><span class="pre">get_users_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#mpsiemlib.modules.UsersAndRoles.UsersAndRoles.get_users_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Получить список всех пользователей</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>filters</strong> – {“rolesIds”: [“id”, “id”],
+“authTypes”: [1, 0],
+“ldapPoolNames”: [“ldap_pool_name”],
+“statuses”: [“active”, “blocked”],
+“withoutRoles”: True}</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{“user_name”: {“param1”: “value”}}</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 202X, Nikolai Arefiev.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
