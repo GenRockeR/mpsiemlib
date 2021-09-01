@@ -116,8 +116,20 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                                                       db_name))
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
-        params = {"mode": "selection" if not do_remove else "uninstall",
-                  "include": guids_list}
+
+        core_major_ver = int(self.auth.get_core_version().split('.')[0])
+        if core_major_ver >= 24:
+            # Изменения с версии 24
+            params = {"mode": "selection" if not do_remove else "uninstall",
+             "selectedObjects" : {
+                    "ids" : guids_list,
+                    "selectionMode": "Selected"
+                }
+             }
+        else:
+            params = {"mode": "selection" if not do_remove else "uninstall",
+                    "include": guids_list}
+
         url = "https://{}:{}{}".format(self.__kb_hostname,
                                        self.__kb_port,
                                        self.__api_deploy_object)
@@ -1409,10 +1421,21 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
 
-        params = {
-                    "include":[content_item_id, ],
-                    "filter": None
-        }
+        core_major_ver = int(self.auth.get_core_version().split('.')[0])
+
+        if core_major_ver >= 24:
+            params = {
+                "selectedObjects": {
+                    "ids": [content_item_id, ],
+                    "selectionMode": "Selected"
+                },
+                "filter": None
+            }
+        else:
+            params = {
+                        "include":[content_item_id, ],
+                        "filter": None
+            }
 
         url = "https://{hostname}:{port}{endpoint}".format(
             hostname=self.__kb_hostname,
@@ -1456,23 +1479,41 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         # получить имя набора установки с которым осуществляется связывание
         group_names =[group_data.get('name', '') for group_id, group_data in self.get_groups_list(db_name).items() if group_id in group_ids]
 
-
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
 
-        params = {
-            "Operations":[
-                {
-                    "Id":"SiemObjectGroup",
-                    "ValuesToSave": group_ids,
-                    "ValuesToRemove":[]
+        core_major_ver = int(self.auth.get_core_version().split('.')[0])
+        if core_major_ver >= 24:
+            params = {
+                "Operations": [
+                    {
+                        "Id": "SiemObjectGroup",
+                        "ValuesToSave": group_ids,
+                        "ValuesToRemove": []
+                    }
+                ],
+                "Entities": {
+                    "selectedObjects": {
+                        "ids": content_items_ids,
+                        "selectionMode": "Selected"
+                    },
+                    "filter": {}
                 }
-            ],
-            "Entities":{
-                "include": content_items_ids,
-                "filter":{}
             }
-        }
+        else:
+            params = {
+                "Operations":[
+                    {
+                        "Id":"SiemObjectGroup",
+                        "ValuesToSave": group_ids,
+                        "ValuesToRemove":[]
+                    }
+                ],
+                "Entities":{
+                    "include": content_items_ids,
+                    "filter":{}
+                }
+            }
 
         url = "https://{hostname}:{port}{endpoint}".format(
             hostname=self.__kb_hostname,
