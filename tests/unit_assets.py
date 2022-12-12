@@ -125,6 +125,19 @@ class AssetsTestCase(unittest.TestCase):
 
         self.assertTrue((new_group_id == group_id) and status)
 
+    def test_delete_assets_by_id(self):
+        group_id = self.__module.get_group_id_by_name("Root")
+        token = self.__module.create_assets_request(pdql='filter(Host.fqdn="xxxxxxxxxx.test.local")|select(Host.@id as id)',
+                                                    group_ids=[group_id],
+                                                    include_nested=True)
+
+        hosts = [x.strip('"') for x in self.__module.get_assets_list_stream(token=token)]
+        hosts.pop(0)
+
+        status = self.__module.delete_assets_by_ids(asset_ids=hosts)
+
+        self.assertTrue( (len(hosts) > 0) and (status != None) and (status['succeedCount'] == len(hosts)) )
+
 
 if __name__ == '__main__':
     unittest.main()
