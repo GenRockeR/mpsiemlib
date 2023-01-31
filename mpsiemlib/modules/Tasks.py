@@ -323,7 +323,7 @@ class Tasks(ModuleInterface, LoggingHandler):
                   "triggerParameters":{"isEnabled":"false","fromDate":"2023-01-18T14:46:02.717Z","timeZone":"+03:00","type":"Daily","atTime":"09:00:00","daysOfWeek":["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]}}
         return params
 
-    def create_audit_task(self, params: dict) -> dict:
+    def create_task(self, params: dict) -> dict:
         """
         Создать задачу аудита
 
