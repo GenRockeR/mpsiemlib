@@ -18,6 +18,7 @@ class Tasks(ModuleInterface, LoggingHandler):
     __api_credentials_list = "/api/v3/credentials"
     __api_tasks_list = "/api/scanning/v3/scanner_tasks?additionalFilter=all&mainFilter=all"
     __api_task_info = "/api/scanning/v3/scanner_tasks/{}"
+    __api_create_task = "/api/scanning/v3/scanner_tasks"
     __api_task_run_history = "/api/scanning/v2/scanner_tasks/{}/runs?limit={}"
     __api_jobs_list = "/api/scanning/v2/runs/{}/jobs?limit={}"
     __api_task_start = "/api/scanning/v3/scanner_tasks/{}/start"
@@ -310,6 +311,55 @@ class Tasks(ModuleInterface, LoggingHandler):
                       'hostname="{}"'.format(task_id, self.__core_hostname))
 
         return task
+
+    def get_default_audit_task_params(self) -> dict:
+        params = {"name":"task_name",
+                  "scope":"00000000-0000-0000-0000-000000000005",
+                  "profile":"use get_profiles_list() to get profile UUID", 
+                  "agent":"use get_agents_list() to get agent UUID",
+                  "overrides":{"transports":{"terminal":{"ssh":{"connection":{"auth":{"ref_value":"use get_credentials_list() to get credentials UUID","ref_type":"credential"},"privilege_elevation":{"sudo":{"auth":{"ref_value":"use get_credentials_list() to get credentials UUID","ref_type":"credential"}}}}}}}},
+                  "hostDiscovery":{"enabled":"false","profile":"null"},
+                  "include":{"targets":["list","of","ip", "addresses","to","scan"],"assets":[],"assetsGroups":[]},"exclude":{"targets":[],"assets":[],"assetsGroups":[]},
+                  "triggerParameters":{"isEnabled":"false","fromDate":"2023-01-18T14:46:02.717Z","timeZone":"+03:00","type":"Daily","atTime":"09:00:00","daysOfWeek":["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]}}
+        return params
+
+    def create_audit_task(self, params: dict) -> dict:
+        """
+        Создать задачу аудита
+
+        :return:
+        """
+        if len(self.__tasks) == 0:
+            self.get_tasks_list()
+
+        api_url = self.__api_create_task
+        url = "https://{}{}".format(self.__core_hostname, api_url)
+        #params = {"name":task_name,
+        #          "scope":"00000000-0000-0000-0000-000000000005",
+        #          "profile":"ee191fd9-1ab4-4579-bc05-75415fa4acbc",
+        #          "overrides":{"transports":{"terminal":{"ssh":{"connection":{"auth":{"ref_value":"827e443c-57c8-4201-95cd-9c56fdfb18ec","ref_type":"credential"},"privilege_elevation":{"sudo":{}}}}}}},
+        #          "hostDiscovery":{"enabled":"false","profile":"null"},
+        #          "include":{"targets":["1.1.1.1","2.2.2.2","3.3.3.3"],"assets":[],"assetsGroups":[]},
+        #          "exclude":{"targets":[],"assets":[],"assetsGroups":[]},
+        #          "triggerParameters":{"isEnabled":"false","fromDate":"2022-12-22T07:11:46.057Z","timeZone":"+03:00","type":"Daily","atTime":"09:00:00","daysOfWeek":["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]}}
+        r = exec_request(self.__core_session,
+                         url,
+                         method='POST',
+                         timeout=self.settings.connection_timeout,
+                         json=params)
+        r = r.json()
+        """
+        task = self.__tasks.get(task_id)
+        if task is None:
+            raise Exception("Task {} not found".format(task_id))
+
+        task["id"] = r.get("id")
+
+        self.log.info('status=success, action=get_task_info, msg="Got info for task {}", '
+                      'hostname="{}"'.format(task_id, self.__core_hostname))
+        """
+        task_id = r.get("id")
+        return task_id
 
     def get_jobs_list(self, task_id: str, limit: Optional[int] = 1000) -> dict:
         """
