@@ -334,30 +334,12 @@ class Tasks(ModuleInterface, LoggingHandler):
 
         api_url = self.__api_create_task
         url = "https://{}{}".format(self.__core_hostname, api_url)
-        #params = {"name":task_name,
-        #          "scope":"00000000-0000-0000-0000-000000000005",
-        #          "profile":"ee191fd9-1ab4-4579-bc05-75415fa4acbc",
-        #          "overrides":{"transports":{"terminal":{"ssh":{"connection":{"auth":{"ref_value":"827e443c-57c8-4201-95cd-9c56fdfb18ec","ref_type":"credential"},"privilege_elevation":{"sudo":{}}}}}}},
-        #          "hostDiscovery":{"enabled":"false","profile":"null"},
-        #          "include":{"targets":["1.1.1.1","2.2.2.2","3.3.3.3"],"assets":[],"assetsGroups":[]},
-        #          "exclude":{"targets":[],"assets":[],"assetsGroups":[]},
-        #          "triggerParameters":{"isEnabled":"false","fromDate":"2022-12-22T07:11:46.057Z","timeZone":"+03:00","type":"Daily","atTime":"09:00:00","daysOfWeek":["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]}}
         r = exec_request(self.__core_session,
                          url,
                          method='POST',
                          timeout=self.settings.connection_timeout,
                          json=params)
         r = r.json()
-        """
-        task = self.__tasks.get(task_id)
-        if task is None:
-            raise Exception("Task {} not found".format(task_id))
-
-        task["id"] = r.get("id")
-
-        self.log.info('status=success, action=get_task_info, msg="Got info for task {}", '
-                      'hostname="{}"'.format(task_id, self.__core_hostname))
-        """
         task_id = r.get("id")
         return task_id
 
