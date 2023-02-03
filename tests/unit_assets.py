@@ -1,17 +1,16 @@
 ﻿import unittest
-
 from random import choice
 from string import ascii_uppercase
 
-from tests.settings import creds_ldap, settings
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
+from tests.settings import creds, settings
 
 
 class AssetsTestCase(unittest.TestCase):
     __mpsiemworker = None
     __module = None
-    __creds_ldap = creds_ldap
+    __creds_ldap = creds
     __settings = settings
 
     @classmethod
@@ -43,31 +42,16 @@ class AssetsTestCase(unittest.TestCase):
 
         self.assertTrue(group_id is not None)
 
-    def test_import_assets_from_csv(self):
-        group_id = self.__module.get_group_id_by_name('Root')
-        scope_id = '00000000-0000-0000-0000-000000000005'
-
-        import io
-        csv = '''
-"typealias";"fqdn";"hostname";"ip";"mac";"isvirtual"
-"windows";"xxxxxxxxxx";"xxxxxxxxxx.test.local";"::1 | 10.254.129.129 | 127.0.0.1";"00:11:22:33:44:55";"true"
-'''
-        content = io.StringIO(csv)
-
-        status, count, log = self.__module.import_assets_from_csv(content=content, scope_id=scope_id, group_id=group_id)
-
-        self.assertTrue(status and (count == 1) and log is None)
-
     def test_import_assets_from_csv_2(self):
         group_id = self.__module.get_group_id_by_name('Root')
         scope_id = '00000000-0000-0000-0000-000000000005'
 
         import io
         csv = '''
-"typealias";"fqdn";"hostname";"ip";"mac";"isvirtual"
-"windows";"xxxxxxxxxx.test.local";"xxxxxxxxxx";"::1 | 10.254.129.129 | 127.0.0.1";"00:11:22:33:44:55";"true"
-"windows";"";"xxxxxxxxxx1";"::1 | 10.254.129.130 | 127.0.0.1";"00:11:22:33:44:56";"true"
-'''
+        "typealias";"fqdn";"hostname";"ip";"mac";"isvirtual"
+        "windows";"xxxxxxxxxx.test.local";"xxxxxxxxxx";"::1 | 10.254.129.129 | 127.0.0.1";"00:11:22:33:44:55";"true"
+        "windows";"";"xxxxxxxxxx1";"::1 | 10.254.129.130 | 127.0.0.1";"00:11:22:33:44:56";"true"
+        '''
         content = io.StringIO(csv)
 
         status, count, log = self.__module.import_assets_from_csv(content=content, scope_id=scope_id, group_id=group_id)

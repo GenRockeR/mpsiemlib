@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 class MPSIEMAuth(AuthInterface, LoggingHandler):
     """
-    Аутентифиация на компонентах MP, если требуется. 
+    Аутентификация на компонентах MP, если требуется.
     Получение текущий версии компонент.
     """
     __auth_type = AuthType.LOCAL  # 0 - Local, 1 - LDAP
@@ -51,9 +51,9 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
     def connect(self, component, creds=None):
         """
         Подключение к выбранным компонентам
-        
+
         :param component: компонент для подключения Interfaces.MPComponents
-        :param creds: креды для подключенмия Interfaces.Creds
+        :param creds: креды для подключения Interfaces.Creds
         :return: session или None
         """
         if creds is not None:

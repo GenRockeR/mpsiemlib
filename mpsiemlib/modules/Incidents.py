@@ -12,8 +12,10 @@ class Incidents(ModuleInterface, LoggingHandler):
     Incidents worker
     """
     __time_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+    __time_format_r25 = "%Y-%m-%dT%H:%M:%S.000Z"
 
     __api_incidents_list = "/api/v2/incidents"
+    __api_incidents_list_r25 = "/api/v2/incidents/"
 
     __api_incident_info = ""
     __api_incident_info_new = "/api/incidentsReadModel/incidents/{}"  # From R23
@@ -44,7 +46,7 @@ class Incidents(ModuleInterface, LoggingHandler):
         self.__core_version = auth.get_core_version()
         self.__incidents_mapping = {}
 
-        if ("23." in self.__core_version) or ("24." in self.__core_version):
+        if int(self.__core_version.split('.')[0]) > 23:
             self.__api_incident_comments = self.__api_incident_comments_new
             self.__api_incident_info = self.__api_incident_info_new
         else:
@@ -78,16 +80,14 @@ class Incidents(ModuleInterface, LoggingHandler):
                                                                               begin,
                                                                               end))
 
-        url = "https://{}{}".format(self.__core_hostname, self.__api_incidents_list)
-
-        time_from = None
-        time_to = None
-        if ("23." in self.__core_version) or ("24." in self.__core_version):
+        if int(self.__core_version.split('.')[0]) <= 24:
+            url = "https://{}{}".format(self.__core_hostname, self.__api_incidents_list)
             time_from = datetime.fromtimestamp(begin, tz=pytz.timezone("UTC")).strftime(self.__time_format)
             time_to = datetime.fromtimestamp(end, tz=pytz.timezone("UTC")).strftime(self.__time_format)
         else:
-            time_from = begin
-            time_to = end
+            url = "https://{}{}".format(self.__core_hostname, self.__api_incidents_list_r25)
+            time_from = datetime.fromtimestamp(begin, tz=pytz.timezone("UTC")).strftime(self.__time_format_r25)
+            time_to = datetime.fromtimestamp(end, tz=pytz.timezone("UTC")).strftime(self.__time_format_r25)
 
         params = {
             "timeFrom": time_from,
