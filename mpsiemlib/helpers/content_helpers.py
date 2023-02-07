@@ -15,7 +15,7 @@ from tempfile import TemporaryDirectory
 
 class AggregationRule:
     """
-    Правило аггрегации
+    Правило агрегации
     """
 
     def parse_tokens(self):

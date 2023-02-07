@@ -1,23 +1,25 @@
 import unittest
 
 import requests
+
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-
-from tests.settings import creds_ldap, creds_local, settings
+from tests.settings import creds, creds_ldap, creds_local, settings
 
 
 class WorkerTestCase(unittest.TestCase):
     __mpsiemworker = None
     __creds_ldap = None
     __creds_local = None
+    __creds = None
     __settings = None
     
     def setUp(self) -> None:
         self.__creds_ldap = creds_ldap
         self.__creds_local = creds_local
+        self.__creds = creds
         self.__settings = settings
-        self.__mpsiemworker = MPSIEMWorker(self.__creds_ldap, self.__settings)
+        self.__mpsiemworker = MPSIEMWorker(self.__creds, self.__settings)
 
     def test_MPSIEMWorker_init(self):
         self.assertIsInstance(self.__mpsiemworker, WorkerInterface)
@@ -38,11 +40,13 @@ class WorkerTestCase(unittest.TestCase):
 class ModuleTestCase(unittest.TestCase):
     __creds_ldap = None
     __creds_local = None
+    __creds = None
     __settings = None
 
     def setUp(self) -> None:
         self.__creds_ldap = creds_ldap
         self.__creds_local = creds_local
+        self.__creds = creds
         self.__settings = settings
 
     def test_MPSIEMAuth_connect_core_local(self):
@@ -52,6 +56,7 @@ class ModuleTestCase(unittest.TestCase):
         self.assertIsInstance(session, requests.Session)
         session.close()
 
+    @unittest.skip("Skip test, when Local auth")
     def test_MPSIEMAuth_connect_core_ldap(self):
         mpsiemworker = MPSIEMWorker(self.__creds_ldap, self.__settings)
         module = mpsiemworker.get_module(ModuleNames.AUTH)
@@ -60,13 +65,13 @@ class ModuleTestCase(unittest.TestCase):
         session.close()
 
     def test_MPSIEMAuth_get_core_version(self):
-        mpsiemworker = MPSIEMWorker(self.__creds_ldap, self.__settings)
+        mpsiemworker = MPSIEMWorker(self.__creds, self.__settings)
         module = mpsiemworker.get_module(ModuleNames.AUTH)
-        version = module.get_core_version()
-        self.assertTrue(version.startswith("2"))
+        version = int(module.get_core_version().split('.')[0])
+        self.assertTrue(version > 20)
 
     def test_MPSIEMAuth_get_storage_version(self):
-        mpsiemworker = MPSIEMWorker(self.__creds_ldap, self.__settings)
+        mpsiemworker = MPSIEMWorker(self.__creds, self.__settings)
         module = mpsiemworker.get_module(ModuleNames.AUTH)
         version = module.get_storage_version()
         self.assertTrue(version.startswith("7"))

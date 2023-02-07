@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 class MPSIEMAuth(AuthInterface, LoggingHandler):
     """
-    Аутентифиация на компонентах MP, если требуется. 
+    Аутентификация на компонентах MP, если требуется.
     Получение текущий версии компонент.
     """
     __auth_type = AuthType.LOCAL  # 0 - Local, 1 - LDAP
@@ -51,9 +51,9 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
     def connect(self, component, creds=None):
         """
         Подключение к выбранным компонентам
-        
+
         :param component: компонент для подключения Interfaces.MPComponents
-        :param creds: креды для подключенмия Interfaces.Creds
+        :param creds: креды для подключения Interfaces.Creds
         :return: session или None
         """
         if creds is not None:
@@ -71,7 +71,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         elif component == MPComponents.KB:
             self.__kb_try_connect()
         else:
-            raise NotImplementedError("Unsupported component for Auth {}".format(component))
+            raise NotImplementedError(f"Unsupported component for Auth {component}")
 
         return self.__session
 
@@ -283,7 +283,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
                                                  self.__kb_port,
                                                  self.__api_kb_auth_login_page)
 
-            # получаем форму с токенами, т.к. мы уже аутентифицированы
+            # Получаем форму с токенами, т.к. мы уже аутентифицированы
             self.log.debug('hostname="{}", status=prepare, action=auth, '
                            'msg="Auth. Phase 1. Get auth form from KB"'.format(self.creds.core_hostname))
 

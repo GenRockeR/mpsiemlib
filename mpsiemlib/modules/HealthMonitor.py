@@ -9,17 +9,19 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
     Health monitor module
     """
 
-    __api_global_status = "/api/health_monitoring/v2/total_status"
-    __api_checks = "/api/health_monitoring/v2/checks?limit={}&offset={}"
-    __api_license_status = "/api/licensing/v2/license_validity"
-    __api_agents_status = "/api/components/agent"
-    __api_kb_status = "/api/v1/knowledgeBase"
+    __api_global_status = '/api/health_monitoring/v2/total_status'
+    __api_checks = '/api/health_monitoring/v2/checks?limit={}&offset={}'
+    __api_license_status = '/api/licensing/v2/license_validity'
+    __api_agents_status = '/api/components/agent'
+    __api_agents_status_new = '/api/v1/scanner_agents'
+    __api_kb_status = '/api/v1/knowledgeBase'
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
         self.__core_session = auth.connect(MPComponents.CORE)
         self.__core_hostname = auth.creds.core_hostname
+        self.__core_version = auth.get_core_version()
 
     def get_health_status(self) -> str:
         """
@@ -82,7 +84,7 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
         """
         Получить статус лицензии.
 
-        :return: dict
+        :return: Dict
         """
         url = "https://{}{}".format(self.__core_hostname, self.__api_license_status)
         r = exec_request(self.__core_session,
@@ -109,7 +111,10 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
 
         :return: Список агентов и их параметры.
         """
-        url = "https://{}{}".format(self.__core_hostname, self.__api_agents_status)
+        if int(self.__core_version.split('.')[0]) < 25:
+            url = "https://{}{}".format(self.__core_hostname, self.__api_agents_status)
+        else:
+            url = "https://{}{}".format(self.__core_hostname, self.__api_agents_status_new)
         r = exec_request(self.__core_session,
                          url,
                          method='GET',

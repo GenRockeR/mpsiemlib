@@ -18,6 +18,7 @@ class Tasks(ModuleInterface, LoggingHandler):
     __api_credentials_list = "/api/v3/credentials"
     __api_tasks_list = "/api/scanning/v3/scanner_tasks?additionalFilter=all&mainFilter=all"
     __api_task_info = "/api/scanning/v3/scanner_tasks/{}"
+    __api_create_task = "/api/scanning/v3/scanner_tasks"
     __api_task_run_history = "/api/scanning/v2/scanner_tasks/{}/runs?limit={}"
     __api_jobs_list = "/api/scanning/v2/runs/{}/jobs?limit={}"
     __api_task_start = "/api/scanning/v3/scanner_tasks/{}/start"
@@ -36,7 +37,7 @@ class Tasks(ModuleInterface, LoggingHandler):
         self.__credentials = {}
         self.__tasks = {}
 
-        if "23." in self.__core_version:
+        if int(self.__core_version.split('.')[0]) == 23:
             self.__api_profiles_list = self.__api_profiles_list_old
         else:
             self.__api_profiles_list = self.__api_profiles_list_new
@@ -310,6 +311,73 @@ class Tasks(ModuleInterface, LoggingHandler):
                       'hostname="{}"'.format(task_id, self.__core_hostname))
 
         return task
+
+    def get_default_audit_task_params(self) -> dict:
+        params = {"name": "task_name",
+                  "scope": "00000000-0000-0000-0000-000000000005",
+                  "profile": "use get_profiles_list() to get profile UUID",
+                  "agent": "use get_agents_list() to get agent UUID",
+                  "overrides": {"transports": {"terminal": {"ssh": {"connection": {
+                      "auth": {"ref_value": "use get_credentials_list() to get credentials UUID",
+                               "ref_type": "credential"}, "privilege_elevation": {"sudo": {
+                          "auth": {"ref_value": "use get_credentials_list() to get credentials UUID",
+                                   "ref_type": "credential"}}}}}}}},
+                  "hostDiscovery": {"enabled": "false", "profile": "null"},
+                  "include": {"targets": ["list", "of", "ip", "addresses", "to", "scan"], "assets": [],
+                              "assetsGroups": []}, "exclude": {"targets": [], "assets": [], "assetsGroups": []},
+                  "triggerParameters": {"isEnabled": "false", "fromDate": "2023-01-18T14:46:02.717Z",
+                                        "timeZone": "+03:00", "type": "Daily", "atTime": "09:00:00",
+                                        "daysOfWeek": ["monday", "tuesday", "wednesday", "thursday", "friday",
+                                                       "saturday", "sunday"]}}
+        return params
+
+    def get_default_syslog_task_params(self) -> dict:
+        params = {"name": "task_name",
+                  "scope": "00000000-0000-0000-0000-000000000005",
+                  "profile": "use get_profiles_list() to get profile UUID",
+                  "agent": "use get_agents_list() to get agent UUID",
+                  "overrides": {},
+                  "hostDiscovery": {"enabled": "false", "profile": "null"},
+                  "include": {"targets": [], "assets": [], "assetsGroups": []},
+                  "exclude": {"targets": [], "assets": [], "assetsGroups": []},
+                  "triggerParameters": {"isEnabled": "false", "fromDate": "2023-02-04T12:36:01.663Z",
+                                        "timeZone": "+03:00", "type": "Daily", "atTime": "09:00:00",
+                                        "daysOfWeek": ["monday", "tuesday", "wednesday", "thursday", "friday",
+                                                       "saturday", "sunday"]}}
+        return params
+
+    def create_task(self, params: dict) -> dict:
+        """
+        Создать задачу
+
+        :return: task_id: ID созданной задачи
+        """
+
+        api_url = self.__api_create_task
+        url = "https://{}{}".format(self.__core_hostname, api_url)
+        r = exec_request(self.__core_session,
+                         url,
+                         method='POST',
+                         timeout=self.settings.connection_timeout,
+                         json=params)
+        r = r.json()
+        task_id = r.get("id")
+        return task_id
+
+    def delete_task(self, task_id) -> int:
+        """
+        Удалить задачу
+        :param task_id: ID задачи
+        :return: status_code: если вернулось 204, знаичт задача удалена
+        """
+
+        api_url = self.__api_task_info.format(task_id)
+        url = "https://{}{}".format(self.__core_hostname, api_url)
+        r = exec_request(self.__core_session,
+                         url,
+                         method='DELETE',
+                         timeout=self.settings.connection_timeout)
+        return r.status_code
 
     def get_jobs_list(self, task_id: str, limit: Optional[int] = 1000) -> dict:
         """

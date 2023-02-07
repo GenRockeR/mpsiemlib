@@ -1,15 +1,13 @@
+import os
 import time
 import unittest
-import os
+from tempfile import TemporaryDirectory
+from uuid import UUID
 
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-
-from tests.settings import creds, settings
-
-from uuid import UUID
-from tempfile import TemporaryDirectory
 from tests.helpers import gen_lowercase_string, gen_uppercase_string
+from tests.settings import creds, settings
 
 
 class KBTestCase(unittest.TestCase):
@@ -18,7 +16,8 @@ class KBTestCase(unittest.TestCase):
     __creds = creds
     __settings = settings
 
-    __test_co_rule = "event Event:\n\tkey:\n\t\tsrc.ip\n\tfilter {\n        msgid == \"4688\"\n\t}\n\nrule TestRule: Event\nemit {\n\t$id = 'TestRule'\n}"
+    __test_co_rule = "event Event:\n\tkey:\n\t\tsrc.ip\n\tfilter {\n        msgid == \"4688\"\n\t}\n\nrule TestRule: " \
+                     "Event\nemit {\n\t$id = 'TestRule'\n}"
 
     def __choose_any_db(self):
         dbs = self.__module.get_databases_list()

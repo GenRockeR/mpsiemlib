@@ -3,18 +3,18 @@ import unittest
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
 
-from tests.settings import creds_ldap, settings
+from tests.settings import creds, settings
 
 
 class URMTestCase(unittest.TestCase):
     __mpsiemworker = None
     __module = None
-    __creds_ldap = creds_ldap
+    __creds = creds
     __settings = settings
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.__mpsiemworker = MPSIEMWorker(cls.__creds_ldap, cls.__settings)
+        cls.__mpsiemworker = MPSIEMWorker(cls.__creds, cls.__settings)
         cls.__module = cls.__mpsiemworker.get_module(ModuleNames.URM)
 
     @classmethod
