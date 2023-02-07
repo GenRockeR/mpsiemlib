@@ -92,6 +92,43 @@ class KBTestCase(unittest.TestCase):
 
         self.assertTrue(success_stopped and success_started)
 
+    # @unittest.skip("Long test")
+    def test_create_delete(self):
+
+        task_id = None
+
+        for k, v in self.__module.get_agents_list().items():
+            agent_uuid = k
+            break
+
+        for k, v in self.__module.get_profiles_list().items():
+            if v['name'] == 'SysLog':
+                profile_uuid = k
+                break
+
+        params = self.__module.get_default_syslog_task_params()
+        params['name'] = 'test_creating_task'
+        params['profile'] = profile_uuid
+        params['agent'] = agent_uuid
+
+        task_id = self.__module.create_task(params)
+
+        success_created = False
+        for _ in range(60):
+            time.sleep(10)
+            status = self.__module.get_task_status(task_id)
+            if status == "new":
+                success_created = True
+                break
+
+        ret = self.__module.delete_task(task_id)
+
+        success_deleted = False
+        if ret == 204:
+            success_deleted = True
+
+        self.assertTrue(success_created and success_deleted)
+
 
 if __name__ == '__main__':
     unittest.main()

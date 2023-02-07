@@ -32,7 +32,7 @@ class Assets(ModuleInterface, LoggingHandler):
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
         siem_tz = datetime.now(pytz.timezone(settings.local_timezone)).strftime('%z')
-        self.__default_utc_offset = "{0}:{1}".format(siem_tz[:-2], siem_tz[-2:])  # convert to +HH:MM
+        self.__default_utc_offset = '{0}:{1}'.format(siem_tz[:-2], siem_tz[-2:])  # convert to +HH:MM
         self.__scopes = {}
         self.__groups = {}
         self.log.debug('status=success, action=prepare, msg="Assets Module init"')

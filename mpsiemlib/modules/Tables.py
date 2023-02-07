@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Iterator, List, Optional
 
+import requests.exceptions
+
 from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, MPComponents, Settings
 from mpsiemlib.common import exec_request, get_metrics_start_time, get_metrics_took_time
 
@@ -23,6 +25,7 @@ class Tables(ModuleInterface, LoggingHandler):
         LoggingHandler.__init__(self)
         self.__core_session = auth.connect(MPComponents.CORE)
         self.__core_hostname = auth.creds.core_hostname
+        self.__core_version = auth.get_core_version()
         self.__tables_cache = {}
         self.log.debug('status=success, action=prepare, msg="Table Module init"')
 
@@ -35,7 +38,7 @@ class Tables(ModuleInterface, LoggingHandler):
         self.log.debug('status=prepare, action=get_tables_list, msg="Try to get table list", '
                        'hostname="{}"'.format(self.__core_hostname))
 
-        url = "https://{}{}".format(self.__core_hostname, self.__api_table_list)
+        url = f"https://{self.__core_hostname}{self.__api_table_list}"
         rq = exec_request(self.__core_session, url, method="GET", timeout=self.settings.connection_timeout)
         self.__tables_cache.clear()
         response = rq.json()
@@ -67,7 +70,7 @@ class Tables(ModuleInterface, LoggingHandler):
         :return: Итератор по строкам таблицы
         """
         api_url = self.__api_table_search.format(self.get_table_id_by_name(table_name))
-        url = "https://{}{}".format(self.__core_hostname, api_url)
+        url = f"https://{self.__core_hostname}{api_url}"
         params = {"filter": {"where": "",
                              "orderBy": [{"field": "_last_changed",
                                           "sortOrder": "descending"}],
@@ -116,6 +119,7 @@ class Tables(ModuleInterface, LoggingHandler):
 
         return response.get("items")
 
+
     def set_table_data(self, table_name: str, data: bytes) -> None:
         """
         Импортировать бинарные данные в табличный список.
@@ -133,14 +137,19 @@ class Tables(ModuleInterface, LoggingHandler):
                        'hostname="{}"'.format(table_name, self.__core_hostname))
 
         api_url = self.__api_table_import.format(table_name)
-        url = "https://{}{}".format(self.__core_hostname, api_url)
-        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+
+        url = f"https://{self.__core_hostname}{api_url}"
+        if int(self.__core_version.split('.')[0]) < 25:
+            headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        else:
+            headers = {'Content-Type': 'text/csv; charset=utf-8'}
+
         rq = exec_request(self.__core_session,
-                          url,
-                          method="POST",
-                          timeout=self.settings.connection_timeout,
-                          data=data,
-                          headers=headers)
+                              url,
+                              method="POST",
+                              timeout=self.settings.connection_timeout,
+                              data=data,
+                              headers=headers)
         response = rq.json()
 
         total_records = response.get('recordsNum')
@@ -167,6 +176,7 @@ class Tables(ModuleInterface, LoggingHandler):
                                                                                              skipped_records))
         self.log.info('status=success, action=set_table_data, msg="Data imported to table {}", '
                       'hostname="{}", lines={}'.format(table_name, self.__core_hostname, imported_records))
+
 
     def get_table_info(self, table_name) -> dict:
         """
@@ -255,7 +265,7 @@ class Tables(ModuleInterface, LoggingHandler):
             raise Exception("Unsupported table type to add/remove row")
 
         row_matrix = []  # шаблон для вставки нужного размера, заполненный None
-        fileds_types = {}
+        fields_types = {}
         attrs_position = {}  # в какой позиции во вставляемом списке должен находится каждый атрибут
         key_fields = set()  # перед вставкой надо убедиться, что присутствуют ключевые поля
         not_nullable_fields = set()  # перед вставкой надо убедиться, что заданы все поля где запрещен null
@@ -263,7 +273,7 @@ class Tables(ModuleInterface, LoggingHandler):
         for i in table_info.get("fields"):  # определяем в каких позициях должны быть атрибуты
             name = i.get("name")
             attrs_position[name] = counter
-            fileds_types[name] = i.get("type")
+            fields_types[name] = i.get("type")
 
             row_matrix.append(None)
             if i.get("primaryKey"):
@@ -279,14 +289,14 @@ class Tables(ModuleInterface, LoggingHandler):
                                                 attrs_position,
                                                 key_fields,
                                                 not_nullable_fields,
-                                                fileds_types)
+                                                fields_types)
         if remove_rows is not None:
             params["remove"] = self.__prepare_rows(remove_rows,
                                                    row_matrix,
                                                    attrs_position,
                                                    key_fields,
                                                    not_nullable_fields,
-                                                   fileds_types)
+                                                   fields_types)
 
         table_id = table_info.get("id")
         api_url = self.__api_table_add_row.format(table_id)
