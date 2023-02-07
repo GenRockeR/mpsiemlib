@@ -1,9 +1,9 @@
 from mpsiemlib.modules import MPSIEMWorker
 
 __title__ = 'mpsiemlib'
-__description__ = 'Maxpatrol SIEM API SDK'
-__url__ = 'https://github.com/feedb/MPSiem_addons/tree/master/mpsiemlib'
-__version__ = '1.4.0.1'
+__description__ = 'MaxPatrol SIEM API SDK'
+__url__ = 'https://github.com/nikolaiav/mpsiemlib'
+__version__ = '1.5.0.1'
 __author__ = 'nikolaiav'
 __license__ = 'GPLv3'
-__copyright__ = '202X, Nikolai Arefiev'
+__copyright__ = '2023, Nikolai Arefiev'
