@@ -28,6 +28,9 @@ class Incidents(ModuleInterface, LoggingHandler):
     __api_incident_events = "/api/incidents/{}/events?limit={}"
     __api_incident_events_count = "/api/incidents/{}/events/count"
     __api_incident_issue = "/api/incidents/{}/issues"
+    __api_incident_netfor = "/api/incidents/{}/linkedObjects/netfor"
+    __api_incident_netfor_sessions = "/api/incidents/{}/linkedObjects/netfor/sessions?offset=0&limit=2000"
+    __api_incident_netfor_alerts = "/api/incidents/{}/linkedObjects/netfor/alerts?offset=0&limit=2000"
 
     class TimeFilterType:
         CREATED = "creation"
@@ -224,6 +227,10 @@ class Incidents(ModuleInterface, LoggingHandler):
                "events": events,
                "issues": issues
                }
+        
+        if inc.get("source") == "netFor":
+            netfor = self.__load_netfor(incident_id)
+            ret["netfor"] = netfor
 
         self.log.info('status=success, action=get_table_info, msg="Get {} properties for incident {}", '
                       'hostname="{}"'.format(len(ret), incident_id, self.__core_hostname))
@@ -303,6 +310,53 @@ class Incidents(ModuleInterface, LoggingHandler):
                            })
 
         return issues
+
+    def __load_netfor(self, incident_id):
+        """
+        Загрузить информацию по сетевому трафику (для инцидентов, созданных нажатием кнопки в PT NAD)
+
+        :param incident_id:
+        :return:
+        """
+        api_url = self.__api_incident_netfor.format(incident_id)
+        url = "https://{}{}".format(self.__core_hostname, api_url)
+        rq = exec_request(self.__core_session, url, method="GET", timeout=self.settings.connection_timeout)
+        response = rq.json()
+
+        netfor = {}
+        netfor = response
+        netfor['sessions'] = self.__load_netfor_sessions(incident_id)
+        netfor['alerts'] = self.__load_netfor_alerts(incident_id)
+
+        return netfor
+
+    def __load_netfor_sessions(self, incident_id):
+        """
+        Загрузить информацию по сессиям в сетевом трафике (для инцидентов, созданных нажатием кнопки в PT NAD)
+
+        :param incident_id:
+        :return:
+        """
+        api_url = self.__api_incident_netfor_sessions.format(incident_id)
+        url = "https://{}{}".format(self.__core_hostname, api_url)
+        rq = exec_request(self.__core_session, url, method="GET", timeout=self.settings.connection_timeout)
+        response = rq.json()
+
+        return response
+
+    def __load_netfor_alerts(self, incident_id):
+        """
+        Загрузить информацию по алертам в сетевом трафике (для инцидентов, созданных нажатием кнопки в PT NAD)
+
+        :param incident_id:
+        :return:
+        """
+        api_url = self.__api_incident_netfor_alerts.format(incident_id)
+        url = "https://{}{}".format(self.__core_hostname, api_url)
+        rq = exec_request(self.__core_session, url, method="GET", timeout=self.settings.connection_timeout)
+        response = rq.json()
+
+        return response
 
     def close(self):
         if self.__core_session is not None:
