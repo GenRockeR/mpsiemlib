@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>mpsiemlib.modules.Tasks module &mdash; mpsiemlib 1.4.0 documentation</title>
+  <title>mpsiemlib.modules.Tasks module &mdash; mpsiemlib 1.5.0.2 documentation</title>
   
 
   
@@ -168,6 +168,25 @@
 <dd></dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Tasks.Tasks.create_task">
+<span class="sig-name descname"><span class="pre">create_task</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Tasks.Tasks.create_task" title="Permalink to this definition">¶</a></dt>
+<dd><p>Создать задачу</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>task_id: ID созданной задачи</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Tasks.Tasks.delete_task">
+<span class="sig-name descname"><span class="pre">delete_task</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task_id</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Tasks.Tasks.delete_task" title="Permalink to this definition">¶</a></dt>
+<dd><p>Удалить задачу
+:param task_id: ID задачи
+:return: status_code: если вернулось 204, знаичт задача удалена</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="mpsiemlib.modules.Tasks.Tasks.get_agents_list">
 <span class="sig-name descname"><span class="pre">get_agents_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">do_refresh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Tasks.Tasks.get_agents_list" title="Permalink to this definition">¶</a></dt>
 <dd><p>Получить список всех агентов.
@@ -190,6 +209,16 @@
 </dd>
 </dl>
 </dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Tasks.Tasks.get_default_audit_task_params">
+<span class="sig-name descname"><span class="pre">get_default_audit_task_params</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Tasks.Tasks.get_default_audit_task_params" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mpsiemlib.modules.Tasks.Tasks.get_default_syslog_task_params">
+<span class="sig-name descname"><span class="pre">get_default_syslog_task_params</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#mpsiemlib.modules.Tasks.Tasks.get_default_syslog_task_params" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="mpsiemlib.modules.Tasks.Tasks.get_jobs_list">
@@ -297,7 +326,7 @@
 
   <div role="contentinfo">
     <p>
-        &#169; Copyright 202X, Nikolai Arefiev.
+        &#169; Copyright 2023, Nikolai Arefiev.
 
     </p>
   </div>

@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>mpsiemlib.modules.Tables module &mdash; mpsiemlib 1.4.0 documentation</title>
+  <title>mpsiemlib.modules.Tables module &mdash; mpsiemlib 1.5.0.2 documentation</title>
   
 
   
@@ -170,10 +170,9 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="mpsiemlib.modules.Tables.Tables.get_table_data">
 <span class="sig-name descname"><span class="pre">get_table_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">table_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Iterator</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#mpsiemlib.modules.Tables.Tables.get_table_data" title="Permalink to this definition">¶</a></dt>
-<dd><p>Итеративно загружаем содержимое табличного списка
-Пример фильтра</p>
-<blockquote>
-<div><dl>
+<dd><p>Итеративно загружаем содержимое табличного списка</p>
+<dl>
+<dt>Пример фильтра:</dt><dd><dl>
 <dt>filters = {“select”: [“_last_changed”, “field2”, “field3”],</dt><dd><p>“where”: “_id&gt;5”,
 “orderBy”: [{“field”: “_last_changed”,</p>
 <blockquote>
@@ -182,7 +181,8 @@
 <p>“timeZone”: 0}</p>
 </dd>
 </dl>
-</div></blockquote>
+</dd>
+</dl>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -297,7 +297,7 @@
 
   <div role="contentinfo">
     <p>
-        &#169; Copyright 202X, Nikolai Arefiev.
+        &#169; Copyright 2023, Nikolai Arefiev.
 
     </p>
   </div>
