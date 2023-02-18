@@ -1,6 +1,7 @@
 from mpsiemlib.common import LoggingHandler, WorkerInterface, Creds, ModuleNames, MPSIEMAuth, Settings
 from .Assets import Assets
 from .Events import Events
+from .EventsAPI import EventsAPI
 from .Tables import Tables
 from .UsersAndRoles import UsersAndRoles
 from .KnowledgeBase import KnowledgeBase
@@ -30,6 +31,9 @@ class MPSIEMWorker(WorkerInterface, LoggingHandler):
             return auth
         if self.__module_name == ModuleNames.EVENTS:
             return Events(auth, self.settings)
+        if self.__module_name == ModuleNames.EVENTSAPI:
+            return EventsAPI(auth, self.settings)
+
         if self.__module_name == ModuleNames.ASSETS:
             return Assets(auth, self.settings)
         if self.__module_name == ModuleNames.TABLES:
