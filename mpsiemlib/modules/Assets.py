@@ -2,7 +2,6 @@
 import time
 from datetime import datetime
 from typing import List, Tuple, Optional, Iterator, Union
-#from requests import RequestException
 
 from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, MPComponents, Settings
 from mpsiemlib.common import exec_request, get_metrics_start_time, get_metrics_took_time

@@ -1,4 +1,3 @@
-# Add some code
 import json
 import pytz
 from typing import Iterator

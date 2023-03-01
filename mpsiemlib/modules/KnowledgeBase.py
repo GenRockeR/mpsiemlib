@@ -1,11 +1,8 @@
-# Add some code
 import os
-import yaml
 import time
 
 from hashlib import sha256
 from typing import Iterator, Optional
-from tempfile import TemporaryDirectory
 
 from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, MPComponents, Settings, MPContentTypes
 from mpsiemlib.common import exec_request, get_metrics_start_time, get_metrics_took_time
