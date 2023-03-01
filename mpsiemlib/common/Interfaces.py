@@ -25,6 +25,7 @@ class AuthType:
 class ModuleNames:
     AUTH = "auth"
     EVENTS = "events"
+    EVENTSAPI = "eventsapi"
     ASSETS = "assets"
     TABLES = "tables"
     FILTERS = "filters"
@@ -37,7 +38,7 @@ class ModuleNames:
 
     @staticmethod
     def get_modules_list():
-        return [ModuleNames.AUTH, ModuleNames.ASSETS, ModuleNames.EVENTS, ModuleNames.TABLES,
+        return [ModuleNames.AUTH, ModuleNames.ASSETS, ModuleNames.EVENTS, ModuleNames.EVENTSAPI, ModuleNames.TABLES,
                 ModuleNames.FILTERS, ModuleNames.TASKS, ModuleNames.HEALTH,
                 ModuleNames.URM, ModuleNames.KB, ModuleNames.INCIDENTS, ModuleNames.SOURCE_MONITOR]
 

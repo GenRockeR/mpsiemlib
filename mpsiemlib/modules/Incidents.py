@@ -282,7 +282,7 @@ class Incidents(ModuleInterface, LoggingHandler):
             evts = rq.json()
 
             for i in evts:
-                events.append({"id": i.get("id"), "description": i.get("description")})
+                events.append({"id": i.get("id"), "description": i.get("description"), "date": i.get("date")})
 
         return events
 
