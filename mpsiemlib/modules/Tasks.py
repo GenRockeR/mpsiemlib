@@ -353,6 +353,25 @@ class Tasks(ModuleInterface, LoggingHandler):
         task_id = r.get("id")
         return task_id
 
+    def edit_task(self, task_id: str, params: dict) -> dict:
+        """
+        Создать задачу 
+        
+        :return: task_id: ID созданной задачи
+        """
+
+        api_url = self.__api_task_info.format(task_id)
+        url = "https://{}{}".format(self.__core_hostname, api_url)
+        
+        r = exec_request(self.__core_session,
+                         url,
+                         method='PUT',
+                         timeout=self.settings.connection_timeout,
+                         json=params)
+        r = r.json()
+        task_id = r.get("id")
+        return task_id
+
     def delete_task(self, task_id) -> int:
         """
         Удалить задачу 
