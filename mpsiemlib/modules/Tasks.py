@@ -372,7 +372,7 @@ class Tasks(ModuleInterface, LoggingHandler):
         task_id = r.get("id")
         return task_id
 
-    def delete_task(self, task_id) -> int:
+    def delete_task(self, task_id: str) -> int:
         """
         Удалить задачу 
 
