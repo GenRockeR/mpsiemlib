@@ -1,18 +1,17 @@
-import pytz
 import unittest
-
 from datetime import datetime
+
+import pytz
 
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-
-from tests.settings import creds_ldap, settings
+from tests.settings import creds, settings
 
 
 class SourceMonitorTestCase(unittest.TestCase):
     __mpsiemworker = None
     __module = None
-    __creds_ldap = creds_ldap
+    __creds_ldap = creds
     __settings = settings
     __begin = None
     __end = None

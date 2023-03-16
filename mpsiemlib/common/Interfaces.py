@@ -5,7 +5,7 @@ from mpsiemlib.common import MPSIEMAuth
 
 class Settings:
     connection_timeout = 60
-    connection_timeout_x = 6  # коэф. увеличения timeout при генерации отчета.
+    connection_timeout_x = 6  # Коэффициент увеличения timeout при генерации отчета.
     storage_events_timezone = "UTC"  # в ES все события приведены к UTC
     local_timezone = "Europe/Moscow"  # в какой временной зоне работает MP
     storage_bucket_size = 33000  # размер бакета агрегации в Elastic (по умолчанию в конфиге 50000)
@@ -25,6 +25,7 @@ class AuthType:
 class ModuleNames:
     AUTH = "auth"
     EVENTS = "events"
+    EVENTSAPI = "eventsapi"
     ASSETS = "assets"
     TABLES = "tables"
     FILTERS = "filters"
@@ -37,7 +38,7 @@ class ModuleNames:
 
     @staticmethod
     def get_modules_list():
-        return [ModuleNames.AUTH, ModuleNames.ASSETS, ModuleNames.EVENTS, ModuleNames.TABLES,
+        return [ModuleNames.AUTH, ModuleNames.ASSETS, ModuleNames.EVENTS, ModuleNames.EVENTSAPI, ModuleNames.TABLES,
                 ModuleNames.FILTERS, ModuleNames.TASKS, ModuleNames.HEALTH,
                 ModuleNames.URM, ModuleNames.KB, ModuleNames.INCIDENTS, ModuleNames.SOURCE_MONITOR]
 
@@ -66,6 +67,7 @@ class StorageVersion:
     ES7 = "7"
     ES17 = "1.7"
     ALL = "ALL"
+    LS = '1'
 
 
 class Creds:

@@ -1,11 +1,10 @@
 import unittest
+from datetime import datetime
 
 import pytz
-from datetime import datetime
 
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-
 from tests.settings import creds_ldap, settings
 
 
@@ -40,10 +39,10 @@ class EventsTestCase(unittest.TestCase):
                 '{"range": {"dst/ip": {"gte": "172.16.0.0","lte": "172.31.255.255"}}}',
                 '{"range": {"dst/ip": {"gte": "192.168.0.0","lte": "192.168.255.255"}}}'
             ],
-            "fields": "dst/ip as object"
+            "fields": "dst/ip as Cnt"
         }
         counter = 0
-        for i in self.__module.get_events_groupby(filters, self.__begin, self.__end):
+        for _ in self.__module.get_events_groupby(filters, self.__begin, self.__end):
             counter += 1
         self.assertGreater(counter, 0)
 
@@ -62,7 +61,7 @@ class EventsTestCase(unittest.TestCase):
             "fields": "dst/ip as object"
         }
         counter = 0
-        for i in self.__module.get_events_groupby(filters, self.__begin, self.__end):
+        for _ in self.__module.get_events_groupby(filters, self.__begin, self.__end):
             counter += 1
         self.assertGreater(counter, 0)
 
@@ -90,7 +89,7 @@ class EventsTestCase(unittest.TestCase):
                         ("count" in ret[0]))
 
     def test_get_events(self):
-        begin = self.__end - 60
+        begin = self.__end - 86400
         filters = {
             "es_filter": [
                 '{"term": {"event_src/category": "Firewall"}}'

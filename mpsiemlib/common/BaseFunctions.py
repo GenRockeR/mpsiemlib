@@ -1,18 +1,18 @@
 import os
+import time
+import urllib3
+import requests
 import logging
 import logging.config
-import time
 
-import requests
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from urllib3.exceptions import InsecureRequestWarning
 
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+urllib3.disable_warnings(InsecureRequestWarning)
 
 log = logging.getLogger('Common')
 
 
 def setup_logging(default_path='logging.yml', default_level=logging.INFO, env_key='LOG_CFG'):
-    import yaml
     import yaml.parser
     path = default_path
     value = os.getenv(env_key, None)
@@ -37,7 +37,7 @@ def exec_request(session: requests.Session, url: str, method='GET', timeout=30, 
     :param method: метод GET|POST
     :param timeout: timeout соединения
     :param timeout_up: увеличение timeout от базового на коэффициент (нужно при генерации отчетов)
-    :param kwargs: параметы запроса, передаваемые в requests
+    :param kwargs: параметры запроса, передаваемые в requests
     :return: requests.Response
     """
 

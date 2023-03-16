@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>mpsiemlib.common.Interfaces module &mdash; mpsiemlib 1.4.0 documentation</title>
+  <title>mpsiemlib.common.Interfaces module &mdash; mpsiemlib 1.5.1.0 documentation</title>
   
 
   
@@ -311,7 +311,7 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="mpsiemlib.common.Interfaces.ModuleInterface">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.Interfaces.</span></span><span class="sig-name descname"><span class="pre">ModuleInterface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">auth:</span> <span class="pre">&lt;module</span> <span class="pre">'mpsiemlib.common.MPSIEMAuth'</span> <span class="pre">from</span> <span class="pre">'C:\\Work\\PyProjects\\mpsiemlib\\mpsiemlib\\common\\MPSIEMAuth.py'&gt;</span></em>, <em class="sig-param"><span class="pre">settings:</span> <span class="pre">mpsiemlib.common.Interfaces.Settings</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.Interfaces.ModuleInterface" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.Interfaces.</span></span><span class="sig-name descname"><span class="pre">ModuleInterface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">auth:</span> <span class="pre">&lt;module</span> <span class="pre">'mpsiemlib.common.MPSIEMAuth'</span> <span class="pre">from</span> <span class="pre">'C:\\Work\\mpsiemlib\\mpsiemlib\\common\\MPSIEMAuth.py'&gt;</span></em>, <em class="sig-param"><span class="pre">settings:</span> <span class="pre">mpsiemlib.common.Interfaces.Settings</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.Interfaces.ModuleInterface" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="mpsiemlib.common.Interfaces.ModuleInterface.close">
@@ -337,6 +337,11 @@
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mpsiemlib.common.Interfaces.ModuleNames.EVENTS">
 <span class="sig-name descname"><span class="pre">EVENTS</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'events'</span></em><a class="headerlink" href="#mpsiemlib.common.Interfaces.ModuleNames.EVENTS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.Interfaces.ModuleNames.EVENTSAPI">
+<span class="sig-name descname"><span class="pre">EVENTSAPI</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'eventsapi'</span></em><a class="headerlink" href="#mpsiemlib.common.Interfaces.ModuleNames.EVENTSAPI" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -466,6 +471,11 @@
 <span class="sig-name descname"><span class="pre">ES7</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'7'</span></em><a class="headerlink" href="#mpsiemlib.common.Interfaces.StorageVersion.ES7" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mpsiemlib.common.Interfaces.StorageVersion.LS">
+<span class="sig-name descname"><span class="pre">LS</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'1'</span></em><a class="headerlink" href="#mpsiemlib.common.Interfaces.StorageVersion.LS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
@@ -476,15 +486,9 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="mpsiemlib.common.Interfaces.WorkerInterface.get_module">
 <span class="sig-name descname"><span class="pre">get_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="#mpsiemlib.common.Interfaces.ModuleNames" title="mpsiemlib.common.Interfaces.ModuleNames"><span class="pre">mpsiemlib.common.Interfaces.ModuleNames</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.Interfaces.WorkerInterface.get_module" title="Permalink to this definition">¶</a></dt>
-<dd><p>Получить экземпляр модуля</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>module_name</strong> – имя модуля</p>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>экземпляр класса</p>
-</dd>
-</dl>
+<dd><p>Получить экземпляр модуля
+:param module_name: имя модуля
+:return: экземпляр класса</p>
 </dd></dl>
 
 </dd></dl>
@@ -501,7 +505,7 @@
 
   <div role="contentinfo">
     <p>
-        &#169; Copyright 202X, Nikolai Arefiev.
+        &#169; Copyright 2023, Nikolai Arefiev.
 
     </p>
   </div>

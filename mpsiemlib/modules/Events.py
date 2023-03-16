@@ -1,11 +1,10 @@
-# Add some code
 import json
 import pytz
 from typing import Iterator
 from datetime import datetime, timedelta
 
-from elasticsearch import Elasticsearch, helpers
-from elasticsearch.exceptions import NotFoundError
+from elasticsearch7 import Elasticsearch, helpers
+from elasticsearch7.exceptions import NotFoundError
 
 from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, Settings, StorageVersion
 from mpsiemlib.common import get_metrics_start_time, get_metrics_took_time
@@ -13,11 +12,10 @@ from mpsiemlib.common import get_metrics_start_time, get_metrics_took_time
 
 class Events(ModuleInterface, LoggingHandler):
     """
-    Elastic Search module
+    Elasticsearch module
     """
 
     __storage_port = 9200
-    __api_storage_search = '/_search?timeout={}s&ignore_unavailable=true'
     
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)

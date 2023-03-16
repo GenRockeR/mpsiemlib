@@ -153,7 +153,6 @@ class SourceMonitor(ModuleInterface, LoggingHandler):
         params["offset"] = offset
         params["limit"] = limit
 
-        # url = "https://mp-core-dev.rt-solar.local/api/events_monitoring/v2/sources?controlState=all&limit=50&offset=0&timeFrom=2020-12-03T21:00:00.000Z&timeTo=2020-12-05T20:59:59.999Z"
         rq = exec_request(self.__core_session,
                           url,
                           method="GET",

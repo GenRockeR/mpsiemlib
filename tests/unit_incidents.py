@@ -1,18 +1,17 @@
 import unittest
+from datetime import datetime
 
 import pytz
-from datetime import datetime
 
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-
-from tests.settings import creds_ldap, settings
+from tests.settings import creds, settings
 
 
 class EventsTestCase(unittest.TestCase):
     __mpsiemworker = None
     __module = None
-    __creds_ldap = creds_ldap
+    __creds_ldap = creds
     __settings = settings
     __begin = 0
     __end = 0
@@ -30,7 +29,7 @@ class EventsTestCase(unittest.TestCase):
 
     def test_get_list(self):
         counter = 0
-        for i in self.__module.get_incidents_list(self.__begin, self.__end):
+        for _ in self.__module.get_incidents_list(self.__begin, self.__end):
             counter += 1
 
         self.assertGreater(counter, 0)

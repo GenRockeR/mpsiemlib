@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>mpsiemlib.common.BaseFunctions module &mdash; mpsiemlib 1.5.1.0 documentation</title>
+  <title>mpsiemlib.common.BaseFuntions module &mdash; mpsiemlib 1.5.0.2 documentation</title>
   
 
   
@@ -87,7 +87,7 @@
             
               <!-- Local TOC -->
               <div class="local-toc"><ul>
-<li><a class="reference internal" href="#">mpsiemlib.common.BaseFunctions module</a></li>
+<li><a class="reference internal" href="#">mpsiemlib.common.BaseFuntions module</a></li>
 </ul>
 </div>
             
@@ -136,13 +136,13 @@
     
       <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
         
-      <li>mpsiemlib.common.BaseFunctions module</li>
+      <li>mpsiemlib.common.BaseFuntions module</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
           
-            <a href="_sources/mpsiemlib.common.BaseFunctions.rst.txt" rel="nofollow"> View page source</a>
+            <a href="_sources/mpsiemlib.common.BaseFuntions.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -155,11 +155,11 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="module-mpsiemlib.common.BaseFunctions">
-<span id="mpsiemlib-common-basefunctions-module"></span><h1>mpsiemlib.common.BaseFunctions module<a class="headerlink" href="#module-mpsiemlib.common.BaseFunctions" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="module-mpsiemlib.common.BaseFuntions">
+<span id="mpsiemlib-common-basefuntions-module"></span><h1>mpsiemlib.common.BaseFuntions module<a class="headerlink" href="#module-mpsiemlib.common.BaseFuntions" title="Permalink to this headline">¶</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="mpsiemlib.common.BaseFunctions.exec_request">
-<span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.BaseFunctions.</span></span><span class="sig-name descname"><span class="pre">exec_request</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">requests.sessions.Session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">url</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'GET'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout_up</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">requests.models.Response</span></span></span><a class="headerlink" href="#mpsiemlib.common.BaseFunctions.exec_request" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="mpsiemlib.common.BaseFuntions.exec_request">
+<span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.BaseFuntions.</span></span><span class="sig-name descname"><span class="pre">exec_request</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">requests.sessions.Session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">url</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'GET'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout_up</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">requests.models.Response</span></span></span><a class="headerlink" href="#mpsiemlib.common.BaseFuntions.exec_request" title="Permalink to this definition">¶</a></dt>
 <dd><p>Выполнение HTTP запросов
 Если в окружении MP_DEBUG_LOG_BODY, выводит в DEBUG лог сырой ответ от сервера</p>
 <dl class="field-list simple">
@@ -170,7 +170,7 @@
 <li><p><strong>method</strong> – метод GET|POST</p></li>
 <li><p><strong>timeout</strong> – timeout соединения</p></li>
 <li><p><strong>timeout_up</strong> – увеличение timeout от базового на коэффициент (нужно при генерации отчетов)</p></li>
-<li><p><strong>kwargs</strong> – параметры запроса, передаваемые в requests</p></li>
+<li><p><strong>kwargs</strong> – параметы запроса, передаваемые в requests</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -180,18 +180,18 @@
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="mpsiemlib.common.BaseFunctions.get_metrics_start_time">
-<span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.BaseFunctions.</span></span><span class="sig-name descname"><span class="pre">get_metrics_start_time</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.BaseFunctions.get_metrics_start_time" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="mpsiemlib.common.BaseFuntions.get_metrics_start_time">
+<span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.BaseFuntions.</span></span><span class="sig-name descname"><span class="pre">get_metrics_start_time</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.BaseFuntions.get_metrics_start_time" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="mpsiemlib.common.BaseFunctions.get_metrics_took_time">
-<span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.BaseFunctions.</span></span><span class="sig-name descname"><span class="pre">get_metrics_took_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_time</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.BaseFunctions.get_metrics_took_time" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="mpsiemlib.common.BaseFuntions.get_metrics_took_time">
+<span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.BaseFuntions.</span></span><span class="sig-name descname"><span class="pre">get_metrics_took_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_time</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.BaseFuntions.get_metrics_took_time" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="mpsiemlib.common.BaseFunctions.setup_logging">
-<span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.BaseFunctions.</span></span><span class="sig-name descname"><span class="pre">setup_logging</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">default_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'logging.yml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">env_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'LOG_CFG'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.BaseFunctions.setup_logging" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="mpsiemlib.common.BaseFuntions.setup_logging">
+<span class="sig-prename descclassname"><span class="pre">mpsiemlib.common.BaseFuntions.</span></span><span class="sig-name descname"><span class="pre">setup_logging</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">default_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'logging.yml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">env_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'LOG_CFG'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mpsiemlib.common.BaseFuntions.setup_logging" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </div>
