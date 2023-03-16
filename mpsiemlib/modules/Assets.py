@@ -17,14 +17,17 @@ class Assets(ModuleInterface, LoggingHandler):
     __api_assets_processing_input_groups = "/api/assets_processing/v2/assets_input/groups"
     __api_assets_processing_v2_groups = "/api/assets_processing/v2/groups"
     __api_assets_trm_groups_hierarchy = "/api/assets_temporal_readmodel/v2/groups/hierarchy"
-    __api_assets_processing_remove_assets = "/api/assets_processing/v1/asset_operations/removeAssets"
+    __api_assets_processing_v2_configuration = "/api/assets_processing/v2/assets_input/assets"
+    __api_assets_processing_v2_checkcreated = "/api/assets_processing/v2/assets_input/assets/checkCreated"
 
     __api_assets_trm_grid = "/api/assets_temporal_readmodel/v1/assets_grid"
     __api_assets_trm_row_count = "/api/assets_temporal_readmodel/v1/assets_grid/row_count"
     __api_assets_trm_selection = "/api/assets_temporal_readmodel/v1/assets_grid/data"
     __api_assets_trm_export_csv = "/api/assets_temporal_readmodel/v1/assets_grid/export"
-
+    __api_assets_trm_stored_queries_folders = "/api/assets_temporal_readmodel/v1/stored_queries/folders/queries"
+    __api_assets_trm_stored_queries_query = "/api/assets_temporal_readmodel/v1/stored_queries/queries"
     __api_assets_v2_import_operation = "/api/assets_processing/v2/csv/import_operation"
+    __api_assets_v1_removeassets = "/api/assets_processing/v1/asset_operations/removeAssets"
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
@@ -33,7 +36,7 @@ class Assets(ModuleInterface, LoggingHandler):
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
         siem_tz = datetime.now(pytz.timezone(settings.local_timezone)).strftime('%z')
-        self.__default_utc_offset = "{0}:{1}".format(siem_tz[:-2], siem_tz[-2:])  # convert to +HH:MM
+        self.__default_utc_offset = '{0}:{1}'.format(siem_tz[:-2], siem_tz[-2:])  # convert to +HH:MM
         self.__scopes = {}
         self.__groups = {}
         self.log.debug('status=success, action=prepare, msg="Assets Module init"')
@@ -308,64 +311,6 @@ class Assets(ModuleInterface, LoggingHandler):
                                              self.__core_hostname))
 
         return success_install, counter_imported, error_log
-    
-    def remove_assets(self, Ids: list, timeout: int = 360) -> str:
-        """
-        Удалить активы
-
-        :param Ids: список id активов для удаления
-        :param timeout: Время ожидания окончания загрузки (сек)
-        :return: success_request, error_log, remove_status
-        """
-        self.log.debug('status=prepare, action=remove_assets, '
-                       'msg="Try to remove assets", '
-                       'hostname="{}"'.format(self.__core_hostname))
-
-        url = "https://{}{}".format(self.__core_hostname, self.__api_assets_processing_remove_assets)
-        params = {"assetsIds": Ids}
-
-        r = exec_request(self.__core_session,
-                         url,
-                         method='POST',
-                         timeout=self.settings.connection_timeout,
-                         json=params)
-        
-        success_request = False
-        error_log = None
-        remove_status = None
-        totalCount = None
-        succeedCount = None
-        failedCount = None
-
-        if r.status_code == 201:
-            resp = r.json()
-
-            if 'operationId' not in resp:
-                raise Exception('operationId not found in response "{}"'.format(resp))
-
-            self.log.debug("Try to check operation status")
-            
-            operation_id = resp['operationId']
-            #__!!__ некорректно отрабатывает проверка. Получаем 202 http-код без строки вместо 200-го кода
-            remove_status = self.__remove_assets_get_status(operation_id)
-
-            #totalCount = remove_status["totalCount"]
-            #succeedCount = remove_status["succeedCount"]
-            #failedCount = remove_status["failedCount"]
-                    
-        if not success_request:
-            self.log.error('status=failed, action=remove_assets, msg="Can not import assets", '
-                           'error="{}", hostname="{}"'.format(error_log, self.__core_hostname))        
-
-        self.log.info('status=success, action=remove_assets, '
-                      'msg="Assets have been removed", totalCount={}, succeedCount="{}", failedCount="{}"'
-                      'hostname="{}"'.format(totalCount,
-                                             succeedCount,
-                                             failedCount,
-                                             self.__core_hostname))
-
-        return success_request, error_log, remove_status
-        #return r
 
     def __import_assets_from_csv_prepare(self, content, scope_id: str) -> dict:
         """
@@ -618,27 +563,6 @@ class Assets(ModuleInterface, LoggingHandler):
                        'hostname="{}"'.format(operation_id, resp, self.__core_hostname))
 
         return resp
-    
-    def __remove_assets_get_status(self, operation_id: str) -> dict:
-        """
-        Получить статус операции импорта
-
-        :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
-        """
-        
-        url = "https://{}{}?operationID={}".format(self.__core_hostname, self.__api_assets_processing_remove_assets, operation_id)
-        #__!!__ некорректно отрабатывает проверка. Получаем 202 http-код без строки вместо 200-го кода
-        r = exec_request(self.__core_session,
-                         url,
-                         method='GET',
-                         timeout=self.settings.connection_timeout)
-        #resp = r.json()
-
-        #self.log.info('status=success, action=get_remove_status, msg="Check remove operation status: {}", '
-        #              'hostname="{}"'.format(resp['succeedCount'], self.__core_hostname))
-
-        #return resp
-        return r
 
     def get_groups_hierarchy(self) -> List[dict]:
         """
@@ -729,6 +653,311 @@ class Assets(ModuleInterface, LoggingHandler):
                 break
 
         return group_id
+
+    def __delete_assets_by_ids(self, asset_ids: list) -> str:
+        """
+        Удаление активов по id
+
+        :param asset_ids: Список ID активов, котыоер необходимо удалить
+        :return: {"operationId":"16b577e1-3900-a001-0000-000000000e79"}
+        """
+        self.log.debug('status=prepare, action=__delete_assets_by_ids, '
+                       'msg="Try to delete {} asset(s)", '
+                       'hostname="{}"'.format(len(asset_ids), self.__core_hostname))
+
+        url = "https://{}{}".format(self.__core_hostname, self.__api_assets_v1_removeassets)
+        params = {"assetsIds": asset_ids}
+
+        r = exec_request(self.__core_session,
+                         url,
+                         method='POST',
+                         timeout=self.settings.connection_timeout,
+                         json=params)
+        resp = r.json()
+
+        self.log.info('status=success, action=__delete_assets_by_ids, '
+                      'msg="Deleting started", operation_id={}, '
+                      'hostname="{}"'.format(resp['operationId'], self.__core_hostname))
+
+        return resp.get('operationId')
+
+    def __remove_assets_get_status(self, operation_id: str) -> dict:
+        """
+        Получить статус операции удаления
+
+        :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
+        """
+
+        url = "https://{}{}?operationId={}".format(self.__core_hostname, self.__api_assets_v1_removeassets, operation_id)
+
+        r = exec_request(self.__core_session,
+                         url,
+                         method='GET',
+                         timeout=self.settings.connection_timeout)
+
+        if r.status_code == 200:
+            resp = r.json()
+            self.log.info('status=success, action=__remove_assets_get_status, msg="Check remove operation status: {}", '
+                      'hostname="{}"'.format(resp, self.__core_hostname))
+            return resp
+        else:
+            self.log.info('status=success, action=__remove_assets_get_status, msg="Check remove operation status: HTTP:{}", '
+                      'hostname="{}"'.format(r.status_code, self.__core_hostname))
+
+            return None
+
+    def delete_assets_by_ids(self, asset_ids: list) -> dict:
+        """
+        Удаление активов по id
+
+        :param asset_ids: Список ID активов, котыоер необходимо удалить
+        :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
+        """
+
+        operation_id = self.__delete_assets_by_ids(asset_ids)
+
+        if operation_id is not None:
+            for i in range(30):
+                time.sleep(1)
+                status = self.__remove_assets_get_status(operation_id = operation_id)
+                self.log.warning("status: {}".format(status))
+                if status is not None:
+                    break
+
+        self.log.info('status=success, action=delete_assets_by_ids, '
+                      'msg="Deleting finished", status={}, '
+                      'hostname="{}"'.format(status, self.__core_hostname))
+        return status
+
+    def __change_asset_configuration_by_id(self, asset_id: str, params: dict) -> dict:
+        """
+        Получить статус операции изменения актива
+
+        :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
+        """
+
+        url = "https://{}{}/{}".format(self.__core_hostname, self.__api_assets_processing_v2_configuration, asset_id)
+
+        r = exec_request(self.__core_session,
+                         url,
+                         method='PUT',
+                         timeout=self.settings.connection_timeout,
+                         json=params)
+
+        if r.status_code == 200:
+            resp = r.json()
+            self.log.info('status=success, action=__change_asset_configuration_by_id, msg="Check change operation status: {}", '
+                      'hostname="{}"'.format(resp, self.__core_hostname))
+            return resp.get('ticketId')
+        else:
+            self.log.info('status=success, action=__change_asset_configuration_by_id, msg="Check change operation status: HTTP:{}", '
+                      'hostname="{}"'.format(r.status_code, self.__core_hostname))
+
+            return None
+
+    def __change_assets_get_status(self, ticket_id: str) -> dict:
+        """
+        Получить статус операции удаления
+
+        :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
+        """
+
+        url = "https://{}{}?ticketId={}".format(self.__core_hostname, self.__api_assets_processing_v2_checkcreated, ticket_id)
+
+        r = exec_request(self.__core_session,
+                         url,
+                         method='GET',
+                         timeout=self.settings.connection_timeout)
+
+        if r.status_code == 200:
+            resp = r.json()
+            self.log.info('status=success, action=__remove_assets_get_status, msg="Check remove operation status: {}", '
+                      'hostname="{}"'.format(resp, self.__core_hostname))
+            return resp
+        else:
+            self.log.info('status=success, action=__remove_assets_get_status, msg="Check remove operation status: HTTP:{}", '
+                      'hostname="{}"'.format(r.status_code, self.__core_hostname))
+
+            return None
+
+    def change_asset_configuration_by_id(self, asset_id: str, config: dict) -> dict:
+        """
+        Изменение активов по id
+
+        :param asset_ids: ID актива, который надо сконфигурировать
+        :return: {"isSuccessful":true,"assetId":"17c930dc-0340-0001-0000-000000000002"}
+        """
+
+        ticket_id = self.__change_asset_configuration_by_id(asset_id, config)
+
+        if ticket_id is not None:
+            for i in range(30):
+                time.sleep(1)
+                status = self.__change_assets_get_status(ticket_id = ticket_id)
+                self.log.warning("status: {}".format(status))
+                if status is not None:
+                    break
+
+        self.log.info('status=success, action=delete_assets_by_ids, '
+                      'msg="Deleting finished", status={}, '
+                      'hostname="{}"'.format(status, self.__core_hostname))
+        return status
+    
+    def get_asset_configuration_by_id(self, asset_id: str) -> dict:
+        """
+        Получение информации об активе по id
+
+        :param asset_id:  ID интересующего актива
+        :return: { dict with asset config }
+        """
+
+        url = "https://{}{}/{}".format(self.__core_hostname, self.__api_assets_processing_v2_configuration, asset_id)
+        r = exec_request(self.__core_session,
+                         url,
+                         method='GET',
+                         timeout=self.settings.connection_timeout)
+        if r.status_code == 200:
+            resp = r.json()
+            self.log.info('status=success, action=get_asset_configuration_by_id, msg="Got asset configuration", '
+                      'hostname="{}"'.format(self.__core_hostname))
+            return resp
+        else:
+            self.log.info('status=success, action=__remove_assets_get_status, msg="Check remove operation status: HTTP:{}", '
+                      'hostname="{}"'.format(r.status_code, self.__core_hostname))
+        return resp
+
+    def get_queries(self) -> dict:
+        """
+        Получить все запросы
+
+        :return: {'id': {'name': 'Инфраструктура по умолчанию',
+                         'tenant_id': '97267c62-1455-4db0-8c84-497faf9a679e'}}
+        """
+        url = "https://{}{}".format(self.__core_hostname, self.__api_assets_trm_stored_queries_folders)
+        r = exec_request(self.__core_session,
+                         url,
+                         method='GET',
+                         timeout=self.settings.connection_timeout)
+        response = r.json()
+
+        self.log.info('status=success, action=get_queries, msg="Got queries {}", '
+                      'hostname="{}"'.format(len(response), self.__core_hostname))
+
+        return response['nodes']
+
+    def get_query_by_id(self, queryid:str) -> dict:
+        """
+        Получить запрос по id
+
+        :return: {"id":"23d2ffe845be453b885b97ff69bf7604","displayName":"Test__Tests.29","folderId":"994b5d4f0b394fc4842e4cdeeb560d69",
+                  "filterId":null,"filterPdql":"qsearch(\"70f5ef43-196f-49d7-b5cb-46ae008376f7.com\")","selectionId":null,
+                  "selectionPdql":"select(@Host, Host.OsName, Host.Softs.Name, Host.@UpdateTime) | sort(@Host ASC) | group(Host.OsName, COUNT(*))",
+                  "isInvalid":false,"isDeleted":false,"type":"user"}
+        """
+        url = "https://{}{}".format(self.__core_hostname, self.__api_assets_trm_stored_queries_query + '/' + queryid)
+        r = exec_request(self.__core_session,
+                         url,
+                         method='GET',
+                         timeout=self.settings.connection_timeout)
+        response = r.json()
+
+        self.log.info('status=success, action=get_query_by_id, msg="Got query {}", '
+                      'hostname="{}"'.format(response['displayName'], self.__core_hostname))
+
+        return response
+
+    def create_query_folder(self, parent_id: str, folder_name: str) -> dict:
+        """
+        Создать папку для запросов
+
+        :param parent_id: ID родительской папки
+        :param folder_name: Название папки
+        :return: {"id":"6224c6bca5b64e6c98825cc336be19e8","displayName":"a / b","parentId":"c51f8e849598459cb0f352280a1ccf8c","type":"common"}
+        """
+#        self.log.debug('status=prepare, action=create_query_folder, '
+#                       'msg="Try to create static group", '
+#                       'hostname="{}"'.format(self.__core_hostname))
+
+        url = "https://{}{}".format(self.__core_hostname, self.__api_assets_trm_stored_queries_folders)
+        params = {"displayName": folder_name, "parentId": parent_id}
+        r = exec_request(self.__core_session,
+                         url,
+                         method='POST',
+                         timeout=self.settings.connection_timeout,
+                         json=params)
+
+        resp = r.json()
+
+        self.log.info('status=success, action=create_query_folder, '
+                      'msg="Query folder created", Name="{}", type="{}", '
+                      'hostname="{}"'.format(resp['displayName'], resp['type'], self.__core_hostname))
+
+        return resp
+
+    def create_query(self, folder_id: str, query_name: str, filterPdql: str, selectionPdql:str) -> dict:
+        """
+        Создать запрос в папке
+
+        :param folder_id: ID родительской папки
+        :paraq query_name: Название запроса
+        :paraq filterPdql: фильтр
+        :paraq selectionPdql: выборка
+        :return: {"id":"5279a28a6bdb464d9c5fcbaba08284ff","displayName":"xxxx","folderId":"a50a65f8a5c04c2785b0515d84135007","filterId":null,"filterPdql":null,"selectionId":null,"selectionPdql":"zzzz","isInvalid":false,"isDeleted":false,"type":"user"}
+
+        """
+
+        url = "https://{}{}".format(self.__core_hostname, self.__api_assets_trm_stored_queries_query)
+
+        params = {"displayName": query_name, "folderId": folder_id, "selectionPdql": selectionPdql, "filterPdql": filterPdql}
+
+        r = exec_request(self.__core_session,
+                         url,
+                         method='POST',
+                         timeout=self.settings.connection_timeout,
+                         json=params)
+        resp = r.json()
+
+
+        self.log.info('status=success, action=create_query, '
+                      'msg="Query created", Name="{}", type="{}", '
+                      'hostname="{}"'.format(resp['displayName'], resp['type'], self.__core_hostname))
+
+        return resp
+
+    def update_query(self, query_id:str, folder_id: str, query_name: str, filterPdql: str, selectionPdql:str) -> dict:
+        """
+        Обновить запрос в папке
+
+        :param query_id: query id
+        :param folder_id: ID родительской папки
+        :paraq query_name: Название запроса
+        :paraq filterPdql: фильтр
+        :paraq selectionPdql: выборка
+        :return: request response
+
+        """
+
+        url = "https://{}{}".format(self.__core_hostname, self.__api_assets_trm_stored_queries_query+ '/' + query_id)
+
+        params = {"id": query_id, "displayName": query_name, "folderId": folder_id, "selectionPdql": selectionPdql, "filterPdql": filterPdql}
+
+        r = exec_request(self.__core_session,
+                         url,
+                         method='PUT',
+                         timeout=self.settings.connection_timeout,
+                         json=params)
+
+        if r.status_code == 204:
+            self.log.info('status=success, action=update_query, '
+                          'msg="Query update", name="{}", id="{}", '
+                          'hostname="{}"'.format(query_name, query_id, self.__core_hostname))
+        else:
+            self.log.error('status=failed, action=update_query, '
+                          'msg="Query update", name="{}", id="{}", '
+                          'hostname="{}"'.format(query_name, query_id, self.__core_hostname))
+
+        return r
+
 
     def close(self):
         if self.__core_session is not None:
