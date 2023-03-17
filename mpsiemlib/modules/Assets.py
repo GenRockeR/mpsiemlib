@@ -771,11 +771,11 @@ class Assets(ModuleInterface, LoggingHandler):
 
         if r.status_code == 200:
             resp = r.json()
-            self.log.info('status=success, action=__remove_assets_get_status, msg="Check remove operation status: {}", '
+            self.log.info('status=success, action=__change_assets_get_status, msg="Check edit operation status: {}", '
                       'hostname="{}"'.format(resp, self.__core_hostname))
             return resp
         else:
-            self.log.info('status=success, action=__remove_assets_get_status, msg="Check remove operation status: HTTP:{}", '
+            self.log.debug('status=success, action=__change_assets_get_status, msg="Check edit operation status: HTTP:{}", '
                       'hostname="{}"'.format(r.status_code, self.__core_hostname))
 
             return None
@@ -791,15 +791,15 @@ class Assets(ModuleInterface, LoggingHandler):
         ticket_id = self.__change_asset_configuration_by_id(asset_id, config)
 
         if ticket_id is not None:
-            for i in range(30):
-                time.sleep(1)
+            for i in range(15):
+                time.sleep(2)
                 status = self.__change_assets_get_status(ticket_id = ticket_id)
                 self.log.warning("status: {}".format(status))
                 if status is not None:
                     break
 
-        self.log.info('status=success, action=delete_assets_by_ids, '
-                      'msg="Deleting finished", status={}, '
+        self.log.info('status=success, action=change_asset_configuration_by_id, '
+                      'msg="Editing finished", status={}, '
                       'hostname="{}"'.format(status, self.__core_hostname))
         return status
     
