@@ -12,6 +12,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
     """
     __api_events_metadata = "/api/events/v2/events_metadata"
     __api_event_details = "/api/events/v2/events/{}/normalized?time={}"
+    __api_events = "/api/events/v2/events?limit={}&offset={}"
     
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
@@ -56,5 +57,55 @@ class EventsAPI(ModuleInterface, LoggingHandler):
                            'has wrong response structure", '
                            'hostname="{}"'.format(self.__core_hostname))
             raise Exception("Core data request return None or has wrong response structure")
-        return response.get("fields")    
+        return response.get("fields")
+
+    def get_events_by_filter(self, filter, fields, time_from, time_to, limit, offset) -> dict:
+        """
+        Получить события по фильру 
+
+        Args:
+            filter : фильтр на языке PDQL
+            fields : список запрашиваемых полей событий
+            time_from : начало диапазона поиска (Unix timestamp в секундах)
+            time_to : конец диапазона поиска (Unix timestamp в секундах)
+            limit: число запрашиваемых событий, соответсвующих фильтру
+            offset: позиция, начиная с которой возвращать требуемое число событий, соответсвующих фильтру 
+        Returns:
+            [type]: массив событий 
+        """
+        null = None
+        params = {
+            "filter": {
+            "select": fields,
+            "where": f"{filter}",
+            "orderBy": [
+                {
+                    "field": "time",
+                    "sortOrder": "ascending"
+                }
+            ],
+            "groupBy": [],
+            "aggregateBy": [],
+            "distributeBy": [],
+            "top": null,
+            "aliases": {
+                "groupBy": {}
+            }
+        },
+        "groupValues": [],
+        "timeFrom": time_from,
+        "timeTo": time_to
+        }
+        api_url = self.__api_events.format(limit, offset)
+        url = "https://{}{}".format(self.__core_hostname, api_url)
+
+        rq = exec_request(self.__core_session, url, method="POST", json=params)
+        response = rq.json()
+
+        if response is None or "events" not in response:
+            self.log.error('status=failed, action=get_events_by_filter, msg="Core data request return None or '
+                           'has wrong response structure", '
+                           'hostname="{}"'.format(self.__core_hostname))
+            raise Exception("Core data request return None or has wrong response structure")
+        return response.get("events")
         
