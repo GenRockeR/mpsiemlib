@@ -1,10 +1,10 @@
-import logging
-import logging.config
 import os
 import time
-
-import requests
 import urllib3
+import requests
+import logging
+import logging.config
+
 from urllib3.exceptions import InsecureRequestWarning
 
 urllib3.disable_warnings(InsecureRequestWarning)
