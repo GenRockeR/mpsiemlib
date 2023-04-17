@@ -15,6 +15,6 @@ setup(
     install_requires=["requests",
                       "PyYAML",
                       "pytz",
-                      "elasticsearch>=7.10.0"]
+                      "elasticsearch>=7.17.9"]
 
 )
