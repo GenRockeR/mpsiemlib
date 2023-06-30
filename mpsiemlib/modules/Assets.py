@@ -465,6 +465,41 @@ class Assets(ModuleInterface, LoggingHandler):
 
         return group_id
 
+    def edit_group_dynamic(self, group_id: str, predicate: str) -> str:
+        """
+        Редактировать динамическую группу
+
+        :param group_id: ID редактируемой группы
+        :param predicate: Фильтр динамической группы
+        :return: '12f04fc3-3e00-0001-0000-000000000006'
+        """
+        self.log.debug('status=prepare, action=edit_group_dynamic, '
+                       'msg="Try to edit dynamic group", '
+                       'hostname="{}"'.format(self.__core_hostname))
+
+        url = "https://{}{}".format(self.__core_hostname, '{}/{}'.format(self.__api_assets_processing_v2_groups, group_id))
+        params = [{"type": "SetPredicateGroupCommand", 
+                   "value": predicate }]
+
+        r = exec_request(self.__core_session,
+                         url,
+                         method='PUT',
+                         timeout=self.settings.connection_timeout,
+                         json=params)
+        resp = r.json()
+
+        if 'operationId' not in resp:
+            raise Exception('operationId not found in response "{}"'.format(resp))
+
+        operation_id = resp['operationId']
+        group_id = self.__group_operation_status(operation_id)
+
+        self.log.info('status=success, action=edit_group_dynamic, '
+                      'msg="Dynamic group has been edited.", operation_id="{}", group_id="{}", '
+                      'hostname="{}"'.format(operation_id, group_id, self.__core_hostname))
+
+        return group_id
+
     def create_group_static(self, parent_id: str, group_name: str) -> str:
         """
         Создать статическую группу
