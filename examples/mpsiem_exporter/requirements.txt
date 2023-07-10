@@ -1,0 +1,4 @@
+dynaconf==3.1.11
+prometheus-client==0.17.0
+requests~=2.31.0
+mpsiemlib
