@@ -10,6 +10,7 @@ from .HealthMonitor import HealthMonitor
 from .Filters import Filters
 from .Tasks import Tasks
 from .SourceMonitor import SourceMonitor
+from .Macros import Macros
 
 
 class MPSIEMWorker(WorkerInterface, LoggingHandler):
@@ -33,7 +34,6 @@ class MPSIEMWorker(WorkerInterface, LoggingHandler):
             return Events(auth, self.settings)
         if self.__module_name == ModuleNames.EVENTSAPI:
             return EventsAPI(auth, self.settings)
-
         if self.__module_name == ModuleNames.ASSETS:
             return Assets(auth, self.settings)
         if self.__module_name == ModuleNames.TABLES:
@@ -52,3 +52,5 @@ class MPSIEMWorker(WorkerInterface, LoggingHandler):
             return Tasks(auth, self.settings)
         if self.__module_name == ModuleNames.SOURCE_MONITOR:
             return SourceMonitor(auth, self.settings)
+        if self.__module_name == ModuleNames.MACROS:
+            return Macros(auth, self.settings)

@@ -35,12 +35,13 @@ class ModuleNames:
     KB = "knowledge_base"
     INCIDENTS = "incidents"
     SOURCE_MONITOR = "source_monitor"
+    MACROS = "macros"
 
     @staticmethod
     def get_modules_list():
         return [ModuleNames.AUTH, ModuleNames.ASSETS, ModuleNames.EVENTS, ModuleNames.EVENTSAPI, ModuleNames.TABLES,
                 ModuleNames.FILTERS, ModuleNames.TASKS, ModuleNames.HEALTH,
-                ModuleNames.URM, ModuleNames.KB, ModuleNames.INCIDENTS, ModuleNames.SOURCE_MONITOR]
+                ModuleNames.URM, ModuleNames.KB, ModuleNames.INCIDENTS, ModuleNames.SOURCE_MONITOR, ModuleNames.MACROS]
 
 
 class MPComponents:

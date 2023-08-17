@@ -118,14 +118,14 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         if core_major_ver >= 24:
             # Изменения с версии 24
             params = {"mode": "selection" if not do_remove else "uninstall",
-             "selectedObjects" : {
-                    "ids" : guids_list,
-                    "selectionMode": "Selected"
-                }
-             }
+                      "selectedObjects": {
+                          "ids": guids_list,
+                          "selectionMode": "Selected"
+                      }
+                      }
         else:
             params = {"mode": "selection" if not do_remove else "uninstall",
-                    "include": guids_list}
+                      "include": guids_list}
 
         url = "https://{}:{}{}".format(self.__kb_hostname,
                                        self.__kb_port,
@@ -191,9 +191,9 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return self.install_objects(db_name, guids_list, do_remove=True)
 
     def install_objects_sync(self, db_name: str, guids_list: list,
-                                                    do_remove=False,
-                                                    timeout: int = DEPLOYMENT_TIMEOUT,
-                                                    max_retries: int = DEPLOYMENT_RETRIES):
+                             do_remove=False,
+                             timeout: int = DEPLOYMENT_TIMEOUT,
+                             max_retries: int = DEPLOYMENT_RETRIES):
         """
         Синхронный вариант инсталляции/деинсталляции контента из SIEM
 
@@ -227,12 +227,11 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                 else:
                     retries -= 1
             else:
-                erros = status.get('errors')
+                errors = status.get('errors')
                 self.log.error(
                     'status=failure, action=install_objects_sync, msg="{} failed. Errors: {}", '
-                    'hostname="{}", db="{}"'.format(operation, erros, self.__kb_hostname, db_name))
+                    'hostname="{}", db="{}"'.format(operation, errors, self.__kb_hostname, db_name))
                 break
-
 
     def get_deploy_status(self, db_name: str, deploy_id: str) -> dict:
         """
@@ -246,9 +245,9 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                    'Content-Locale': 'RUS'}
 
         url = "https://{}:{}{}/{}".format(self.__kb_hostname,
-                                           self.__kb_port,
-                                           self.__api_deploy_log,
-                                            deploy_id)
+                                          self.__kb_port,
+                                          self.__api_deploy_log,
+                                          deploy_id)
         r = exec_request(self.__kb_session,
                          url,
                          method='GET',
@@ -261,9 +260,9 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         percentage = str(state.get('Percentage', ''))
         errors = str(state.get('Errors', ''))
 
-
         self.log.info('status=success, action=get_deploy_status, msg="Deploy status: {}, percentage: {}%, errors: {}", '
-                      'hostname="{}", db="{}"'.format(deployment_status, percentage, errors, self.__kb_hostname, db_name))
+                      'hostname="{}", db="{}"'.format(deployment_status, percentage, errors, self.__kb_hostname,
+                                                      db_name))
         return {
             'deployment_status': deployment_status,
             'percentage': percentage,
@@ -504,11 +503,10 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             obj_name = i.get("Name")
             parent_obj_id = i.get("ParentId")
             current[obj_id] = {"parent_id": parent_obj_id,
-                                    "name": obj_name}
+                               "name": obj_name}
 
             if node_type == 'Folder' and i.get('HasChildren'):
                 self.__iterate_folders_tree(db_name, obj_id)
-
 
     def __get_folder_pack_root_level(self, db_name: str):
         # if expand_nodes is None:
@@ -540,7 +538,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             obj_name = i.get("Name")
             parent_obj_id = i.get("ParentId")
             current[obj_id] = {"parent_id": parent_obj_id,
-                                    "name": obj_name}
+                               "name": obj_name}
 
             if node_type == 'Folder' and i.get('HasChildren'):
                 # Iterate nested
@@ -681,7 +679,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                        "name": i.get("SystemName"),
                        "folder_id": i.get("FolderId"),
                        "object_kind": i.get("ObjectKind"),
-                       "folder_path": i.get("FolderPath").replace('\\','/') if i.get("FolderPath") else "",
+                       "folder_path": i.get("FolderPath").replace('\\', '/') if i.get("FolderPath") else "",
                        "origin_id": i.get("OriginId"),
                        "compilation_sdk": i.get("CompilationStatus", {}).get("SdkVersion"),
                        "compilation_status": i.get("CompilationStatus", {}).get("CompilationStatusId"),
@@ -1041,7 +1039,6 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         return r.json()
 
-
     def create_group(self, db_name: str, name: str, parent_id: Optional[str] = None) -> str:
         """
         Создать набор установки
@@ -1133,23 +1130,23 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
 
-        params = { "skip" : 0,
-                   "folderId" : None,
-                   "filters" : None,
-                   "search":"",
-                   "sort":[
-                       {"name":"objectId","order":0,"type":0}
-                   ],
-                   "recursive" : True,
-                   "groupId":group_id,
-                   "withoutGroups" : False,
-                   "take":50
-                   }
+        params = {"skip": 0,
+                  "folderId": None,
+                  "filters": None,
+                  "search": "",
+                  "sort": [
+                      {"name": "objectId", "order": 0, "type": 0}
+                  ],
+                  "recursive": True,
+                  "groupId": group_id,
+                  "withoutGroups": False,
+                  "take": 50
+                  }
 
         url = "https://{hostname}:{port}{endpoint}".format(hostname=self.__kb_hostname,
-                                                                    port=self.__kb_port,
-                                                                    endpoint=self.__api_list_objects
-                                                                    )
+                                                           port=self.__kb_port,
+                                                           endpoint=self.__api_list_objects
+                                                           )
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1277,7 +1274,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                     retval = kbfile.write(r.content)
 
                 self.log.info('status=success, action=export_group, msg="group {} with id {} exported to {}", '
-                              'hostname="{}", db="{}"'.format(group_path, group_id, local_filepath, self.__kb_hostname, db_name))
+                              'hostname="{}", db="{}"'.format(group_path, group_id, local_filepath, self.__kb_hostname,
+                                                              db_name))
             else:
                 self.log.info('status=success, action=export_group, msg="group {} with id {} is empty", '
                               'hostname="{}", db="{}"'.format(group_path, group_id, self.__kb_hostname, db_name))
@@ -1288,7 +1286,6 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                            'hostname="{}", db="{}"'.format(group_id, self.__kb_hostname, db_name))
 
         return retval
-
 
     def import_group(self, db_name: str, filepath: str, mode: Optional[str] = IMPORT_ADD_AND_UPDATE) -> int:
         """
@@ -1302,7 +1299,6 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS',
                    'Content-Type': 'application/octet-stream'}
-
 
         filename = os.path.basename(filepath)
 
@@ -1380,13 +1376,13 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :return: идентификатор листьевого набора установки
         """
         path_parts = group_path.split('/')
-        for i in range(1, len(path_parts)+1):
-            parent_path = '/'.join(path_parts[0:i-1])
+        for i in range(1, len(path_parts) + 1):
+            parent_path = '/'.join(path_parts[0:i - 1])
             path = '/'.join(path_parts[0:i])
             group_id = self.get_group_id_by_path(db_name, path)
             if not group_id:
                 parent_group_id = self.get_group_id_by_path(db_name, parent_path) or None
-                self.create_group(db_name, path_parts[i-1], parent_group_id)
+                self.create_group(db_name, path_parts[i - 1], parent_group_id)
 
         return self.get_group_id_by_path(db_name, group_path)
 
@@ -1430,8 +1426,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             }
         else:
             params = {
-                        "include":[content_item_id, ],
-                        "filter": None
+                "include": [content_item_id, ],
+                "filter": None
             }
 
         url = "https://{hostname}:{port}{endpoint}".format(
@@ -1474,7 +1470,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         content_item_names = [obj['name'] for obj in self.get_all_objects(db_name) if obj['id'] in content_items_ids]
 
         # получить имя набора установки с которым осуществляется связывание
-        group_names =[group_data.get('name', '') for group_id, group_data in self.get_groups_list(db_name).items() if group_id in group_ids]
+        group_names = [group_data.get('name', '') for group_id, group_data in self.get_groups_list(db_name).items() if
+                       group_id in group_ids]
 
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
@@ -1499,16 +1496,16 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             }
         else:
             params = {
-                "Operations":[
+                "Operations": [
                     {
-                        "Id":"SiemObjectGroup",
+                        "Id": "SiemObjectGroup",
                         "ValuesToSave": group_ids,
-                        "ValuesToRemove":[]
+                        "ValuesToRemove": []
                     }
                 ],
-                "Entities":{
+                "Entities": {
                     "include": content_items_ids,
-                    "filter":{}
+                    "filter": {}
                 }
             }
 
@@ -1528,10 +1525,12 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         if r.status_code == 200:
             self.log.info('status=success, action=link_content_to_groups, msg="{} linked to {}", '
-                          'hostname="{}", db="{}"'.format(str(content_item_names), str(group_names), self.__kb_hostname, db_name))
+                          'hostname="{}", db="{}"'.format(str(content_item_names), str(group_names), self.__kb_hostname,
+                                                          db_name))
         else:
             self.log.error('status=failed, action=import_file, msg="can not link {} to {}", '
-                           'hostname="{}", db="{}"'.format(str(content_item_names), str(group_names), self.__kb_hostname, db_name))
+                           'hostname="{}", db="{}"'.format(str(content_item_names), str(group_names),
+                                                           self.__kb_hostname, db_name))
 
     def process_kb_metadata(self, db_name, obj_map, kb_meta):
         if 'group_path' in kb_meta and kb_meta['group_path']:
@@ -1571,7 +1570,6 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         ret_path = self.get_folder_path_by_id(db_name, parent) if parent else ''
         return '/'.join((ret_path, name)) if ret_path else name
 
-
     def get_folder_id_by_path(self, db_name: str, path: str) -> str:
         '''
         Получить ID папки по пути в дереве папок
@@ -1597,14 +1595,14 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             "filters": None,
             "search": "",
             "sort": [
-                {"name": "objectId","order": 0,"type": 0}
+                {"name": "objectId", "order": 0, "type": 0}
             ],
             "recursive": False,
             "groupId": None,
             "withoutGroups": False
         }
         content = list(self.get_all_objects(db_name, filters))
-        nested_data = {item['id']:item['object_kind'] for item in content if item['folder_id'] == folder_id}
+        nested_data = {item['id']: item['object_kind'] for item in content if item['folder_id'] == folder_id}
         return nested_data
 
     def get_nested_folder_ids_by_folder_id(self, db_name: str, folder_id: str) -> list:
@@ -1617,7 +1615,6 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         '''
         folders = self.get_folders_list(db_name)
         return [fold_id for fold_id, fold_data in folders.items() if fold_data['parent_id'] == folder_id]
-
 
     def move_folder(self, db_name: str, folder_id: str, dst_folder_id: str):
         '''
@@ -1678,10 +1675,11 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
         url = "https://{hostname}:{port}{endpoint}/{item_type}/{item_id}".format(hostname=self.__kb_hostname,
-                                                                    port=self.__kb_port,
-                                                                    endpoint=self.__api_siem,
-                                                                    item_type=KnowledgeBase.ITEM_TYPE_MAP.get(item_type),
-                                                                    item_id=item_id)
+                                                                                 port=self.__kb_port,
+                                                                                 endpoint=self.__api_siem,
+                                                                                 item_type=KnowledgeBase.ITEM_TYPE_MAP.get(
+                                                                                     item_type),
+                                                                                 item_id=item_id)
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1698,8 +1696,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         return r.json()
 
-
-    def move_content_item(self, db_name: str, item_id: str, item_type: str,  dst_folder_id: str):
+    def move_content_item(self, db_name: str, item_id: str, item_type: str, dst_folder_id: str):
         '''
         Переместить элемент контента в другую папку
 
@@ -1722,16 +1719,16 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         if item_type == 'TabularList':
             put_content.update({
-            'userCanEditContent': item_data.get('UserCanEditContent'),
-            'fields': [{
-                "id": d['Id'],
-                "name": d['Name'],
-                "typeId": d['TypeId'],
-                "isPrimaryKey": d['IsPrimaryKey'],
-                "isIndex": d['IsIndex'],
-                "isNullable": d['IsNullable'],
-                "mapping": d['Mapping']
-            } for d in item_data.get('Fields')],
+                'userCanEditContent': item_data.get('UserCanEditContent'),
+                'fields': [{
+                    "id": d['Id'],
+                    "name": d['Name'],
+                    "typeId": d['TypeId'],
+                    "isPrimaryKey": d['IsPrimaryKey'],
+                    "isIndex": d['IsIndex'],
+                    "isNullable": d['IsNullable'],
+                    "mapping": d['Mapping']
+                } for d in item_data.get('Fields')],
             })
         else:
             put_content.update({
@@ -1757,11 +1754,12 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         if r.status_code == 200:
             self.log.info('status=success, action=move_conten_item, msg={} {} moved to {}", '
-                          'hostname="{}", db="{}"'.format(item_type, item_name, dst_folder_path, self.__kb_hostname, db_name))
+                          'hostname="{}", db="{}"'.format(item_type, item_name, dst_folder_path, self.__kb_hostname,
+                                                          db_name))
         else:
             self.log.error('status=failed, action=move_conten_item, msg="Failed to move {} {} to {}", '
-                           'hostname="{}", db="{}"'.format(item_type, item_name, dst_folder_path, self.__kb_hostname, db_name))
-
+                           'hostname="{}", db="{}"'.format(item_type, item_name, dst_folder_path, self.__kb_hostname,
+                                                           db_name))
 
     def delete_content_item(self, db_name: str, item_id: str, item_type: str):
         """
@@ -1783,10 +1781,11 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
         url = "https://{hostname}:{port}{endpoint}/{item_type}/{item_id}".format(hostname=self.__kb_hostname,
-                                                                    port=self.__kb_port,
-                                                                    endpoint=self.__api_siem,
-                                                                    item_type=KnowledgeBase.ITEM_TYPE_MAP.get(item_type),
-                                                                    item_id=item_id)
+                                                                                 port=self.__kb_port,
+                                                                                 endpoint=self.__api_siem,
+                                                                                 item_type=KnowledgeBase.ITEM_TYPE_MAP.get(
+                                                                                     item_type),
+                                                                                 item_id=item_id)
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1846,7 +1845,6 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             content_items.extend(content_objects)
 
         return content_items
-
 
     def close(self):
         if self.__kb_session is not None:
