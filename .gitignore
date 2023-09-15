@@ -10,3 +10,4 @@ __pycache__
 /*.egg-info/
 /tests/tests_results/
 /sphinx/_build/
+/dist/

@@ -82,7 +82,8 @@ class TablesTestCase(unittest.TestCase):
         self.__module.truncate_table("test_tl_2_r251")
 
         import io
-        example = '''"_last_changed";"cust";"user";"session_stat"\r\n"25.11.2020 19:35:20";"customer1";"user1";"2020-11-22 00:00:00"'''
+        example = '''"_last_changed";"cust";"user";"session_stat"\r\n"25.11.2020 
+        19:35:20";"customer1";"user1";"2020-11-22 00:00:00"'''
 
         self.__module.set_table_data("test_tl_2_r251", io.StringIO(example))
 
@@ -94,7 +95,8 @@ class TablesTestCase(unittest.TestCase):
     def test_set_table_data_r25_1(self):
         self.__module.truncate_table("test_tl_2_r251")
 
-        example = '"_last_changed";"cust";"user";"session_stat"\r\n"07.02.2023 10:08:17";"customer1";"user1";"07.02.2023 10:08:07"'
+        example = ('"_last_changed";"cust";"user";"session_stat"\r\n"07.02.2023 '
+                   '10:08:17";"customer1";"user1";"07.02.2023 10:08:07"')
 
         self.__module.set_table_data("test_tl_2_r251", example)
 
@@ -103,7 +105,7 @@ class TablesTestCase(unittest.TestCase):
             ret.append(i)
         self.assertTrue((len(ret) != 0) and ("_id" in ret[0]))
 
-    @unittest.skip("Dangerous")
+    # @unittest.skip("Dangerous")
     def test_truncate(self):
         self.assertTrue(self.__module.truncate_table("test_tl_2_r251"))
 

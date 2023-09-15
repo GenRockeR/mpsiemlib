@@ -65,18 +65,18 @@ if __name__ == '__main__':
 
     scope = module.get_scope_id_by_name(args.scope)
     if scope is None:
-        log.error('No scope id for scope name "{}"'.format(args.scope))
+        log.error(f'No scope id for scope name "{args.scope}"')
         raise SystemExit()
 
     group = module.get_group_id_by_name(args.group)
     if group is None:
-        log.error('No group id for group name "{}"'.format(args.group))
+        log.error(f'No group id for group name "{args.group}"')
         raise SystemExit()
 
     with open(args.filename, 'rb') as content:
         status, count, logfile = module.import_assets_from_csv(content=content, scope_id=scope, group_id=group)
         if args.showerrors:
-            log.info("rows with errors for source file:")
+            log.info('rows with errors for source file:')
             print(logfile)
 
     module.close()

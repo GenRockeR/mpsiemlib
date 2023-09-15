@@ -11,6 +11,7 @@ from .Filters import Filters
 from .Tasks import Tasks
 from .SourceMonitor import SourceMonitor
 from .Macros import Macros
+from .Сonveyor import Conveyor
 
 
 class MPSIEMWorker(WorkerInterface, LoggingHandler):
@@ -54,3 +55,5 @@ class MPSIEMWorker(WorkerInterface, LoggingHandler):
             return SourceMonitor(auth, self.settings)
         if self.__module_name == ModuleNames.MACROS:
             return Macros(auth, self.settings)
+        if self.__module_name == ModuleNames.CONVEYOR:
+            return Conveyor(auth, self.settings)

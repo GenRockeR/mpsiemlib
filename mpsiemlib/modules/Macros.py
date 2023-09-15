@@ -1,3 +1,6 @@
+import re
+from operator import add
+
 from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, MPComponents, Settings
 from mpsiemlib.common import exec_request
 
@@ -63,7 +66,7 @@ class Macros(ModuleInterface, LoggingHandler):
 
         return self.__macros
 
-    def get_macros_info(self, macro_id: str):
+    def get_macros_info(self, macro_id: str) -> dict:
         """
         Получение информации о фильтре по id макроса
         """
@@ -75,4 +78,68 @@ class Macros(ModuleInterface, LoggingHandler):
         response = exec_request(self.__kb_session,
                                 url,
                                 method='GET', headers=headers).json()
-        return response
+
+        self.__filters[response.get('Name')] = (''.join(response.get('Text').replace('\n', '').replace('\'', ''))
+                                                .replace('\t', ' ')).strip()
+
+        return self.__filters
+
+    def get_macro_by_id(self, macro_id):
+        """
+        Получение макроса по id
+        """
+        raise NotImplementedError("Get macro by id not implemented")
+
+    def get_macro_by_name(self, macro_name):
+        """
+        Получение макроса по имени
+        """
+        for macro in self.get_macros_list():
+            if macro.get('name') == macro_name:
+                return macro
+        return []
+
+    def get_macro_by_filter_name(self, macro_name):
+        """
+        Получение макроса по имени фильтра
+        """
+        raise NotImplementedError("Get macro by filter name not implemented")
+
+    def get_macro_by_object_id(self, object_id):
+        """
+        Получение макроса по имени
+        """
+        for macro in self.get_macros_list():
+            if macro.get('object_id') == object_id:
+                return macro
+        return []
+
+    def get_macro_id_by_filter_name(self, filter_name):
+        url = f'https://{self.__core_hostname}:{self.__kb_port}{self.__api_macros_list}'
+        params = dict(tagId=None, sort=[
+            dict(name='objectId', order=0, type=0)
+        ], filters=None, search=filter_name, skip=0, take=5)
+
+        headers = {'Content-Database': self.__db_name,
+                   'Content-Locale': 'RUS'}
+
+        macros = exec_request(self.__kb_session,
+                              url,
+                              method='POST',
+                              timeout=self.settings.connection_timeout,
+                              json=params,
+                              headers=headers).json()
+
+        for macro in macros.get('Rows'):
+            return macro.get('ObjectId')
+
+    def unpack_macro(self):
+        """
+        Раскрытие внутренних макросов внутри основного макроса
+        """
+        global_macro = self.get_macro_by_object_id(object_id='LOC-RF-34')
+        macro_filter = self.get_macros_info(macro_id=global_macro.get('id'))
+
+        filter_list = re.findall(r'filter::(\S+)\(\)', str(macro_filter))
+
+        return filter_list

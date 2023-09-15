@@ -52,7 +52,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         """
         Подключение к выбранным компонентам
 
-        :param component: компонент для подключения Interfaces.MPComponents
+        :param component: Компонент для подключения Interfaces.MPComponents
         :param creds: креды для подключения Interfaces.Creds
         :return: session или None
         """
@@ -71,7 +71,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         elif component == MPComponents.KB:
             self.__kb_try_connect()
         else:
-            raise NotImplementedError(f"Unsupported component for Auth {component}")
+            raise NotImplementedError(f'Unsupported component for Auth {component}')
 
         return self.__session
 
@@ -128,9 +128,8 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
             raise Exception('hostname="{}", status=failed, action=auth, '
                             'msg="Core hostname or login or pass is empty"'.format(self.creds.core_hostname))
 
-        login_url = 'https://{}:{}{}'.format(self.creds.core_hostname,
-                                             self.__ms_port,
-                                             self.__api_core_auth_login_page)
+        login_url = f'https://{self.creds.core_hostname}:{self.__ms_port}{self.__api_core_auth_login_page}'
+
         auth_params = {
             'authType': self.creds.core_auth_type,
             'username': self.creds.core_login,
@@ -138,7 +137,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
             'newPassword': None
         }
         try:
-            pre_auth_url = 'https://{}{}'.format(self.creds.core_hostname, self.__api_core_auth_form_page)
+            pre_auth_url = f'https://{self.creds.core_hostname}{self.__api_core_auth_form_page}'
 
             # Нужно для иерархий
             self.log.debug('hostname="{}", url={}, status=prepare, action=auth, '
@@ -149,9 +148,8 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
             main_ms = urlparse(r.url)
             self.log.debug('hostname="{}", url="{}", status=prepare, action=auth, msg="Auth. Phase 1. Response.", '
                            'url_main_ms="{}"'.format(main_ms.hostname, pre_auth_url, main_ms))
-            login_url = 'https://{}:{}{}'.format(main_ms.hostname,
-                                                 self.__ms_port,
-                                                 self.__api_core_auth_login_page)
+
+            login_url = f'https://{main_ms.hostname}:{self.__ms_port}{self.__api_core_auth_login_page}'
 
             self.log.debug('hostname="{}", url="{}", status=prepare, action=auth, msg="Auth. Phase 2. Send creds."'.
                            format(main_ms.hostname, login_url))
@@ -169,7 +167,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
                                format(self.creds.core_hostname, login_url))
                 raise Exception('SIEM respond: access_denied')
 
-            auth_url = 'https://{}{}'.format(self.creds.core_hostname, self.__api_core_auth_form_page)
+            auth_url = f'https://{self.creds.core_hostname}{self.__api_core_auth_form_page}'
 
             self.log.debug('hostname="{}", url={}, status=prepare, action=auth, '
                            'msg="Auth. Phase 3. Get auth form"'.
@@ -190,7 +188,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
             # Пробуем узнать версию Core
             self.log.debug('hostname="{}", status=prepare, action=check_core_version, '
                            'msg="Try to check Core version"'.format(self.creds.core_hostname))
-            core_version_url = "https://{}{}".format(self.creds.core_hostname, self.__api_core_check_page)
+            core_version_url = f"https://{self.creds.core_hostname}{self.__api_core_check_page}"
 
             r = exec_request(self.__session, core_version_url, method='GET', timeout=self.settings.connection_timeout)
             r.raise_for_status()
@@ -229,9 +227,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         if self.creds.storage_hostname is None:
             raise Exception('hostname="{}", status=failed, action=auth, '
                             'msg="SIEM hostname is empty"'.format(self.creds.storage_hostname))
-        start_url = 'http://{}:{}{}'.format(self.creds.storage_hostname,
-                                            self.__storage_port,
-                                            self.__api_storage_check_page)
+        start_url = f'http://{self.creds.storage_hostname}:{self.__storage_port}{self.__api_storage_check_page}'
         try:
             r = exec_request(self.__session, start_url, timeout=self.settings.connection_timeout, method='GET')
             r.raise_for_status()
@@ -252,7 +248,9 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
                                    'msg="Version not found"'.format(self.creds.storage_hostname))
                     raise Exception('Version not found')
 
-                if v.get('version').startswith('7.'):
+                if v.get('version').startswith('7.17'):
+                    self.__storage_version = StorageVersion.ES7_17
+                elif v.get('version').startswith('7.'):
                     self.__storage_version = StorageVersion.ES7
                 else:
                     self.log.error('hostname="{}", status=failed, action=check_storage_version, '
@@ -279,9 +277,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         self.__core_try_connect()
 
         try:
-            login_url = "https://{}:{}{}".format(self.creds.core_hostname,
-                                                 self.__kb_port,
-                                                 self.__api_kb_auth_login_page)
+            login_url = f"https://{self.creds.core_hostname}:{self.__kb_port}{self.__api_kb_auth_login_page}"
 
             # Получаем форму с токенами, т.к. мы уже аутентифицированы
             self.log.debug('hostname="{}", status=prepare, action=auth, '
@@ -291,14 +287,12 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
 
             m = re.findall("name='([^']+)' value='([^']+)'", r.text)
             if m is None:
-                raise Exception("Can not get form with tokens")
+                raise Exception('Can not get form with tokens')
             params = {}
             for i in m:
                 params[i[0]] = i[1]
 
-            auth_url = "https://{}:{}{}".format(self.creds.core_hostname,
-                                                self.__ms_port,
-                                                self.__api_ms_authorize)
+            auth_url = f"https://{self.creds.core_hostname}:{self.__ms_port}{self.__api_ms_authorize}"
 
             # Отправляем токены в MS, чтобы получить правильные куки
             self.log.debug('hostname="{}", status=prepare, action=auth, '
@@ -306,13 +300,11 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
 
             r = exec_request(self.__session,
                              auth_url,
-                             method="GET",
+                             method='GET',
                              timeout=self.settings.connection_timeout,
                              params=params)
 
-            sign_url = "https://{}:{}{}".format(self.creds.core_hostname,
-                                                self.__kb_port,
-                                                self.__api_kb_signin)
+            sign_url = f"https://{self.creds.core_hostname}:{self.__kb_port}{self.__api_kb_signin}"
 
             # Логинимся в KB с правильными куками
             self.log.debug('hostname="{}", status=prepare, action=auth, '
@@ -320,14 +312,12 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
 
             r = exec_request(self.__session,
                              sign_url,
-                             method="POST",
+                             method='POST',
                              timeout=self.settings.connection_timeout,
                              data=params)
 
             # невозможно узнать версию KB, не указав существующую базу
-            kb_dbs_url = "https://{}:{}{}".format(self.creds.core_hostname,
-                                                  self.__kb_port,
-                                                  self.__api_kb_db_list)
+            kb_dbs_url = f"https://{self.creds.core_hostname}:{self.__kb_port}{self.__api_kb_db_list}"
             r = exec_request(self.__session,
                              kb_dbs_url,
                              method='GET',
@@ -338,9 +328,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
 
             headers = {'Content-Database': db_names[0].get('Name'),  # берем первую попавшуюся БД
                        'Content-Locale': 'RUS'}
-            kb_version_url = "https://{}:{}{}".format(self.creds.core_hostname,
-                                                      self.__kb_port,
-                                                      self.__api_kb_check_page)
+            kb_version_url = f"https://{self.creds.core_hostname}:{self.__kb_port}{self.__api_kb_check_page}"
 
             r = exec_request(self.__session,
                              kb_version_url,
@@ -365,4 +353,4 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         self.__is_connected = True
         self.log.info('hostname="{}", status=success, action=check_kb_version, '
                       'version="{}"'.format(self.creds.core_hostname, self.__kb_version))
-        self.log.info('hostname="{}", status=success, action=auth'.format(self.creds.core_hostname))
+        self.log.info(f'hostname="{self.creds.core_hostname}", status=success, action=auth')
