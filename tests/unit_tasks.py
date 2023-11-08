@@ -6,7 +6,7 @@ from mpsiemlib.modules import MPSIEMWorker
 from tests.settings import creds, settings
 
 
-class KBTestCase(unittest.TestCase):
+class TasksTestCase(unittest.TestCase):
     __mpsiemworker = None
     __module = None
     __creds_ldap = creds

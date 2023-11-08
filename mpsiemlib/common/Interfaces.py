@@ -6,8 +6,8 @@ from mpsiemlib.common import MPSIEMAuth
 class Settings:
     connection_timeout = 60
     connection_timeout_x = 6  # Коэффициент увеличения timeout при генерации отчета.
-    storage_events_timezone = "UTC"  # в ES все события приведены к UTC
-    local_timezone = "Europe/Moscow"  # в какой временной зоне работает MP
+    storage_events_timezone = 'UTC'  # в ES все события приведены к UTC
+    local_timezone = 'Europe/Moscow'  # в какой временной зоне работает MP
     storage_bucket_size = 33000  # размер бакета агрегации в Elastic (по умолчанию в конфиге 50000)
     storage_batch_size = 10000  # размер выгружаемой пачки событий без агрегации
     tables_batch_size = 1000  # размер выгружаемой пачки записей из табличек
@@ -23,24 +23,27 @@ class AuthType:
 
 
 class ModuleNames:
-    AUTH = "auth"
-    EVENTS = "events"
-    EVENTSAPI = "eventsapi"
-    ASSETS = "assets"
-    TABLES = "tables"
-    FILTERS = "filters"
-    TASKS = "tasks"
-    HEALTH = "health"
-    URM = "users_and_roles"
-    KB = "knowledge_base"
-    INCIDENTS = "incidents"
-    SOURCE_MONITOR = "source_monitor"
+    AUTH = 'auth'
+    EVENTS = 'events'
+    EVENTSAPI = 'eventsapi'
+    ASSETS = 'assets'
+    TABLES = 'tables'
+    FILTERS = 'filters'
+    TASKS = 'tasks'
+    HEALTH = 'health'
+    URM = 'users_and_roles'
+    KB = 'knowledge_base'
+    INCIDENTS = 'incidents'
+    SOURCE_MONITOR = 'source_monitor'
+    MACROS = 'macros'
+    CONVEYOR = 'conveyor'
 
     @staticmethod
     def get_modules_list():
         return [ModuleNames.AUTH, ModuleNames.ASSETS, ModuleNames.EVENTS, ModuleNames.EVENTSAPI, ModuleNames.TABLES,
                 ModuleNames.FILTERS, ModuleNames.TASKS, ModuleNames.HEALTH,
-                ModuleNames.URM, ModuleNames.KB, ModuleNames.INCIDENTS, ModuleNames.SOURCE_MONITOR]
+                ModuleNames.URM, ModuleNames.KB, ModuleNames.INCIDENTS, ModuleNames.SOURCE_MONITOR, ModuleNames.MACROS,
+                ModuleNames.CONVEYOR]
 
 
 class MPComponents:
@@ -48,25 +51,26 @@ class MPComponents:
     Именование компонент. Должны совпадать с названиями в IAM
     """
 
-    CORE = "mpx"
-    SIEM = "siem"
-    STORAGE = "storage"
-    MS = "idmgr"
-    KB = "ptkb"
+    CORE = 'mpx'
+    SIEM = 'siem'
+    STORAGE = 'storage'
+    MS = 'idmgr'
+    KB = 'ptkb'
 
 
 class MPContentTypes:
-    NORMALIZATION = "Normalization"
-    AGGREGATION = "Aggregation"
-    ENRICHMENT = "Enrichment"
-    CORRELATION = "Correlation"
-    TABLE = "TabularList"
+    NORMALIZATION = 'Normalization'
+    AGGREGATION = 'Aggregation'
+    ENRICHMENT = 'Enrichment'
+    CORRELATION = 'Correlation'
+    TABLE = 'TabularList'
 
 
 class StorageVersion:
-    ES7 = "7"
-    ES17 = "1.7"
-    ALL = "ALL"
+    ES7_17 = '7.17'
+    ES7 = '7'
+    ES17 = '1.7'
+    ALL = 'ALL'
     LS = '1'
 
 

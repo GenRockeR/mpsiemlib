@@ -188,7 +188,7 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
 
         response = exec_request(self.__ms_session,
                                 url,
-                                method="POST",
+                                method='POST',
                                 timeout=self.settings.connection_timeout,
                                 headers=self.__headers,
                                 json=params).json()
@@ -267,7 +267,7 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
 
         response = exec_request(self.__ms_session,
                                 url,
-                                method="POST",
+                                method='POST',
                                 timeout=self.settings.connection_timeout,
                                 headers=self.__headers,
                                 json=params)
@@ -301,7 +301,7 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
 
         response = exec_request(self.__ms_session,
                                 url,
-                                method="POST",
+                                method='POST',
                                 timeout=self.settings.connection_timeout,
                                 headers=self.__headers,
                                 json=params)
@@ -343,7 +343,7 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
                                    f'hostname="{self.__ms_hostname}"')
                     return
 
-        params = [{"userId": self.__users.get(user_name).get("id"), "rolesIds": self.__role_id}]
+        params = [{'userId': self.__users.get(user_name).get("id"), 'rolesIds': self.__role_id}]
 
         url = f'https://{self.__ms_hostname}:{self.__ms_port}{self.__api_users_roles}'
 

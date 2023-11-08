@@ -36,6 +36,7 @@ class KBTestCase(unittest.TestCase):
         ret = self.__module.get_health_agents_status()
         self.assertTrue(len(ret) != 0)
 
+    @unittest.skip('Not implemented')
     def test_get_kb_status(self):
         ret = self.__module.get_health_kb_status()
         self.assertTrue(len(ret) != 0)

@@ -16,7 +16,7 @@ class Events(ModuleInterface, LoggingHandler):
     """
 
     __storage_port = 9200
-    
+
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
@@ -34,7 +34,7 @@ class Events(ModuleInterface, LoggingHandler):
 
         self.log.debug('status=success, action=prepare, msg="Events Module init"')
 
-    def get_events_groupby(self, filters: dict, begin: int, end: int) -> Iterator[dict]:
+    def get_events_group_by(self, filters: dict, begin: int, end: int) -> Iterator[dict]:
         """
         Отфильтровать события и сгруппировать за выбранный интервал по указанным полям
 
@@ -50,7 +50,7 @@ class Events(ModuleInterface, LoggingHandler):
                                                                                 end))
         fields = filters.get('fields')
         if filters is None or fields is None:
-            raise Exception('Unsupported filters format "{}"'.format(filters))
+            raise Exception(f'Unsupported filters format "{filters}"')
 
         es_query = self.QueryBuilder.build_agg_query(filters, fields, begin, end)
         self.log.debug('status=prepare, action=build_query, msg="Generate ES query", '
@@ -60,8 +60,10 @@ class Events(ModuleInterface, LoggingHandler):
         timeout_report_gen = self.settings.connection_timeout * self.settings.connection_timeout_x
 
         start_time = get_metrics_start_time()
+
         es_response = self.__storage_session.search(index=indexes,
-                                                    body=es_query,
+                                                    query=es_query.get('query'),
+                                                    aggs=es_query.get('aggs'),
                                                     size=0,
                                                     request_timeout=timeout_report_gen,
                                                     ignore_unavailable=True)
@@ -91,7 +93,8 @@ class Events(ModuleInterface, LoggingHandler):
                                                                                        took_time,
                                                                                        line_counter))
 
-    def get_events(self, filters: dict, begin: int, end: int) -> Iterator[dict]:
+    # def get_events(self, filters: dict, begin: int, end: int) -> Iterator[dict]:
+    def get_events(self, filters: dict, begin: int, end: int):
         """
         Итеративно получить все события по фильтру за указанный временной интервал
 
@@ -111,21 +114,15 @@ class Events(ModuleInterface, LoggingHandler):
                        'hostname="{}" query="{}"'.format(self.__storage_hostname, es_query))
 
         indexes = ','.join(self.__get_indexes_list(begin, end))
+
         timeout_report_gen = self.settings.connection_timeout * self.settings.connection_timeout_x
 
         start_time = get_metrics_start_time()
         try:
-            for hit in helpers.scan(self.__storage_session,
-                                    es_query,
-                                    scroll='{}s'.format(round(self.settings.connection_timeout/2)),
-                                    index=indexes,
-                                    size=self.settings.storage_batch_size,
-                                    raise_on_error=False,
-                                    request_timeout=timeout_report_gen,
-                                    preserve_order=True):
-                if (line_counter % self.settings.storage_batch_size) == 0:
-                    self.log.debug('status=failed, action=get_events, msg="Get rows from storage {}", '
-                                   'hostname="{}",'.format(line_counter, self.__storage_hostname))
+            resp = self.__storage_session.search(index=indexes, query=es_query.get('query'),
+                                                 request_timeout=timeout_report_gen)
+
+            for hit in resp.get('hits').get('hits'):
                 line_counter += 1
                 yield hit
         except NotFoundError as nf_ex:
@@ -159,6 +156,31 @@ class Events(ModuleInterface, LoggingHandler):
             ret[fld_name] = ''
         return ret
 
+    def __get_datastream_list(self, begin: int, end: int) -> list:
+        """
+        Расчет кол-ва дней между двумя timestamp и генерация имен стримов в Storage
+
+        :param begin: Query start time
+        :param end: Query end time
+        :return: список затрагиваемых стримов
+        """
+        ret = []
+
+        begin_date = datetime.fromtimestamp(begin, tz=pytz.timezone(self.settings.storage_events_timezone))
+        end_date = datetime.fromtimestamp(end, tz=pytz.timezone(self.settings.storage_events_timezone))
+
+        streams = self.__storage_session.indices.get_data_stream(name='*')
+        for n in range(int((end_date - begin_date).days) + 1):
+            check_date = (begin_date + timedelta(n)).strftime('%Y.%m.%d')
+            ds_format = f'.ds-siem_events-{check_date}'
+            for ds in streams.get('data_streams'):
+                if ds.get('name') == 'siem_events':
+                    for ds_indices in ds.get('indices'):
+                        if ds_indices.get('index_name').startswith(ds_format):
+                            ret.append(ds_indices.get('index_name'))
+
+        return ret
+
     def __get_indexes_list(self, begin: int, end: int) -> list:
         """
         Расчет кол-ва дней между двумя timestamp и генерация имен индексов в Storage
@@ -167,13 +189,18 @@ class Events(ModuleInterface, LoggingHandler):
         :param end: Query end time
         :return: список затрагиваемых индексов
         """
-        index_prefix = 'ptsiem_events_' if self.__storage_version == StorageVersion.ES17 else 'siem_events_'
+
         begin_date = datetime.fromtimestamp(begin, tz=pytz.timezone(self.settings.storage_events_timezone))
         end_date = datetime.fromtimestamp(end, tz=pytz.timezone(self.settings.storage_events_timezone))
-        ret = []
-        for n in range(int((end_date - begin_date).days) + 1):
-            ret.append(index_prefix + (begin_date + timedelta(n)).strftime('%Y-%m-%d'))
-        return ret
+
+        if self.__storage_version == StorageVersion.ES7_17:
+            return self.__get_datastream_list(begin=begin, end=end)
+        else:
+            index_prefix = 'ptsiem_events_' if self.__storage_version == StorageVersion.ES17 else 'siem_events_'
+            ret = []
+            for n in range(int((end_date - begin_date).days) + 2):
+                ret.append(index_prefix + (begin_date + timedelta(n)).strftime('%Y-%m-%d'))
+            return ret
 
     def __convert_aggregation_response(self, aggs: dict) -> list:
         """
@@ -194,17 +221,17 @@ class Events(ModuleInterface, LoggingHandler):
                             key = j
                         if i == 'doc_count':
                             cnt = j
-                        # рекурсивный обход, т.к. может быть группировка по нескольким полям,
+                        # Рекурсивный обход, т.к. может быть группировка по нескольким полям,
                         # а это вложенная агрегация в ES
                         if isinstance(j, dict):
                             sub += self.__convert_aggregation_response({i: j})
                     if len(sub) == 0:
-                        ret.append({k: key, "count": cnt})
+                        ret.append({k: key, 'count': cnt})
                     for h in sub:
                         if h.get('count') is not None:
                             h.update({k: key})
                         else:
-                            h.update({k: key, "count": cnt})
+                            h.update({k: key, 'count': cnt})
                     ret += sub
         return ret
 
@@ -294,10 +321,16 @@ class ElasticQueryBuilder(LoggingHandler):
         query = {}
         if self.__es_current_version == StorageVersion.ES17:
             raise NotImplementedError()
-        if self.__es_current_version == StorageVersion.ES7:
+        elif self.__es_current_version == StorageVersion.ES7_17:
             query = {
-                "query": {
-                    "bool": filter_expression
+                'query': {
+                    'bool': filter_expression
+                }
+            }
+        elif self.__es_current_version == StorageVersion.ES7:
+            query = {
+                'query': {
+                    'bool': filter_expression
                 }
             }
 
@@ -318,14 +351,21 @@ class ElasticQueryBuilder(LoggingHandler):
         query = {}
         if self.__es_current_version == StorageVersion.ES17:
             raise NotImplementedError()
-
-        if self.__es_current_version == StorageVersion.ES7:
+        elif self.__es_current_version == StorageVersion.ES7_17:
             query = {
-                "query": {
-                    "bool": filter_expression
+                'query': {
+                    'bool': filter_expression
                 },
-                "aggs": agg_expression['aggs'],
-                "size": 0
+                'aggs': agg_expression['aggs'],
+                'size': 0
+            }
+        elif self.__es_current_version == StorageVersion.ES7:
+            query = {
+                'query': {
+                    'bool': filter_expression
+                },
+                'aggs': agg_expression['aggs'],
+                'size': 0
             }
 
         return query
@@ -343,8 +383,9 @@ class ElasticQueryBuilder(LoggingHandler):
         es_datetime_begin = datetime.fromtimestamp(begin, tz=pytz.timezone(self.__timezone)).strftime(es_time_format)
         es_datetime_end = datetime.fromtimestamp(end, tz=pytz.timezone(self.__timezone)).strftime(es_time_format)
 
-        must_alias = 'filter' if self.__es_current_version == StorageVersion.ES7 else 'must'
-        filter_dict = {must_alias: [{'range': {'time': {'gte': es_datetime_begin, "lte": es_datetime_end}}}]}
+        must_alias = 'filter' if (self.__es_current_version == StorageVersion.ES7 or
+                                  self.__es_current_version == StorageVersion.ES7_17) else 'must'
+        filter_dict = {must_alias: [{'range': {'time': {'gte': es_datetime_begin, 'lte': es_datetime_end}}}]}
 
         # разбираем секцию es_filter
         es_filter = filters.get('es_filter')
@@ -358,7 +399,7 @@ class ElasticQueryBuilder(LoggingHandler):
         if es_filter_not is not None and len(es_filter_not) != 0:
             filter_dict['must_not'] = []
             for flt in es_filter_not:
-                if not self.__make_atomic_filter(filter_dict, flt, "must_not"):
+                if not self.__make_atomic_filter(filter_dict, flt, 'must_not'):
                     continue
 
         return filter_dict
@@ -401,7 +442,7 @@ class ElasticQueryBuilder(LoggingHandler):
             if current_node.get('aggs') is None:
                 current_node['aggs'] = {}
             if fld_alias not in current_node['aggs']:
-                current_node['aggs'][fld_alias] = {"terms": {"field": fld_name, "size": self.__es_bucket_size}}
+                current_node['aggs'][fld_alias] = {'terms': {'field': fld_name, 'size': self.__es_bucket_size}}
             current_node = current_node['aggs'][fld_alias]
 
         return agg_dict

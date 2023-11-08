@@ -9,14 +9,14 @@ class Tables(ModuleInterface, LoggingHandler):
     """
     Tables module
     """
-    __table_add_time_format = "%d.%m.%Y %H:%M:%S"
+    __table_add_time_format = '%d.%m.%Y %H:%M:%S'
 
-    __api_table_info = "/api/events/v2/table_lists/{}"
-    __api_table_search = "/api/events/v2/table_lists/{}/content/search"
-    __api_table_truncate = "/api/events/v2/table_lists/{}/content"
-    __api_table_list = "/api/events/v2/table_lists"
-    __api_table_import = "/api/events/v1/table_lists/{}/import"
-    __api_table_add_row = "/api/events/v2/table_lists/{}/content"
+    __api_table_info = '/api/events/v2/table_lists/{}'
+    __api_table_search = '/api/events/v2/table_lists/{}/content/search'
+    __api_table_truncate = '/api/events/v2/table_lists/{}/content'
+    __api_table_list = '/api/events/v2/table_lists'
+    __api_table_import = '/api/events/v1/table_lists/{}/import'
+    __api_table_add_row = '/api/events/v2/table_lists/{}/content'
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
@@ -25,6 +25,7 @@ class Tables(ModuleInterface, LoggingHandler):
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
         self.__tables_cache = {}
+        # self.conveyor =
         self.log.debug('status=success, action=prepare, msg="Table Module init"')
 
     def get_tables_list(self) -> dict:
@@ -36,16 +37,16 @@ class Tables(ModuleInterface, LoggingHandler):
         self.log.debug('status=prepare, action=get_tables_list, msg="Try to get table list", '
                        'hostname="{}"'.format(self.__core_hostname))
 
-        url = f"https://{self.__core_hostname}{self.__api_table_list}"
-        rq = exec_request(self.__core_session, url, method="GET", timeout=self.settings.connection_timeout)
+        url = f'https://{self.__core_hostname}{self.__api_table_list}'
+        rq = exec_request(self.__core_session, url, method='GET', timeout=self.settings.connection_timeout)
         self.__tables_cache.clear()
         response = rq.json()
         for i in response:
-            self.__tables_cache[i["name"]] = {"id": i.get("token"),
-                                              "type": i.get("fillType").lower(),
-                                              "editable": i.get("editable"),
-                                              "ttl_enabled": i.get("ttlEnabled"),
-                                              "notifications": i.get("notifications")}
+            self.__tables_cache[i['name']] = {'id': i.get('token'),
+                                              'type': i.get('fillType').lower(),
+                                              'editable': i.get('editable'),
+                                              'ttl_enabled': i.get('ttlEnabled'),
+                                              'notifications': i.get('notifications')}
 
         self.log.info('status=success, action=get_table_list, msg="Found {} tables", '
                       'hostname="{}"'.format(len(self.__tables_cache), self.__core_hostname))
@@ -68,15 +69,15 @@ class Tables(ModuleInterface, LoggingHandler):
         :return: Итератор по строкам таблицы
         """
         api_url = self.__api_table_search.format(self.get_table_id_by_name(table_name))
-        url = f"https://{self.__core_hostname}{api_url}"
-        params = {"filter": {"where": "",
-                             "orderBy": [{"field": "_last_changed",
-                                          "sortOrder": "descending"}],
-                             "timeZone": 0}
+        url = f'https://{self.__core_hostname}{api_url}'
+        params = {'filter': {'where': '',
+                             'orderBy': [{'field': '_last_changed',
+                                          'sortOrder': 'descending'}],
+                             'timeZone': 0}
                   }
 
         if filters is not None:
-            params["filter"] = filters
+            params['filter'] = filters
 
         # Пачками выгружаем содержимое таблички
         is_end = False
@@ -101,22 +102,21 @@ class Tables(ModuleInterface, LoggingHandler):
                                                                                            line_counter))
 
     def __iterate_table(self, url, params, offset, limit):
-        params["offset"] = offset
-        params["limit"] = limit
+        params['offset'] = offset
+        params['limit'] = limit
         rq = exec_request(self.__core_session,
                           url,
-                          method="POST",
+                          method='POST',
                           timeout=self.settings.connection_timeout,
                           json=params)
         response = rq.json()
-        if response is None or "items" not in response:
+        if response is None or 'items' not in response:
             self.log.error('status=failed, action=table_iterate, msg="Table data request return None or '
                            'has wrong response structure", '
                            'hostname="{}"'.format(self.__core_hostname))
-            raise Exception("Table data request return None or has wrong response structure")
+            raise Exception('Table data request return None or has wrong response structure')
 
-        return response.get("items")
-
+        return response.get('items')
 
     def set_table_data(self, table_name: str, data: bytes) -> None:
         """
@@ -136,18 +136,18 @@ class Tables(ModuleInterface, LoggingHandler):
 
         api_url = self.__api_table_import.format(table_name)
 
-        url = f"https://{self.__core_hostname}{api_url}"
+        url = f'https://{self.__core_hostname}{api_url}'
         if int(self.__core_version.split('.')[0]) < 25:
             headers = {'Content-Type': 'application/x-www-form-urlencoded'}
         else:
             headers = {'Content-Type': 'text/csv; charset=utf-8'}
 
         rq = exec_request(self.__core_session,
-                              url,
-                              method="POST",
-                              timeout=self.settings.connection_timeout,
-                              data=data,
-                              headers=headers)
+                          url,
+                          method='POST',
+                          timeout=self.settings.connection_timeout,
+                          data=data,
+                          headers=headers)
         response = rq.json()
 
         total_records = response.get('recordsNum')
@@ -162,7 +162,7 @@ class Tables(ModuleInterface, LoggingHandler):
                                                                                              imported_records,
                                                                                              bad_records,
                                                                                              skipped_records))
-            raise Exception("Importing data to table {} ends with error".format(table_name))
+            raise Exception(f'Importing data to table {table_name} ends with error')
 
         if bad_records != 0 or skipped_records != 0:
             self.log.error('status=warning, action=set_table_data, msg="Some data not imported to table {}", '
@@ -174,7 +174,6 @@ class Tables(ModuleInterface, LoggingHandler):
                                                                                              skipped_records))
         self.log.info('status=success, action=set_table_data, msg="Data imported to table {}", '
                       'hostname="{}", lines={}'.format(table_name, self.__core_hostname, imported_records))
-
 
     def get_table_info(self, table_name) -> dict:
         """
@@ -188,19 +187,19 @@ class Tables(ModuleInterface, LoggingHandler):
 
         table_id = self.get_table_id_by_name(table_name)
         api_url = self.__api_table_info.format(table_id)
-        url = "https://{}{}".format(self.__core_hostname, api_url)
-        rq = exec_request(self.__core_session, url, method="GET", timeout=self.settings.connection_timeout)
+        url = f'https://{self.__core_hostname}{api_url}'
+        rq = exec_request(self.__core_session, url, method='GET', timeout=self.settings.connection_timeout)
         response = dict(rq.json())
 
         table_info = self.__tables_cache.get(table_name)
-        table_info["size_max"] = response.get("maxSize")
-        table_info["size_typical"] = response.get("typicalSize")
-        table_info["ttl"] = response.get("ttl")
-        table_info["description"] = response.get("description")
-        table_info["created"] = response.get("created")
-        table_info["updated"] = response.get("lastUpdated")
-        table_info["size_current"] = response.get("currentSize")
-        table_info["fields"] = response.get("fields")
+        table_info['size_max'] = response.get('maxSize')
+        table_info['size_typical'] = response.get('typicalSize')
+        table_info['ttl'] = response.get('ttl')
+        table_info['description'] = response.get('description')
+        table_info['created'] = response.get('created')
+        table_info['updated'] = response.get('lastUpdated')
+        table_info['size_current'] = response.get('currentSize')
+        table_info['fields'] = response.get('fields')
 
         self.log.info('status=success, action=get_table_info, msg="Get {} properties for table {}", '
                       'hostname="{}"'.format(len(table_info), table_name, self.__core_hostname))
@@ -218,28 +217,32 @@ class Tables(ModuleInterface, LoggingHandler):
                        'hostname="{}"'.format(table_name, self.__core_hostname))
 
         api_url = self.__api_table_truncate.format(self.get_table_id_by_name(table_name))
-        url = "https://{}{}".format(self.__core_hostname, api_url)
+        url = f'https://{self.__core_hostname}{api_url}'
 
-        rq = exec_request(self.__core_session, url, method="DELETE", timeout=self.settings.connection_timeout)
+        rq = exec_request(self.__core_session, url, method='DELETE', timeout=self.settings.connection_timeout)
         response = rq.json()
+        with open('debug.log', 'w') as debug_log:
+            debug_log.write(str(response))
 
-        if "result" not in response or response.get("result") != "success":
+        if 'result' not in response or response.get('result') != 'success':
             self.log.error('status=failed, action=table_truncate, msg="Table {} have not been truncated", '
                            'hostname="{}"'.format(table_name, self.__core_hostname))
-            raise Exception("Table {} have not been truncated".format(table_name))
+            raise Exception(f'Table {table_name} have not been truncated')
 
         self.log.info('status=success, action=truncate_table, msg="Table {} have been truncated", '
                       'hostname="{}"'.format(table_name, self.__core_hostname))
+        return True
 
     def get_table_id_by_name(self, table_name: str) -> str:
         if len(self.__tables_cache) == 0:
             self.get_tables_list()
         table_id = self.__tables_cache.get(table_name)
         if table_id is None:
-            raise Exception("Table list {} not found in cache".format(table_name))
-        return table_id.get("id")
+            raise Exception(f'Table list {table_name} not found in cache')
+        return table_id.get('id')
 
-    def set_table_row(self, table_name: str, add_rows: Optional[List[dict]] = None, remove_rows: Optional[List[dict]] = None):
+    def set_table_row(self, table_name: str, add_rows: Optional[List[dict]] = None,
+                      remove_rows: Optional[List[dict]] = None):
         """
         Опасная (без остановки правил) работа со строками, установленных в SIEM таблиц.
 
@@ -259,8 +262,8 @@ class Tables(ModuleInterface, LoggingHandler):
         # в API добавление/удаление строк идет без явного маппинга на название полей.
         # маппинг определяется позицией значения в массиве, это неприемлемо
         table_info = self.get_table_info(table_name)
-        if table_info.get("type") not in ["correlationrule", "enrichmentrule"]:
-            raise Exception("Unsupported table type to add/remove row")
+        if table_info.get('type') not in ['correlationrule', 'enrichmentrule']:
+            raise Exception('Unsupported table type to add/remove row')
 
         row_matrix = []  # шаблон для вставки нужного размера, заполненный None
         fields_types = {}
@@ -268,49 +271,49 @@ class Tables(ModuleInterface, LoggingHandler):
         key_fields = set()  # перед вставкой надо убедиться, что присутствуют ключевые поля
         not_nullable_fields = set()  # перед вставкой надо убедиться, что заданы все поля где запрещен null
         counter = 0
-        for i in table_info.get("fields"):  # определяем в каких позициях должны быть атрибуты
-            name = i.get("name")
+        for i in table_info.get('fields'):  # определяем в каких позициях должны быть атрибуты
+            name = i.get('name')
             attrs_position[name] = counter
-            fields_types[name] = i.get("type")
+            fields_types[name] = i.get('type')
 
             row_matrix.append(None)
-            if i.get("primaryKey"):
+            if i.get('primaryKey'):
                 key_fields.add(name)
-            if not i.get("nullable"):
+            if not i.get('nullable'):
                 not_nullable_fields.add(name)
             counter += 1
 
-        params = {"add": None, "remove": None}
+        params = {'add': None, 'remove': None}
         if add_rows is not None:
-            params["add"] = self.__prepare_rows(add_rows,
+            params['add'] = self.__prepare_rows(add_rows,
                                                 row_matrix,
                                                 attrs_position,
                                                 key_fields,
                                                 not_nullable_fields,
                                                 fields_types)
         if remove_rows is not None:
-            params["remove"] = self.__prepare_rows(remove_rows,
+            params['remove'] = self.__prepare_rows(remove_rows,
                                                    row_matrix,
                                                    attrs_position,
                                                    key_fields,
                                                    not_nullable_fields,
                                                    fields_types)
 
-        table_id = table_info.get("id")
+        table_id = table_info.get('id')
         api_url = self.__api_table_add_row.format(table_id)
-        url = "https://{}{}".format(self.__core_hostname, api_url)
+        url = f'https://{self.__core_hostname}{api_url}'
         rq = exec_request(self.__core_session,
-                          url, method="PUT",
+                          url, method='PUT',
                           timeout=self.settings.connection_timeout,
                           json=params)
         response = rq.json()
-        if response.get("result") is None or response.get("result") != "success":
+        if response.get('result') is None or response.get('result') != 'success':
             self.log.error('status=failed, action=set_table_row, '
                            'msg="Got error while manipulate with table {} rows", '
                            'hostname="{}", error="{}"'.format(table_name,
                                                               self.__core_hostname,
-                                                              response.get("results")))
-            raise Exception("Got error while manipulate with table rows")
+                                                              response.get('results')))
+            raise Exception('Got error while manipulate with table rows')
 
         self.log.info('status=success, action=set_table_row, msg="Added {} rows Removed {} rows in table {}", '
                       'hostname="{}"'.format(len(add_rows) if add_rows is not None else 0,
@@ -318,27 +321,28 @@ class Tables(ModuleInterface, LoggingHandler):
                                              table_name,
                                              self.__core_hostname))
 
-    def __prepare_rows(self, rows: List[dict], matrix: list, positions: dict, keys: set, not_nulls: set, fields_types: dict):
+    def __prepare_rows(self, rows: List[dict], matrix: list, positions: dict, keys: set, not_nulls: set,
+                       fields_types: dict):
         ret = list()
         for r in rows:
             tpl = matrix.copy()
 
             if len(keys.intersection(set(r.keys()))) != len(keys):
-                raise Exception("Key fields {} not found in {}".format(keys, r))
+                raise Exception(f'Key fields {keys} not found in {r}')
             if len(not_nulls.intersection(set(r.keys()))) != len(not_nulls):
-                raise Exception("Not nullable fields {} not found in {}".format(not_nulls, r))
+                raise Exception(f'Not nullable fields {not_nulls} not found in {r}')
 
             for k, v in r.items():
                 pos = positions.get(k)
                 if pos is None:
-                    raise Exception("Key {} not found in schema {}".format(k, positions.keys()))
+                    raise Exception(f'Key {k} not found in schema {positions.keys()}')
 
-                # конвертируем типы данных т.к. при построчной вставке есть особенности
+                # Конвертируем типы данных т.к. при построчной вставке есть особенности
                 field_type = fields_types.get(k)
-                converted = None
-                if field_type == "number" and type(v) is not int:
+                # converted = None
+                if field_type == 'number' and type(v) is not int:
                     converted = int(v)
-                elif field_type == "datetime" and type(v) is not int:
+                elif field_type == 'datetime' and type(v) is not int:
                     converted = round(datetime.strptime(v, self.__table_add_time_format).timestamp())
                 else:
                     converted = v
