@@ -16,6 +16,7 @@ class Conveyor(ModuleInterface, LoggingHandler):
         self.__core_hostname = auth.creds.core_hostname
         self.__conveyor = []
         self.log.debug('status=success, action=prepare, msg="Conveyor Module init"')
+        self.__default_conveyor = None
 
     def get_conveyor_list(self) -> list:
         """
@@ -52,3 +53,7 @@ class Conveyor(ModuleInterface, LoggingHandler):
                 return conveyor.get('id')
             else:
                 return ''
+
+    def set_default_conveyor(self):
+        def_conveyor = self.get_primary_conveyor()
+        self.__default_conveyor = def_conveyor

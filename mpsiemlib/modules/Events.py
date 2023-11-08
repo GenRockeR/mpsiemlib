@@ -34,7 +34,7 @@ class Events(ModuleInterface, LoggingHandler):
 
         self.log.debug('status=success, action=prepare, msg="Events Module init"')
 
-    def get_events_groupby(self, filters: dict, begin: int, end: int) -> Iterator[dict]:
+    def get_events_group_by(self, filters: dict, begin: int, end: int) -> Iterator[dict]:
         """
         Отфильтровать события и сгруппировать за выбранный интервал по указанным полям
 
@@ -60,8 +60,10 @@ class Events(ModuleInterface, LoggingHandler):
         timeout_report_gen = self.settings.connection_timeout * self.settings.connection_timeout_x
 
         start_time = get_metrics_start_time()
+
         es_response = self.__storage_session.search(index=indexes,
                                                     query=es_query.get('query'),
+                                                    aggs=es_query.get('aggs'),
                                                     size=0,
                                                     request_timeout=timeout_report_gen,
                                                     ignore_unavailable=True)
@@ -91,7 +93,8 @@ class Events(ModuleInterface, LoggingHandler):
                                                                                        took_time,
                                                                                        line_counter))
 
-    def get_events(self, filters: dict, begin: int, end: int) -> Iterator[dict]:
+    # def get_events(self, filters: dict, begin: int, end: int) -> Iterator[dict]:
+    def get_events(self, filters: dict, begin: int, end: int):
         """
         Итеративно получить все события по фильтру за указанный временной интервал
 
@@ -111,23 +114,15 @@ class Events(ModuleInterface, LoggingHandler):
                        'hostname="{}" query="{}"'.format(self.__storage_hostname, es_query))
 
         indexes = ','.join(self.__get_indexes_list(begin, end))
+
         timeout_report_gen = self.settings.connection_timeout * self.settings.connection_timeout_x
 
         start_time = get_metrics_start_time()
         try:
-            for hit in helpers.scan(self.__storage_session,
-                                    query=es_query.get('query'),
-                                    # scroll='{}s'.format(round(self.settings.connection_timeout / 2)),
-                                    scroll='5m',
-                                    index=indexes,
-                                    size=self.settings.storage_batch_size,
-                                    raise_on_error=False,
-                                    request_timeout=timeout_report_gen,
-                                    preserve_order=True,
-                                    clear_scroll=True):
-                if (line_counter % self.settings.storage_batch_size) == 0:
-                    self.log.debug('status=failed, action=get_events, msg="Get rows from storage {}", '
-                                   'hostname="{}",'.format(line_counter, self.__storage_hostname))
+            resp = self.__storage_session.search(index=indexes, query=es_query.get('query'),
+                                                 request_timeout=timeout_report_gen)
+
+            for hit in resp.get('hits').get('hits'):
                 line_counter += 1
                 yield hit
         except NotFoundError as nf_ex:
@@ -179,8 +174,10 @@ class Events(ModuleInterface, LoggingHandler):
             check_date = (begin_date + timedelta(n)).strftime('%Y.%m.%d')
             ds_format = f'.ds-siem_events-{check_date}'
             for ds in streams.get('data_streams'):
-                if ds.get('indices')[0].get('index_name').startswith(ds_format):
-                    ret.append(ds.get('indices')[0].get('index_name'))
+                if ds.get('name') == 'siem_events':
+                    for ds_indices in ds.get('indices'):
+                        if ds_indices.get('index_name').startswith(ds_format):
+                            ret.append(ds_indices.get('index_name'))
 
         return ret
 
@@ -201,7 +198,7 @@ class Events(ModuleInterface, LoggingHandler):
         else:
             index_prefix = 'ptsiem_events_' if self.__storage_version == StorageVersion.ES17 else 'siem_events_'
             ret = []
-            for n in range(int((end_date - begin_date).days) + 1):
+            for n in range(int((end_date - begin_date).days) + 2):
                 ret.append(index_prefix + (begin_date + timedelta(n)).strftime('%Y-%m-%d'))
             return ret
 
@@ -224,7 +221,7 @@ class Events(ModuleInterface, LoggingHandler):
                             key = j
                         if i == 'doc_count':
                             cnt = j
-                        # рекурсивный обход, т.к. может быть группировка по нескольким полям,
+                        # Рекурсивный обход, т.к. может быть группировка по нескольким полям,
                         # а это вложенная агрегация в ES
                         if isinstance(j, dict):
                             sub += self.__convert_aggregation_response({i: j})
@@ -324,7 +321,13 @@ class ElasticQueryBuilder(LoggingHandler):
         query = {}
         if self.__es_current_version == StorageVersion.ES17:
             raise NotImplementedError()
-        if self.__es_current_version == StorageVersion.ES7:
+        elif self.__es_current_version == StorageVersion.ES7_17:
+            query = {
+                'query': {
+                    'bool': filter_expression
+                }
+            }
+        elif self.__es_current_version == StorageVersion.ES7:
             query = {
                 'query': {
                     'bool': filter_expression
@@ -348,8 +351,15 @@ class ElasticQueryBuilder(LoggingHandler):
         query = {}
         if self.__es_current_version == StorageVersion.ES17:
             raise NotImplementedError()
-
-        if self.__es_current_version == StorageVersion.ES7:
+        elif self.__es_current_version == StorageVersion.ES7_17:
+            query = {
+                'query': {
+                    'bool': filter_expression
+                },
+                'aggs': agg_expression['aggs'],
+                'size': 0
+            }
+        elif self.__es_current_version == StorageVersion.ES7:
             query = {
                 'query': {
                     'bool': filter_expression
@@ -373,7 +383,8 @@ class ElasticQueryBuilder(LoggingHandler):
         es_datetime_begin = datetime.fromtimestamp(begin, tz=pytz.timezone(self.__timezone)).strftime(es_time_format)
         es_datetime_end = datetime.fromtimestamp(end, tz=pytz.timezone(self.__timezone)).strftime(es_time_format)
 
-        must_alias = 'filter' if self.__es_current_version == StorageVersion.ES7 else 'must'
+        must_alias = 'filter' if (self.__es_current_version == StorageVersion.ES7 or
+                                  self.__es_current_version == StorageVersion.ES7_17) else 'must'
         filter_dict = {must_alias: [{'range': {'time': {'gte': es_datetime_begin, 'lte': es_datetime_end}}}]}
 
         # разбираем секцию es_filter

@@ -216,31 +216,22 @@ class Tables(ModuleInterface, LoggingHandler):
         self.log.debug('status=prepare, action=truncate_table, msg="Try to truncate table {}", '
                        'hostname="{}"'.format(table_name, self.__core_hostname))
 
-        if int(self.__core_version.split('.')[0]) >= 26:
-            # conveyor = self.conveyor.get_conveyor_list()
-            #
-            # siem_id = None
-            # if len(conveyor) == 1:
-            #     siem_id = conveyor.get('id')
+        api_url = self.__api_table_truncate.format(self.get_table_id_by_name(table_name))
+        url = f'https://{self.__core_hostname}{api_url}'
 
-            api_url = self.__api_table_truncate.format(self.get_table_id_by_name(table_name))
-            # siem_url = f'siem_id={siem_id}'
-            siem_url = 'siem_id=79cc208f-ddc2-4ed3-bb7a-26921c5795ce'
-            url = 'https://{}{}?{}'.format(self.__core_hostname, api_url, siem_url)
-        else:
-            api_url = self.__api_table_truncate.format(self.get_table_id_by_name(table_name))
-            url = 'https://{}{}'.format(self.__core_hostname, api_url)
-
-        rq = exec_request(self.__core_session, url, method="DELETE", timeout=self.settings.connection_timeout)
+        rq = exec_request(self.__core_session, url, method='DELETE', timeout=self.settings.connection_timeout)
         response = rq.json()
+        with open('debug.log', 'w') as debug_log:
+            debug_log.write(str(response))
 
         if 'result' not in response or response.get('result') != 'success':
             self.log.error('status=failed, action=table_truncate, msg="Table {} have not been truncated", '
                            'hostname="{}"'.format(table_name, self.__core_hostname))
-            raise Exception("Table {} have not been truncated".format(table_name))
+            raise Exception(f'Table {table_name} have not been truncated')
 
         self.log.info('status=success, action=truncate_table, msg="Table {} have been truncated", '
                       'hostname="{}"'.format(table_name, self.__core_hostname))
+        return True
 
     def get_table_id_by_name(self, table_name: str) -> str:
         if len(self.__tables_cache) == 0:

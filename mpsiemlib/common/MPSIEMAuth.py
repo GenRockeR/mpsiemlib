@@ -211,7 +211,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
                       'version="{}"'.format(self.creds.core_hostname, self.__core_version))
         self.log.info('hostname="{}", status=success, action=auth'.format(self.creds.core_hostname))
 
-    def __core_parse_form(self, data):
+    def __core_parse_form(self, data):  # noqa
         return re.search('action=[\'"]([^\'"]*)[\'"]', data).groups()[0], {
             item.groups()[0]: html.unescape(item.groups()[1])
             for item in re.finditer(
@@ -227,7 +227,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         if self.creds.storage_hostname is None:
             raise Exception('hostname="{}", status=failed, action=auth, '
                             'msg="SIEM hostname is empty"'.format(self.creds.storage_hostname))
-        start_url = f'http://{self.creds.storage_hostname}:{self.__storage_port}{self.__api_storage_check_page}'
+        start_url = f'http://{self.creds.storage_hostname}:{self.__storage_port}{self.__api_storage_check_page}'  # noqa
         try:
             r = exec_request(self.__session, start_url, timeout=self.settings.connection_timeout, method='GET')
             r.raise_for_status()

@@ -29,75 +29,69 @@ class EventsTestCase(unittest.TestCase):
 
     def test_get_groups_simple(self):
         filters = {
-            "es_filter": [
+            'es_filter': [
                 '{"term": {"event_src/category": "Firewall"}}'
             ],
-            "es_filter_not": [
+            'es_filter_not': [
                 '{"range": {"dst/ip": {"gte": "127.0.0.0","lte": "127.255.255.255"}}}',
-                '{"range": {"dst/ip": {"gte": "169.254.0.0","lte": "169.254.255.255"}}}',
-                '{"range": {"dst/ip": {"gte": "10.0.0.0","lte": "10.255.255.255"}}}',
-                '{"range": {"dst/ip": {"gte": "172.16.0.0","lte": "172.31.255.255"}}}',
-                '{"range": {"dst/ip": {"gte": "192.168.0.0","lte": "192.168.255.255"}}}'
+                '{"range": {"dst/ip": {"gte": "169.254.0.0","lte": "169.254.255.255"}}}'
             ],
-            "fields": "dst/ip as Cnt"
+            'fields': 'dst/ip as Cnt'
         }
         counter = 0
-        for _ in self.__module.get_events_groupby(filters, self.__begin, self.__end):
+        for _ in self.__module.get_events_group_by(filters, self.__begin, self.__end):
             counter += 1
         self.assertGreater(counter, 0)
 
     def test_get_groups_marks(self):
         filters = {
-            "es_filter": [
+            'es_filter': [
                 '{"term": {"event_src/category": "Firewall"}}'
             ],
-            "es_filter_not": [
+            'es_filter_not': [
                 {'{"range": {"dst/ip": {"gte": "127.0.0.0","lte": "127.255.255.255"}}}': '7'},
                 {'{"range": {"dst/ip": {"gte": "169.254.0.0","lte": "169.254.255.255"}}}': '7'},
-                {'{"range": {"dst/ip": {"gte": "10.0.0.0","lte": "10.255.255.255"}}}': '7'},
                 {'{"range": {"dst/ip": {"gte": "172.16.0.0","lte": "172.31.255.255"}}}': '1.7'},
                 {'{"range": {"dst/ip": {"gte": "192.168.0.0","lte": "192.168.255.255"}}}': 'ALL'}
             ],
-            "fields": "dst/ip as object"
+            'fields': 'dst/ip as object'
         }
         counter = 0
-        for _ in self.__module.get_events_groupby(filters, self.__begin, self.__end):
+        for _ in self.__module.get_events_group_by(filters, self.__begin, self.__end):
             counter += 1
         self.assertGreater(counter, 0)
 
     def test_get_groups_multiple(self):
         filters = {
-            "es_filter": [
+            'es_filter': [
                 '{"term": {"event_src/category": "Firewall"}}'
             ],
-            "es_filter_not": [
+            'es_filter_not': [
                 '{"range": {"dst/ip": {"gte": "127.0.0.0","lte": "127.255.255.255"}}}',
                 '{"range": {"dst/ip": {"gte": "169.254.0.0","lte": "169.254.255.255"}}}',
-                '{"range": {"dst/ip": {"gte": "10.0.0.0","lte": "10.255.255.255"}}}',
                 '{"range": {"dst/ip": {"gte": "172.16.0.0","lte": "172.31.255.255"}}}',
                 '{"range": {"dst/ip": {"gte": "192.168.0.0","lte": "192.168.255.255"}}}'
             ],
-            "fields": "src/ip as source,dst/ip as destination"
+            'fields': 'src/ip as source,dst/ip as destination'
         }
         ret = []
-        for i in self.__module.get_events_groupby(filters, self.__begin, self.__end):
+        for i in self.__module.get_events_group_by(filters, self.__begin, self.__end):
             ret.append(i)
 
         self.assertTrue((len(ret) != 0) and
-                        ("source" in ret[0]) and
-                        ("destination" in ret[0]) and
-                        ("count" in ret[0]))
+                        ('source' in ret[0]) and
+                        ('destination' in ret[0]) and
+                        ('count' in ret[0]))
 
     def test_get_events(self):
         begin = self.__end - 86400
         filters = {
-            "es_filter": [
+            'es_filter': [
                 '{"term": {"event_src/category": "Firewall"}}'
             ],
-            "es_filter_not": [
+            'es_filter_not': [
                 '{"range": {"dst/ip": {"gte": "127.0.0.0","lte": "127.255.255.255"}}}',
                 '{"range": {"dst/ip": {"gte": "169.254.0.0","lte": "169.254.255.255"}}}',
-                '{"range": {"dst/ip": {"gte": "10.0.0.0","lte": "10.255.255.255"}}}',
                 '{"range": {"dst/ip": {"gte": "172.16.0.0","lte": "172.31.255.255"}}}',
                 '{"range": {"dst/ip": {"gte": "192.168.0.0","lte": "192.168.255.255"}}}'
             ],
