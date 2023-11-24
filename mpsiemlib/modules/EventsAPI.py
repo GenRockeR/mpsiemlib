@@ -7,7 +7,8 @@ class EventsAPI(ModuleInterface, LoggingHandler):
     """
     __api_events_metadata = "/api/events/v2/events_metadata"
     __api_event_details = "/api/events/v2/events/{}/normalized?time={}"
-    __api_events_group = "/api/events/v2/events/aggregation?offset=0"
+    __api_events_aggregation = "/api/events/v2/events/aggregation?offset=0"
+    __api_events_aggregation_by_asset_group = "/api/events/v2/events/aggregation?offset=0&groupIds={}"
     
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
@@ -34,7 +35,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
                    "timeFrom": 1686690000}
         return params
 
-    def get_events_groupby_api_json(self, params: dict) -> dict:
+    def get_events_groupby_api_json(self, params: dict, groupIds=None) -> dict:
         """
         Получить группировки формате в JSON по фильту запроса
 
@@ -44,7 +45,13 @@ class EventsAPI(ModuleInterface, LoggingHandler):
         self.log.debug('status=prepare, action=get_events_groupby_api_json, msg="Try to agregate events by query {}", '
                        'hostname="{}"'.format(params['filter']['groupBy'], self.__core_hostname))
 
-        url = "https://{}{}".format(self.__core_hostname, self.__api_events_group)
+        if groupIds:
+            api_url = self.__api_events_aggregation_by_asset_group.format(groupIds)
+            url = "https://{}{}".format(self.__core_hostname, api_url)
+        else:
+            url = "https://{}{}".format(self.__core_hostname, self.__api_events_aggregation)
+        
+        
 
         start_time = get_metrics_start_time()
         line_counter = 0
