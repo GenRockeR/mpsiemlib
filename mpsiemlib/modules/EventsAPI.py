@@ -10,6 +10,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
     __api_event_details = '/api/events/v2/events/{}/normalized?time={}'
     __api_events = '/api/events/v2/events?limit={}&offset={}'
     __api_events_for_incident = '/api/events/v2/events/?incidentId={}&limit={}&offset={}'
+    __api_events_aggregation = '/api/events/v2/events/aggregation'
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
