@@ -10,6 +10,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
     __api_event_details = '/api/events/v2/events/{}/normalized?time={}'
     __api_events = '/api/events/v2/events?limit={}&offset={}'
     __api_events_for_incident = '/api/events/v2/events/?incidentId={}&limit={}&offset={}'
+    __api_events_aggregation = '/api/events/v2/events/aggregation'
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
@@ -54,6 +55,75 @@ class EventsAPI(ModuleInterface, LoggingHandler):
                            'hostname="{}"'.format(self.__core_hostname))
             raise Exception('Core data request return None or has wrong response structure')
         return response.get('fields')
+
+    def get_events_groupped_by_fields(self, filter, group_by_fields, time_from, time_to) -> list:
+        """
+        Получить события по фильтру, сгруппированные по заданым полям
+
+        Args:
+            filter : фильтр на языке PDQL
+            fields : список запрашиваемых полей событий
+            group_by_fields: список полей для группировки
+            time_from : начало диапазона поиска (Unix timestamp в секундах)
+            time_to : конец диапазона поиска (Unix timestamp в секундах)
+            limit: число запрашиваемых событий, соответсвующих фильтру
+            offset: позиция, начиная с которой возвращать требуемое число событий, соответсвующих фильтру 
+        Returns:
+            [type]: массив событий 
+        """
+        null = None
+        false = False
+        true = True
+        params = {
+            "filter": {
+                "select": ["time", "event_src.host", "text"],
+                "where": filter,
+                "orderBy": [{
+                        "field": "time",
+                        "sortOrder": "descending"
+                    }
+                ],
+                "groupBy": group_by_fields,
+                "aggregateBy": [{
+                        "function": "COUNT",
+                        "field": "*",
+                        "unique": false
+                    }
+                ],
+                "distributeBy": [],
+                "top": 10000,
+                "aliases": {
+                    "groupBy": {},
+                    "aggregateBy": {
+                        "COUNT": "Cnt"
+                    }
+                },
+                "searchType": null,
+                "searchSources": null,
+                "localSources": null,
+                "groupByOrder": [{
+                        "field": "count",
+                        "sortOrder": "Descending"
+                    }
+                ],
+                "showNullGroups": true
+            },
+            "timeFrom": time_from,
+            "timeTo": time_to
+        }
+        api_url = self.__api_events_aggregation
+        url = f'https://{self.__core_hostname}{api_url}'
+
+        rq = exec_request(self.__core_session, url, method='POST', json=params)
+        response = rq.json()
+
+        if response is None or 'rows' not in response:
+            self.log.error('status=failed, action=get_events_groupped_by_fields, msg="Core data request return None or '
+                           'has wrong response structure", '
+                           'hostname="{}"'.format(self.__core_hostname))
+            raise Exception('Core data request return None or has wrong response structure')
+        
+        return {' | '.join(e['groups']):int(e['values'][0]) for e in response['rows']}
 
     def get_events_by_filter(self, filter, fields, time_from, time_to, limit, offset) -> dict:
         """
