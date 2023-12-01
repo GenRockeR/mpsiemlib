@@ -58,7 +58,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
 
     def get_events_groupped_by_fields(self, filter, group_by_fields, time_from, time_to) -> list:
         """
-        Получить события по фильру, сгруппированные по заданым полям
+        Получить события по фильтру, сгруппированные по заданым полям
 
         Args:
             filter : фильтр на языке PDQL
