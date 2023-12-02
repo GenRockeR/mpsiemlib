@@ -62,13 +62,13 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
         limit = 1000
         offset = 0
         api_url = self.__api_checks.format(limit, offset)
-        url = "https://{}{}".format(self.__core_hostname, api_url)
+        url = f"https://{self.__core_hostname}{api_url}"
         r = exec_request(self.__core_session,
                          url,
                          method='GET',
                          timeout=self.settings.connection_timeout)
         response = r.json()
-        errors = response.get("items")
+        errors = response.get('items')
 
         ret = []
         for i in errors:
