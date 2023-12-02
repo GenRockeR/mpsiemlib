@@ -111,6 +111,17 @@ class Filters(ModuleInterface, LoggingHandler):
                           'aliases': filters.get('aliases')}
                 }
 
+    def get_filter_info_by_name(self, filter_name):
+        """
+        По имени возвращает информацию первого найденного фильтра
+        filter_name : имя фильтра в SIEM
+        """
+        filters = self.get_filters_list()
+        for uuid_filter in filters:
+            if filters[uuid_filter]['name'] == filter_name:
+                return self.get_filter_info(uuid_filter)
+        return None
+
     def close(self):
         if self.__core_session is not None:
             self.__core_session.close()

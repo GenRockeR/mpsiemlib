@@ -27,6 +27,8 @@ class Assets(ModuleInterface, LoggingHandler):
     __api_assets_v2_import_operation = '/api/assets_processing/v2/csv/import_operation'
     __api_assets_v1_removeassets = '/api/assets_processing/v1/asset_operations/removeAssets'
 
+    __api_assets_v1_assetsid = "/api/v1/asset/state"
+
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
@@ -854,6 +856,38 @@ class Assets(ModuleInterface, LoggingHandler):
                            'hostname="{}"'.format(query_name, query_id, self.__core_hostname))
 
         return r
+
+    def get_asset_by_id(self, assets_id):
+        """
+        Позволяет по id актива получить информацию о нём
+
+        :param assets_id: идентификатор(ы) актива(ов)
+        :return: request response.json
+
+        example return data: list of json's
+        [{"assetId":"12064adb-41c0-0001-0000-000000000040","assetVersion":2878,"deviceType":"workstation",
+        "typeName":"OperatingSystem.Windows.WindowsHost","isClosed":false,"description":null,
+        "displayName":"ii-ivanov.example.ru (192.168.0.5)","closedTime":null,
+        "closeReason":null,"creationTime":1640675004,"lastUpdateTime":1701414756,
+        "closeExpectation":1706598756,"canAccess":true}]
+
+        """
+        url = f"https://{self.__core_hostname}{self.__api_assets_v1_assetsid}/?"
+        if isinstance(assets_id, list) or isinstance(assets_id, set) or isinstance(assets_id, tuple):
+            url += ''.join([f"&assetId={asset_id}" for asset_id in assets_id])
+        else:
+            url += f"&assetId={assets_id}"
+        r = exec_request(self.__core_session, url=url,
+                         timeout=self.settings.connection_timeout)
+        if r.status_code == 200:
+            self.log.info('status=success, action=get_asset_by_id, '
+                          'msg="Get asset by id", id="{}", '
+                          'hostname="{}"'.format(assets_id, self.__core_hostname))
+        else:
+            self.log.error('status=failed, action=get_asset_by_id, '
+                           'msg="Get asset by id", id="{}", '
+                           'hostname="{}"'.format(assets_id, self.__core_hostname))
+        return r.json()
 
     def close(self):
         if self.__core_session is not None:
