@@ -123,7 +123,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
             "timeFrom": time_from,
             "timeTo": time_to
         }
-        api_url = self.__api_events_aggregation
+        api_url = self.__api_events_aggregate
         url = f'https://{self.__core_hostname}{api_url}'
 
         rq = exec_request(self.__core_session, url, method='POST', json=params)
