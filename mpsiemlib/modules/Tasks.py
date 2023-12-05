@@ -466,17 +466,43 @@ class Tasks(ModuleInterface, LoggingHandler):
         response = r.json()
         if response.get("items") is None:
             raise Exception("No items in response")
-        jobs = {item.get("id"): {"status": item.get("status"),
-                                 "startedAt": item.get("startedAt"),
-                                 "finishedAt": item.get("finishedAt"),
-                                 "jobCount": item.get("jobCount"),
-                                 "id": item.get('startedBy').get('id'),
-                                 "login": item.get('startedBy').get("login"),
-                                 "firstName": item.get('startedBy').get("firstName"),
-                                 "lastName": item.get('startedBy').get("lastName"),
-                                 "stoppedBy": item.get("stoppedBy"),
-                                 "errorStatus": item.get("errorStatus"),
-                                 } for item in response.get("items")}
+        jobs = {}
+        for item in response.get("items"):
+            if item.get('startedBy') is None:
+                jobs[item.get('id')] = {"status": item.get("status"),
+                                        "startedAt": item.get("startedAt"),
+                                        "finishedAt": item.get("finishedAt"),
+                                        "jobCount": item.get("jobCount"),
+                                        "id": None,
+                                        "login": None,
+                                        "firstName": None,
+                                        "lastName": None,
+                                        "stoppedBy": item.get("stoppedBy"),
+                                        "errorStatus": item.get("errorStatus"),
+                                        }
+            else:
+                jobs[item.get('id')] = {"status": item.get("status"),
+                                     "startedAt": item.get("startedAt"),
+                                     "finishedAt": item.get("finishedAt"),
+                                     "jobCount": item.get("jobCount"),
+                                     "id": item.get('startedBy').get('id'),
+                                     "login": item.get('startedBy').get("login"),
+                                     "firstName": item.get('startedBy').get("firstName"),
+                                     "lastName": item.get('startedBy').get("lastName"),
+                                     "stoppedBy": item.get("stoppedBy"),
+                                     "errorStatus": item.get("errorStatus"),
+                                     }
+        # jobs = {item.get("id"): {"status": item.get("status"),
+        #                          "startedAt": item.get("startedAt"),
+        #                          "finishedAt": item.get("finishedAt"),
+        #                          "jobCount": item.get("jobCount"),
+        #                          "id": item.get('startedBy').get('id'),
+        #                          "login": item.get('startedBy').get("login"),
+        #                          "firstName": item.get('startedBy').get("firstName"),
+        #                          "lastName": item.get('startedBy').get("lastName"),
+        #                          "stoppedBy": item.get("stoppedBy"),
+        #                          "errorStatus": item.get("errorStatus"),
+        #                          } for item in response.get("items")}
 
         return jobs
 

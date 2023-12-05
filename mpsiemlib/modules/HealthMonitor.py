@@ -238,9 +238,12 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
                 pattern += f"\nОт {item['source']['displayName']}"
             if "source" in item.keys() and "hostName" in item['source']:
                 addresses = ""
-                if "source" in item.keys() and "ipAddresses" in item['source']:
+                if "source" in item.keys() and \
+                        "ipAddresses" in item['source'] and item['source']['ipAddresses'] is not None:
                     addresses = ', '.join([adr for adr in item['source']['ipAddresses']])
-                pattern += f"\nна узле {item['source']['hostName']} ({addresses})"
+                pattern += f"\nна узле {item['source']['hostName']}"
+                if addresses != "":
+                    pattern += f" ({addresses})"
             rows.append({"time": item['timestamp'], "status": item['status'], "displayName": item['displayName'],
                          "componentName": item['componentName'], "message": pattern})
 
