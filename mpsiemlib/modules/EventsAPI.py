@@ -134,8 +134,8 @@ class EventsAPI(ModuleInterface, LoggingHandler):
                            'has wrong response structure", '
                            'hostname="{}"'.format(self.__core_hostname))
             raise Exception('Core data request return None or has wrong response structure')
-
-        return {' | '.join(e['groups']): int(e['values'][0]) for e in response['rows']}
+            
+        return {' | '.join(str(s) for s in e['groups']):int(e['values'][0]) for e in response['rows']}
 
     def get_events_by_filter(self, filter, fields, time_from, time_to, limit, offset) -> dict:
         """
