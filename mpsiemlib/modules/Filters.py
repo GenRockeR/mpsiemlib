@@ -9,6 +9,7 @@ class Filters(ModuleInterface, LoggingHandler):
 
     __api_filters_list = "/api/v2/events/filters_hierarchy"
     __api_filter_info = "/api/v2/events/filters/{}"
+    __api_folder = "/api/v2/events/folders"
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
@@ -42,6 +43,27 @@ class Filters(ModuleInterface, LoggingHandler):
                       'hostname="{}"'.format(len(self.__folders), self.__core_hostname))
 
         return self.__folders
+
+    def create_event_filter_folder(self, folder_name: str, parent_id: str) -> str:
+        """
+        Создать директорию для фильтров
+        :param folder_name: имя создаваемой директории
+        :param parent_id: ID родительской директории
+
+        :return: folder_id: ID созданнной директории
+        """      
+
+        api_url = self.__api_folder
+        url = "https://{}{}".format(self.__core_hostname, api_url)
+        params = {'name': folder_name, 'parentId': parent_id}
+        r = exec_request(self.__core_session,
+                         url,
+                         method='POST',
+                         timeout=self.settings.connection_timeout,
+                         json=params)
+        r = r.json()
+        folder_id = r.get("folderId")
+        return folder_id
 
     def get_filters_list(self) -> dict:
         """
