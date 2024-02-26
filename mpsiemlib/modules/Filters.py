@@ -9,6 +9,8 @@ class Filters(ModuleInterface, LoggingHandler):
 
     __api_filters_list = "/api/v2/events/filters_hierarchy"
     __api_filter_info = "/api/v2/events/filters/{}"
+    __api_filter = "/api/v3/events/filters"
+    __api_folder = "/api/v2/events/folders"
 
     #__api_filters = "/api/v3/events/filters/{}" # get filter info
 
