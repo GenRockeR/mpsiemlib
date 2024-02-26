@@ -12,11 +12,6 @@ class Filters(ModuleInterface, LoggingHandler):
     __api_filter = "/api/v3/events/filters"
     __api_folder = "/api/v2/events/folders"
 
-    #__api_filters = "/api/v3/events/filters/{}" # get filter info
-
-    __api_filter = "/api/v3/events/filters"
-    __api_folder = "/api/v2/events/folders"
-
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
