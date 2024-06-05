@@ -47,6 +47,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         self.__core_version = None
         self.__kb_version = None
         self.__kb_token = None
+        self.sessions = None
 
     def connect(self, component, creds=None):
         """

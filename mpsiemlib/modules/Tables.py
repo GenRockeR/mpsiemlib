@@ -21,7 +21,8 @@ class Tables(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        self.__core_session = auth.connect(MPComponents.CORE)
+        #self.__core_session = auth.connect(MPComponents.CORE)
+        self.__core_session = auth.sessions['core']
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
         self.__tables_cache = {}

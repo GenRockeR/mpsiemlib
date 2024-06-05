@@ -24,7 +24,8 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        self.__ms_session = auth.connect(MPComponents.MS)
+        #self.__ms_session = auth.connect(MPComponents.MS)
+        self.__core_session = auth.sessions['ms']
         self.__ms_hostname = auth.creds.core_hostname
         self.__applications = {}
         self.__roles = {}
