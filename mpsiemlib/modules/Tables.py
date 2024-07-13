@@ -21,7 +21,8 @@ class Tables(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        self.__core_session = auth.connect(MPComponents.CORE)
+        #self.__core_session = auth.connect(MPComponents.CORE)
+        self.__core_session = auth.sessions['core']
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
         self.__tables_cache = {}
@@ -37,8 +38,8 @@ class Tables(ModuleInterface, LoggingHandler):
         self.log.debug('status=prepare, action=get_tables_list, msg="Try to get table list", '
                        'hostname="{}"'.format(self.__core_hostname))
 
-        url = f'https://{self.__core_hostname}{self.__api_table_list}'
-        rq = exec_request(self.__core_session, url, method='GET', timeout=self.settings.connection_timeout)
+        url = f"https://{self.__core_hostname}{self.__api_table_list}"
+        rq = exec_request(self.__core_session, url, method="GET", timeout=self.settings.connection_timeout)
         self.__tables_cache.clear()
         response = rq.json()
         for i in response:
@@ -69,11 +70,13 @@ class Tables(ModuleInterface, LoggingHandler):
         :return: Итератор по строкам таблицы
         """
         api_url = self.__api_table_search.format(self.get_table_id_by_name(table_name))
-        url = f'https://{self.__core_hostname}{api_url}'
-        params = {'filter': {'where': '',
-                             'orderBy': [{'field': '_last_changed',
-                                          'sortOrder': 'descending'}],
-                             'timeZone': 0}
+
+        url = f"https://{self.__core_hostname}{api_url}"
+        params = {"filter": {"where": "",
+                             "orderBy": [{"field": "_last_changed",
+                                          "sortOrder": "descending"}],
+                             "timeZone": 0}
+
                   }
 
         if filters is not None:
@@ -118,6 +121,7 @@ class Tables(ModuleInterface, LoggingHandler):
 
         return response.get('items')
 
+
     def set_table_data(self, table_name: str, data: bytes) -> None:
         """
         Импортировать бинарные данные в табличный список.
@@ -136,18 +140,21 @@ class Tables(ModuleInterface, LoggingHandler):
 
         api_url = self.__api_table_import.format(table_name)
 
-        url = f'https://{self.__core_hostname}{api_url}'
+
+        url = f"https://{self.__core_hostname}{api_url}"
+
         if int(self.__core_version.split('.')[0]) < 25:
             headers = {'Content-Type': 'application/x-www-form-urlencoded'}
         else:
             headers = {'Content-Type': 'text/csv; charset=utf-8'}
 
         rq = exec_request(self.__core_session,
-                          url,
-                          method='POST',
-                          timeout=self.settings.connection_timeout,
-                          data=data,
-                          headers=headers)
+                              url,
+                              method="POST",
+                              timeout=self.settings.connection_timeout,
+                              data=data,
+                              headers=headers)
+
         response = rq.json()
 
         total_records = response.get('recordsNum')
@@ -174,6 +181,7 @@ class Tables(ModuleInterface, LoggingHandler):
                                                                                              skipped_records))
         self.log.info('status=success, action=set_table_data, msg="Data imported to table {}", '
                       'hostname="{}", lines={}'.format(table_name, self.__core_hostname, imported_records))
+
 
     def get_table_info(self, table_name) -> dict:
         """
@@ -274,7 +282,9 @@ class Tables(ModuleInterface, LoggingHandler):
         for i in table_info.get('fields'):  # определяем в каких позициях должны быть атрибуты
             name = i.get('name')
             attrs_position[name] = counter
-            fields_types[name] = i.get('type')
+
+            fields_types[name] = i.get("type")
+
 
             row_matrix.append(None)
             if i.get('primaryKey'):

@@ -15,13 +15,13 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
     __api_agents_status = '/api/components/agent'
     __api_agents_status_new = '/api/v1/scanner_agents'
     __api_kb_status = '/api/v1/knowledgeBase'
-
     __kb_port = 8091
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        self.__core_session = auth.connect(MPComponents.CORE)
+        #self.__core_session = auth.connect(MPComponents.CORE)
+        self.__core_session = auth.sessions['core']
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
         self.__kb_session = auth.connect(MPComponents.KB)
@@ -115,9 +115,10 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
         :return: Список агентов и их параметры.
         """
         if int(self.__core_version.split('.')[0]) < 25:
-            url = f'https://{self.__core_hostname}{self.__api_agents_status}'
+            url = "https://{}{}".format(self.__core_hostname, self.__api_agents_status)
         else:
-            url = f'https://{self.__core_hostname}{self.__api_agents_status_new}'
+            url = "https://{}{}".format(self.__core_hostname, self.__api_agents_status_new)
+
         r = exec_request(self.__core_session,
                          url,
                          method='GET',

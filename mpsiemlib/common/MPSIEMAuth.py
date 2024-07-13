@@ -47,11 +47,11 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         self.__core_version = None
         self.__kb_version = None
         self.__kb_token = None
+        self.sessions = None
 
     def connect(self, component, creds=None):
         """
         Подключение к выбранным компонентам
-
         :param component: Компонент для подключения Interfaces.MPComponents
         :param creds: креды для подключения Interfaces.Creds
         :return: session или None
@@ -71,7 +71,8 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         elif component == MPComponents.KB:
             self.__kb_try_connect()
         else:
-            raise NotImplementedError(f'Unsupported component for Auth {component}')
+            raise NotImplementedError(f"Unsupported component for Auth {component}")
+
 
         return self.__session
 

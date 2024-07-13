@@ -10,6 +10,10 @@ __pycache__
 /*.egg-info/
 /tests/tests_results/
 /sphinx/_build/
+.DS_Store
+._.DS_Store
+**/.DS_Store
+**/._.DS_Store
 /dist/
 .env
 .vscode

@@ -6,8 +6,8 @@ from mpsiemlib.common import MPSIEMAuth
 class Settings:
     connection_timeout = 60
     connection_timeout_x = 6  # Коэффициент увеличения timeout при генерации отчета.
-    storage_events_timezone = 'UTC'  # в ES все события приведены к UTC
-    local_timezone = 'Europe/Moscow'  # в какой временной зоне работает MP
+    storage_events_timezone = "UTC"  # в ES все события приведены к UTC
+    local_timezone = "Europe/Moscow"  # в какой временной зоне работает MP
     storage_bucket_size = 33000  # размер бакета агрегации в Elastic (по умолчанию в конфиге 50000)
     storage_batch_size = 10000  # размер выгружаемой пачки событий без агрегации
     tables_batch_size = 1000  # размер выгружаемой пачки записей из табличек
@@ -23,20 +23,18 @@ class AuthType:
 
 
 class ModuleNames:
-    AUTH = 'auth'
-    EVENTS = 'events'
-    EVENTSAPI = 'eventsapi'
-    ASSETS = 'assets'
-    TABLES = 'tables'
-    FILTERS = 'filters'
-    TASKS = 'tasks'
-    HEALTH = 'health'
-    URM = 'users_and_roles'
-    KB = 'knowledge_base'
-    INCIDENTS = 'incidents'
-    SOURCE_MONITOR = 'source_monitor'
-    MACROS = 'macros'
-    CONVEYOR = 'conveyor'
+    AUTH = "auth"
+    EVENTS = "events"
+    EVENTSAPI = "eventsapi"
+    ASSETS = "assets"
+    TABLES = "tables"
+    FILTERS = "filters"
+    TASKS = "tasks"
+    HEALTH = "health"
+    URM = "users_and_roles"
+    KB = "knowledge_base"
+    INCIDENTS = "incidents"
+    SOURCE_MONITOR = "source_monitor"
 
     @staticmethod
     def get_modules_list():

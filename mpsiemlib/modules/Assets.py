@@ -13,11 +13,11 @@ class Assets(ModuleInterface, LoggingHandler):
     """
 
     __api_scopes = '/api/scopes/v2/scopes'
-
-    __api_assets_processing_input_groups = '/api/assets_processing/v2/assets_input/groups'
-    __api_assets_processing_v2_groups = '/api/assets_processing/v2/groups'
-    __api_assets_trm_groups_hierarchy = '/api/assets_temporal_readmodel/v2/groups/hierarchy'
-
+    __api_assets_processing_input_groups = "/api/assets_processing/v2/assets_input/groups"
+    __api_assets_processing_v2_groups = "/api/assets_processing/v2/groups"
+    __api_assets_trm_groups_hierarchy = "/api/assets_temporal_readmodel/v2/groups/hierarchy"
+    __api_assets_processing_v2_configuration = "/api/assets_processing/v2/assets_input/assets"
+    __api_assets_processing_v2_checkcreated = "/api/assets_processing/v2/assets_input/assets/checkCreated"
     __api_assets_trm_grid = '/api/assets_temporal_readmodel/v1/assets_grid'
     __api_assets_trm_row_count = '/api/assets_temporal_readmodel/v1/assets_grid/row_count'
     __api_assets_trm_selection = '/api/assets_temporal_readmodel/v1/assets_grid/data'
@@ -30,11 +30,12 @@ class Assets(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        self.__core_session = auth.connect(MPComponents.CORE)
+        #self.__core_session = auth.connect(MPComponents.CORE)
+        self.__core_session = auth.sessions['core']
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
         siem_tz = datetime.now(pytz.timezone(settings.local_timezone)).strftime('%z')
-        self.__default_utc_offset = f'{siem_tz[:-2]}:{siem_tz[-2:]}'  # convert to +HH:MM
+        self.__default_utc_offset = '{0}:{1}'.format(siem_tz[:-2], siem_tz[-2:])  # convert to +HH:MM
         self.__scopes = {}
         self.__groups = {}
         self.log.debug('status=success, action=prepare, msg="Assets Module init"')
@@ -460,6 +461,41 @@ class Assets(ModuleInterface, LoggingHandler):
 
         return group_id
 
+    def edit_group_dynamic(self, group_id: str, predicate: str) -> str:
+        """
+        Редактировать динамическую группу
+
+        :param group_id: ID редактируемой группы
+        :param predicate: Фильтр динамической группы
+        :return: '12f04fc3-3e00-0001-0000-000000000006'
+        """
+        self.log.debug('status=prepare, action=edit_group_dynamic, '
+                       'msg="Try to edit dynamic group", '
+                       'hostname="{}"'.format(self.__core_hostname))
+
+        url = "https://{}{}".format(self.__core_hostname, '{}/{}'.format(self.__api_assets_processing_v2_groups, group_id))
+        params = [{"type": "SetPredicateGroupCommand", 
+                   "value": predicate }]
+
+        r = exec_request(self.__core_session,
+                         url,
+                         method='PUT',
+                         timeout=self.settings.connection_timeout,
+                         json=params)
+        resp = r.json()
+
+        if 'operationId' not in resp:
+            raise Exception('operationId not found in response "{}"'.format(resp))
+
+        operation_id = resp['operationId']
+        group_id = self.__group_operation_status(operation_id)
+
+        self.log.info('status=success, action=edit_group_dynamic, '
+                      'msg="Dynamic group has been edited.", operation_id="{}", group_id="{}", '
+                      'hostname="{}"'.format(operation_id, group_id, self.__core_hostname))
+
+        return group_id
+
     def create_group_static(self, parent_id: str, group_name: str) -> str:
         """
         Создать статическую группу
@@ -721,6 +757,103 @@ class Assets(ModuleInterface, LoggingHandler):
                       'msg="Deleting finished", status={}, '
                       'hostname="{}"'.format(status, self.__core_hostname))
         return status
+
+    def __change_asset_configuration_by_id(self, asset_id: str, params: dict) -> dict:
+        """
+        Получить статус операции изменения актива
+
+        :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
+        """
+
+        url = "https://{}{}/{}".format(self.__core_hostname, self.__api_assets_processing_v2_configuration, asset_id)
+
+        r = exec_request(self.__core_session,
+                         url,
+                         method='PUT',
+                         timeout=self.settings.connection_timeout,
+                         json=params)
+
+        if r.status_code == 200:
+            resp = r.json()
+            self.log.info('status=success, action=__change_asset_configuration_by_id, msg="Check change operation status: {}", '
+                      'hostname="{}"'.format(resp, self.__core_hostname))
+            return resp.get('ticketId')
+        else:
+            self.log.info('status=success, action=__change_asset_configuration_by_id, msg="Check change operation status: HTTP:{}", '
+                      'hostname="{}"'.format(r.status_code, self.__core_hostname))
+
+            return None
+
+    def __change_assets_get_status(self, ticket_id: str) -> dict:
+        """
+        Получить статус операции удаления
+
+        :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
+        """
+
+        url = "https://{}{}?ticketId={}".format(self.__core_hostname, self.__api_assets_processing_v2_checkcreated, ticket_id)
+
+        r = exec_request(self.__core_session,
+                         url,
+                         method='GET',
+                         timeout=self.settings.connection_timeout)
+
+        if r.status_code == 200:
+            resp = r.json()
+            self.log.info('status=success, action=__change_assets_get_status, msg="Check edit operation status: {}", '
+                      'hostname="{}"'.format(resp, self.__core_hostname))
+            return resp
+        else:
+            self.log.debug('status=success, action=__change_assets_get_status, msg="Check edit operation status: HTTP:{}", '
+                      'hostname="{}"'.format(r.status_code, self.__core_hostname))
+
+            return None
+
+    def change_asset_configuration_by_id(self, asset_id: str, config: dict) -> dict:
+        """
+        Изменение активов по id
+
+        :param asset_ids: ID актива, который надо сконфигурировать
+        :return: {"isSuccessful":true,"assetId":"17c930dc-0340-0001-0000-000000000002"}
+        """
+
+        ticket_id = self.__change_asset_configuration_by_id(asset_id, config)
+
+        if ticket_id is not None:
+            for i in range(15):
+                time.sleep(2)
+                status = self.__change_assets_get_status(ticket_id = ticket_id)
+                self.log.warning("status: {}".format(status))
+                if status is not None:
+                    break
+
+        self.log.info('status=success, action=change_asset_configuration_by_id, '
+                      'msg="Editing finished", status={}, '
+                      'hostname="{}"'.format(status, self.__core_hostname))
+        return status
+    
+    def get_asset_configuration_by_id(self, asset_id: str) -> dict:
+        """
+        Получение информации об активе по id
+
+        :param asset_id:  ID интересующего актива
+        :return: { dict with asset config }
+        """
+
+        url = "https://{}{}/{}".format(self.__core_hostname, self.__api_assets_processing_v2_configuration, asset_id)
+        r = exec_request(self.__core_session,
+                         url,
+                         method='GET',
+                         timeout=self.settings.connection_timeout)
+        if r.status_code == 200:
+            resp = r.json()
+            self.log.info('status=success, action=get_asset_configuration_by_id, msg="Got asset configuration", '
+                      'hostname="{}"'.format(self.__core_hostname))
+            return resp
+        else:
+            self.log.info('status=success, action=__remove_assets_get_status, msg="Check remove operation status: HTTP:{}", '
+                      'hostname="{}"'.format(r.status_code, self.__core_hostname))
+        return resp
 
     def get_queries(self) -> dict:
         """

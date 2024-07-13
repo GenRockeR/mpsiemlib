@@ -7,4 +7,5 @@ __version__ = '1.5.5.0'
 __author__ = 'nikolaiav'
 __maintainer__ = 'GenRockeR'
 __license__ = 'GPLv3'
-__copyright__ = '2023, Nikolai Arefiev, Gennadiy Mukhamedzyanov'
+__copyright__ = '2024, Nikolai Arefiev, Gennadiy Mukhamedzyanov'
+

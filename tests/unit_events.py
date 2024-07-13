@@ -36,10 +36,10 @@ class EventsTestCase(unittest.TestCase):
                 '{"range": {"dst/ip": {"gte": "127.0.0.0","lte": "127.255.255.255"}}}',
                 '{"range": {"dst/ip": {"gte": "169.254.0.0","lte": "169.254.255.255"}}}'
             ],
-            'fields': 'dst/ip as Cnt'
+            "fields": "dst/ip as Cnt"
         }
         counter = 0
-        for _ in self.__module.get_events_group_by(filters, self.__begin, self.__end):
+        for _ in self.__module.get_events_groupby(filters, self.__begin, self.__end):
             counter += 1
         self.assertGreater(counter, 0)
 
@@ -57,6 +57,7 @@ class EventsTestCase(unittest.TestCase):
             'fields': 'dst/ip as object'
         }
         counter = 0
+
         for _ in self.__module.get_events_group_by(filters, self.__begin, self.__end):
             counter += 1
         self.assertGreater(counter, 0)

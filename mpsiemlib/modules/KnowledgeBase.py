@@ -89,7 +89,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        self.__kb_session = auth.connect(MPComponents.KB)
+        #self.__kb_session = auth.connect(MPComponents.KB)
+        self.__core_session = auth.sessions['kb']
         self.__kb_hostname = auth.creds.core_hostname
         self.__rules_mapping = {}
         self.__groups = {}

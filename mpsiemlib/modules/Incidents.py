@@ -11,11 +11,12 @@ class Incidents(ModuleInterface, LoggingHandler):
     """
     Incidents worker
     """
-    __time_format = '%Y-%m-%dT%H:%M:%S.%fZ'
-    __time_format_r25 = '%Y-%m-%dT%H:%M:%S.000Z'
+    __time_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+    __time_format_r25 = "%Y-%m-%dT%H:%M:%S.000Z"
 
-    __api_incidents_list = '/api/v2/incidents'
-    __api_incidents_list_r25 = '/api/v2/incidents/'
+    __api_incidents_list = "/api/v2/incidents"
+    __api_incidents_list_r25 = "/api/v2/incidents/"
+
 
     __api_incident_info = ''
     __api_incident_info_new = '/api/incidentsReadModel/incidents/{}'  # From R23
@@ -25,12 +26,12 @@ class Incidents(ModuleInterface, LoggingHandler):
     __api_incident_comments_new = '/api/incidentsReadModel/incidents/{}/transitions'  # From R23
     __api_incident_comments_old = '/api/incidents/{}/transitions'
 
-    __api_incident_events = '/api/incidents/{}/events?limit={}'
-    __api_incident_events_count = '/api/incidents/{}/events/count'
-    __api_incident_issue = '/api/incidents/{}/issues'
-    __api_incident_netfor = '/api/incidents/{}/linkedObjects/netfor'
-    __api_incident_netfor_sessions = '/api/incidents/{}/linkedObjects/netfor/sessions?offset=0&limit=2000'
-    __api_incident_netfor_alerts = '/api/incidents/{}/linkedObjects/netfor/alerts?offset=0&limit=2000'
+    __api_incident_events = "/api/incidents/{}/events?limit={}"
+    __api_incident_events_count = "/api/incidents/{}/events/count"
+    __api_incident_issue = "/api/incidents/{}/issues"
+    __api_incident_netfor = "/api/incidents/{}/linkedObjects/netfor"
+    __api_incident_netfor_sessions = "/api/incidents/{}/linkedObjects/netfor/sessions?offset=0&limit=2000"
+    __api_incident_netfor_alerts = "/api/incidents/{}/linkedObjects/netfor/alerts?offset=0&limit=2000"
 
     class TimeFilterType:
         CREATED = 'creation'
@@ -44,7 +45,8 @@ class Incidents(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        self.__core_session = auth.connect(MPComponents.CORE)
+        #self.__core_session = auth.connect(MPComponents.CORE)
+        self.__core_session = auth.sessions['core']
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
         self.__incidents_mapping = {}
@@ -84,13 +86,13 @@ class Incidents(ModuleInterface, LoggingHandler):
                                                                               end))
 
         if int(self.__core_version.split('.')[0]) <= 24:
-            url = f'https://{self.__core_hostname}{self.__api_incidents_list}'
-            time_from = datetime.fromtimestamp(begin, tz=pytz.timezone('UTC')).strftime(self.__time_format)
-            time_to = datetime.fromtimestamp(end, tz=pytz.timezone('UTC')).strftime(self.__time_format)
+            url = "https://{}{}".format(self.__core_hostname, self.__api_incidents_list)
+            time_from = datetime.fromtimestamp(begin, tz=pytz.timezone("UTC")).strftime(self.__time_format)
+            time_to = datetime.fromtimestamp(end, tz=pytz.timezone("UTC")).strftime(self.__time_format)
         else:
-            url = f'https://{self.__core_hostname}{self.__api_incidents_list_r25}'
-            time_from = datetime.fromtimestamp(begin, tz=pytz.timezone('UTC')).strftime(self.__time_format_r25)
-            time_to = datetime.fromtimestamp(end, tz=pytz.timezone('UTC')).strftime(self.__time_format_r25)
+            url = "https://{}{}".format(self.__core_hostname, self.__api_incidents_list_r25)
+            time_from = datetime.fromtimestamp(begin, tz=pytz.timezone("UTC")).strftime(self.__time_format_r25)
+            time_to = datetime.fromtimestamp(end, tz=pytz.timezone("UTC")).strftime(self.__time_format_r25)
 
         params = {
             'timeFrom': time_from,
@@ -228,9 +230,10 @@ class Incidents(ModuleInterface, LoggingHandler):
                'issues': issues
                }
         
-        if inc.get('source') == 'netFor':
+
+        if inc.get("source") == "netFor":
             netfor = self.__load_netfor(incident_id)
-            ret['netfor'] = netfor
+            ret["netfor"] = netfor
 
         self.log.info('status=success, action=get_table_info, msg="Get {} properties for incident {}", '
                       'hostname="{}"'.format(len(ret), incident_id, self.__core_hostname))
@@ -282,7 +285,8 @@ class Incidents(ModuleInterface, LoggingHandler):
             evts = rq.json()
 
             for i in evts:
-                events.append({'id': i.get('id'), 'description': i.get('description'), 'date': i.get('date')})
+                events.append({"id": i.get("id"), "description": i.get("description"), "date": i.get("date")})
+
 
         return events
 
@@ -319,8 +323,9 @@ class Incidents(ModuleInterface, LoggingHandler):
         :return:
         """
         api_url = self.__api_incident_netfor.format(incident_id)
-        url = f'https://{self.__core_hostname}{api_url}'
-        rq = exec_request(self.__core_session, url, method='GET', timeout=self.settings.connection_timeout)
+        url = "https://{}{}".format(self.__core_hostname, api_url)
+        rq = exec_request(self.__core_session, url, method="GET", timeout=self.settings.connection_timeout)
+
         response = rq.json()
 
         netfor = {}
@@ -338,8 +343,10 @@ class Incidents(ModuleInterface, LoggingHandler):
         :return:
         """
         api_url = self.__api_incident_netfor_sessions.format(incident_id)
-        url = f'https://{self.__core_hostname}{api_url}'
-        rq = exec_request(self.__core_session, url, method='GET', timeout=self.settings.connection_timeout)
+
+        url = "https://{}{}".format(self.__core_hostname, api_url)
+        rq = exec_request(self.__core_session, url, method="GET", timeout=self.settings.connection_timeout)
+
         response = rq.json()
 
         return response
@@ -352,7 +359,8 @@ class Incidents(ModuleInterface, LoggingHandler):
         :return:
         """
         api_url = self.__api_incident_netfor_alerts.format(incident_id)
-        url = f'https://{self.__core_hostname}{api_url}'
+        url = "https://{}{}".format(self.__core_hostname, api_url)
+
         rq = exec_request(self.__core_session, url, method="GET", timeout=self.settings.connection_timeout)
         response = rq.json()
 
