@@ -38,9 +38,9 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     __api_siem_objgroups_values = f'{__api_mass_operations}/SiemObjectGroup/values'
 
     # обрабатывается в Core
-    __api_rule_running_info = "/api/siem/v2/rules/{}/{}"
-    __api_rule_stop = "/api/siem/v2/rules/{}/commands/stop"
-    __api_rule_start = "/api/siem/v2/rules/{}/commands/start"
+    __api_rule_running_info = '/api/siem/v2/rules/{}/{}'
+    __api_rule_stop = '/api/siem/v2/rules/{}/commands/stop'
+    __api_rule_start = '/api/siem/v2/rules/{}/commands/start'
 
     # Форматы экспорта
     EXPORT_FORMAT_KB = 'kb'
@@ -70,11 +70,11 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
     # Маппинг типа контента в часть url для запросов
     ITEM_TYPE_MAP = {
-        "CorrelationRule": "correlation-rules",
-        "AggregationRule": "aggregation-rules",
-        "EnrichmentRule": "enrichment-rules",
-        "NormalizationRule": "normalization-rules",
-        "TabularList": "tabular-lists",
+        'CorrelationRule': 'correlation-rules',
+        'AggregationRule': 'aggregation-rules',
+        'EnrichmentRule': 'enrichment-rules',
+        'NormalizationRule': 'normalization-rules',
+        'TabularList': 'tabular-lists',
     }
 
     # Статусы установки в SIEM для контента
@@ -108,7 +108,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :return: deploy ID
         """
         self.log.info('status=prepare, action=install_objects, msg="Try to {} objects {}", '
-                      'hostname="{}", db="{}"'.format("install" if not do_remove else "uninstall",
+                      'hostname="{}", db="{}"'.format('install' if not do_remove else 'uninstall',
                                                       guids_list,
                                                       self.__kb_hostname,
                                                       db_name))
@@ -118,19 +118,17 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         core_major_ver = int(self.auth.get_core_version().split('.')[0])
         if core_major_ver >= 24:
             # Изменения с версии 24
-            params = {"mode": "selection" if not do_remove else "uninstall",
-             "selectedObjects" : {
-                    "ids" : guids_list,
-                    "selectionMode": "Selected"
-                }
-             }
+            params = {'mode': 'selection' if not do_remove else 'uninstall',
+                      'selectedObjects': {
+                          'ids': guids_list,
+                          'selectionMode': 'Selected'
+                      }
+                      }
         else:
-            params = {"mode": "selection" if not do_remove else "uninstall",
-                    "include": guids_list}
+            params = {'mode': 'selection' if not do_remove else 'uninstall',
+                      'include': guids_list}
 
-        url = "https://{}:{}{}".format(self.__kb_hostname,
-                                       self.__kb_port,
-                                       self.__api_deploy_object)
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_deploy_object}'
         r = exec_request(self.__kb_session,
                          url,
                          method='POST',
@@ -145,7 +143,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                                                       self.__kb_hostname,
                                                       db_name))
 
-        return response.get("Id")
+        return response.get('Id')
 
     def install_objects_by_group_id(self, db_name: str, group_id: str) -> str:
         """
@@ -161,12 +159,10 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
         if group_id is None:
-            params = {"mode": "all"}
+            params = {'mode': 'all'}
         else:
-            params = {"mode": "group", "groupId": group_id}
-        url = "https://{}:{}{}".format(self.__kb_hostname,
-                                       self.__kb_port,
-                                       self.__api_deploy_object)
+            params = {'mode': 'group', 'groupId': group_id}
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_deploy_object}'
         r = exec_request(self.__kb_session,
                          url,
                          method='POST',
@@ -178,7 +174,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         self.log.info('status=success, action=install_objects_by_group_id, msg="Install group {}", '
                       'hostname="{}", db="{}"'.format(group_id, self.__kb_hostname, db_name))
 
-        return response.get("Id")
+        return response.get('Id')
 
     def uninstall_objects(self, db_name: str, guids_list: list) -> str:
         """
@@ -192,9 +188,9 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return self.install_objects(db_name, guids_list, do_remove=True)
 
     def install_objects_sync(self, db_name: str, guids_list: list,
-                                                    do_remove=False,
-                                                    timeout: int = DEPLOYMENT_TIMEOUT,
-                                                    max_retries: int = DEPLOYMENT_RETRIES):
+                             do_remove=False,
+                             timeout: int = DEPLOYMENT_TIMEOUT,
+                             max_retries: int = DEPLOYMENT_RETRIES):
         """
         Синхронный вариант инсталляции/деинсталляции контента из SIEM
 
@@ -228,12 +224,11 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                 else:
                     retries -= 1
             else:
-                erros = status.get('errors')
+                errors = status.get('errors')
                 self.log.error(
                     'status=failure, action=install_objects_sync, msg="{} failed. Errors: {}", '
-                    'hostname="{}", db="{}"'.format(operation, erros, self.__kb_hostname, db_name))
+                    'hostname="{}", db="{}"'.format(operation, errors, self.__kb_hostname, db_name))
                 break
-
 
     def get_deploy_status(self, db_name: str, deploy_id: str) -> dict:
         """
@@ -246,10 +241,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
 
-        url = "https://{}:{}{}/{}".format(self.__kb_hostname,
-                                           self.__kb_port,
-                                           self.__api_deploy_log,
-                                            deploy_id)
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_deploy_log}/{deploy_id}'
         r = exec_request(self.__kb_session,
                          url,
                          method='GET',
@@ -262,9 +254,9 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         percentage = str(state.get('Percentage', ''))
         errors = str(state.get('Errors', ''))
 
-
         self.log.info('status=success, action=get_deploy_status, msg="Deploy status: {}, percentage: {}%, errors: {}", '
-                      'hostname="{}", db="{}"'.format(deployment_status, percentage, errors, self.__kb_hostname, db_name))
+                      'hostname="{}", db="{}"'.format(deployment_status, percentage, errors, self.__kb_hostname,
+                                                      db_name))
         return {
             'deployment_status': deployment_status,
             'percentage': percentage,
@@ -281,7 +273,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :param guids_list: Список ID правил для установки
         :return: 
         """
-        self.__manipulate_rule(db_name, content_type, guids_list, "start")
+        self.__manipulate_rule(db_name, content_type, guids_list, 'start')
 
     def stop_rule(self, db_name: str, content_type: str, guids_list: list):
         """
@@ -293,18 +285,18 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :param guids_list: Список ID правил для установки
         :return: 
         """
-        self.__manipulate_rule(db_name, content_type, guids_list, "stop")
+        self.__manipulate_rule(db_name, content_type, guids_list, 'stop')
 
-    def __manipulate_rule(self, db_name: str, content_type: str, guids_list: list, control="stop"):
-        # нет гарантий, что объекты в PT KB и SIEM будут называться одинаково.
-        # сейчас в классе прописаны названия из PT KB. Название табличек уже разное.
+    def __manipulate_rule(self, db_name: str, content_type: str, guids_list: list, control='stop'):
+        # Нет гарантий, что объекты в PT KB и SIEM будут называться одинаково.
+        # Сейчас в классе прописаны названия из PT KB. Название табличек уже разное.
         object_type = None
         if content_type == MPContentTypes.CORRELATION:
-            object_type = "correlation"
+            object_type = 'correlation'
         elif content_type == MPContentTypes.ENRICHMENT:
-            object_type = "enrichment"
+            object_type = 'enrichment'
         else:
-            raise Exception("Unsupported content type to stop {}".format(content_type))
+            raise Exception(f'Unsupported content type to stop {content_type}')
 
         if len(self.__rules_mapping) == 0:
             self.__update_rules_mapping(db_name, content_type)
@@ -317,10 +309,10 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                                'hostname="{}", db="{}", rule_id="{}"'.format(self.__kb_hostname, db_name, i))
             rules_names.append(name)
 
-        data = {"names": rules_names}
-        api_url = self.__api_rule_start.format(object_type) if control == "start" \
+        data = {'names': rules_names}
+        api_url = self.__api_rule_start.format(object_type) if control == 'start' \
             else self.__api_rule_stop.format(object_type)
-        url = "https://{}{}".format(self.__kb_hostname, api_url)
+        url = f'https://{self.__kb_hostname}{api_url}'
         r = exec_request(self.__kb_session,
                          url,
                          method='POST',
@@ -328,15 +320,15 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                          json=data)
         response = r.json()
 
-        if len(response.get("error")) != 0:
+        if len(response.get('error')) != 0:
             self.log.error('status=failed, action=manipulate_rule, '
                            'msg="Got error while manipulate rule", hostname="{}", rules_ids="{}", '
                            'rules_names="{}", db="{}", error="{}"'.format(self.__kb_hostname,
                                                                           guids_list,
                                                                           rules_names,
                                                                           db_name,
-                                                                          response.get("error")))
-            raise Exception("Got error while manipulate rule")
+                                                                          response.get('error')))
+            raise Exception('Got error while manipulate rule')
 
         self.log.info('status=success, action=manipulate_rule, msg="{} {} rules", '
                       'hostname="{}", rules_names="{}", db="{}"'.format(control,
@@ -357,11 +349,11 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         """
         object_type = None
         if content_type == MPContentTypes.CORRELATION:
-            object_type = "correlation"
+            object_type = 'correlation'
         elif content_type == MPContentTypes.ENRICHMENT:
-            object_type = "enrichment"
+            object_type = 'enrichment'
         else:
-            raise Exception("Unsupported content type to stop {}".format(content_type))
+            raise Exception(f'Unsupported content type to stop {content_type}')
 
         if len(self.__rules_mapping) == 0:
             self.__update_rules_mapping(db_name, content_type)
@@ -369,16 +361,16 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         name = self.__rules_mapping.get(db_name, {}).get(content_type, {}).get(guid, {}).get("name")
 
         api_url = self.__api_rule_running_info.format(object_type, name)
-        url = "https://{}{}".format(self.__kb_hostname, api_url)
+        url = f'https://{self.__kb_hostname}{api_url}'
         r = exec_request(self.__kb_session,
                          url,
                          method='GET',
                          timeout=self.settings.connection_timeout)
         response = r.json()
 
-        state = response.get("state", {})
+        state = response.get('state', {})
 
-        return {"state": state.get("name"), "reason": state.get("reason"), "context": state.get("context")}
+        return {'state': state.get('name'), 'reason': state.get('reason'), 'context': state.get('context')}
 
     def get_databases_list(self) -> dict:
         """
@@ -387,9 +379,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :return: {'db_name': {'param1': 'value1'}}
         """
         # TODO Не учитывается что БД с разными родительскими БД могут иметь одинаковое имя
-        url = "https://{}:{}{}".format(self.__kb_hostname,
-                                       self.__kb_port,
-                                       self.__api_kb_db_list)
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_kb_db_list}'
         r = exec_request(self.__kb_session,
                          url,
                          method='GET',
@@ -397,13 +387,13 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         db_names = r.json()
         ret = {}
         for i in db_names:
-            name = i.get("Name")
-            ret[name] = {"id": i.get("Uid"),
-                         "status": i.get("Status").lower(),
-                         "updatable": i.get("IsUpdatable"),
-                         "deployable": i.get("IsDeployable"),
-                         "parent": i.get("ParentName"),
-                         "revisions": i.get("RevisionsCount")}
+            name = i.get('Name')
+            ret[name] = {'id': i.get('Uid'),
+                         'status': i.get('Status').lower(),
+                         'updatable': i.get('IsUpdatable'),
+                         'deployable': i.get('IsDeployable'),
+                         'parent': i.get('ParentName'),
+                         'revisions': i.get('RevisionsCount')}
 
         self.log.info('status=success, action=get_databases_list, msg="Got {} databases", '
                       'hostname="{}"'.format(len(ret), self.__kb_hostname))
@@ -423,7 +413,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
-        url = "https://{}:{}{}".format(self.__kb_hostname, self.__kb_port, self.__api_groups)
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_groups}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -434,8 +424,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         self.__groups.clear()
 
         for i in groups:
-            self.__groups[i.get("Id")] = {"parent_id": i.get("ParentGroupId"),
-                                          "name": i.get("SystemName")}
+            self.__groups[i.get('Id')] = {'parent_id': i.get('ParentGroupId'),
+                                          'name': i.get('SystemName')}
 
         self.log.info('status=success, action=get_groups_list, msg="Got {} groups", '
                       'hostname="{}", db="{}"'.format(len(self.__groups), self.__kb_hostname, db_name))
@@ -482,7 +472,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         folder_url = self.__api_folders_children.format(folder_id)
 
-        url = "https://{}:{}{}".format(self.__kb_hostname, self.__kb_port, folder_url)
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{folder_url}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -492,32 +482,31 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         folders_packs = r.json()
         for i in folders_packs:
-            node_type = i.get("NodeKind")
+            node_type = i.get('NodeKind')
             current = None
-            if node_type == "Folder":
+            if node_type == 'Folder':
                 current = self.__folders
-            elif node_type == "KnowledgePack":
+            elif node_type == 'KnowledgePack':
                 current = self.__packs
             else:
                 continue
 
-            obj_id = i.get("Id")
-            obj_name = i.get("Name")
-            parent_obj_id = i.get("ParentId")
-            current[obj_id] = {"parent_id": parent_obj_id,
-                                    "name": obj_name}
+            obj_id = i.get('Id')
+            obj_name = i.get('Name')
+            parent_obj_id = i.get('ParentId')
+            current[obj_id] = {'parent_id': parent_obj_id,
+                               'name': obj_name}
 
             if node_type == 'Folder' and i.get('HasChildren'):
                 self.__iterate_folders_tree(db_name, obj_id)
 
-
     def __get_folder_pack_root_level(self, db_name: str):
         # if expand_nodes is None:
         #     expand_nodes = []
-        params = {"expandNodes": []}
+        params = {'expandNodes': []}
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
-        url = "https://{}:{}{}".format(self.__kb_hostname, self.__kb_port, self.__api_folders_packs_list)
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_folders_packs_list}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -528,20 +517,20 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         folders_packs = r.json()
 
         for i in folders_packs:
-            node_type = i.get("NodeKind")
+            node_type = i.get('NodeKind')
             current = None
-            if node_type == "Folder":
+            if node_type == 'Folder':
                 current = self.__folders
-            elif node_type == "KnowledgePack":
+            elif node_type == 'KnowledgePack':
                 current = self.__packs
             else:
                 continue
 
-            obj_id = i.get("Id")
-            obj_name = i.get("Name")
-            parent_obj_id = i.get("ParentId")
-            current[obj_id] = {"parent_id": parent_obj_id,
-                                    "name": obj_name}
+            obj_id = i.get('Id')
+            obj_name = i.get('Name')
+            parent_obj_id = i.get('ParentId')
+            current[obj_id] = {'parent_id': parent_obj_id,
+                               'name': obj_name}
 
             if node_type == 'Folder' and i.get('HasChildren'):
                 # Iterate nested
@@ -555,7 +544,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :param filters: см get_all_objects
         :return: Iterator
         """
-        params = {"filters": {"SiemObjectType": ["Normalization"]}}
+        params = {'filters': {'SiemObjectType': ['Normalization']}}
         if filters is not None:
             filters.update(params)
         else:
@@ -571,7 +560,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :param filters: см get_all_objects
         :return: Iterator
         """
-        params = {"filters": {"SiemObjectType": ["Correlation"]}}
+        params = {'filters': {'SiemObjectType': ['Correlation']}}
         if filters is not None:
             filters.update(params)
         else:
@@ -587,7 +576,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :param filters: см get_all_objects
         :return: Iterator
         """
-        params = {"filters": {"SiemObjectType": ["Enrichment"]}}
+        params = {'filters': {'SiemObjectType': ['Enrichment']}}
         if filters is not None:
             filters.update(params)
         else:
@@ -603,7 +592,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :param filters: см get_all_objects
         :return: Iterator
         """
-        params = {"filters": {"SiemObjectType": ["Aggregation"]}}
+        params = {'filters': {'SiemObjectType': ['Aggregation']}}
         if filters is not None:
             filters.update(params)
         else:
@@ -619,7 +608,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :param filters: см get_all_objects
         :return: Iterator
         """
-        params = {"filters": {"SiemObjectType": ["TabularList"]}}
+        params = {'filters': {'SiemObjectType': ['TabularList']}}
         if filters is not None:
             filters.update(params)
         else:
@@ -650,11 +639,11 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         self.log.info('status=prepare, action=get_all_objects, msg="Try to get objects list", '
                       'hostname="{}", db="{}", filters="{}"'.format(self.__kb_hostname, db_name, filters))
 
-        url = "https://{}:{}{}".format(self.__kb_hostname, self.__kb_port, self.__api_list_objects)
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_list_objects}'
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
         params = {
-            'sort': [{'name': "objectId", 'order': 0, 'type': 1}],
+            'sort': [{'name': 'objectId', 'order': 0, 'type': 1}],
         }
         if filters is not None:
             params.update(filters)
@@ -677,16 +666,16 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             offset += limit
             for i in ret:
                 line_counter += 1
-                yield {"id": i.get("Id"),
-                       "guid": i.get("ObjectId"),
-                       "name": i.get("SystemName"),
-                       "folder_id": i.get("FolderId"),
-                       "object_kind": i.get("ObjectKind"),
-                       "folder_path": i.get("FolderPath").replace('\\','/') if i.get("FolderPath") else "",
-                       "origin_id": i.get("OriginId"),
-                       "compilation_sdk": i.get("CompilationStatus", {}).get("SdkVersion"),
-                       "compilation_status": i.get("CompilationStatus", {}).get("CompilationStatusId"),
-                       "deployment_status": i.get("DeploymentStatus", '').lower()}
+                yield {'id': i.get('Id'),
+                       'guid': i.get('ObjectId'),
+                       'name': i.get('SystemName'),
+                       'folder_id': i.get('FolderId'),
+                       'object_kind': i.get('ObjectKind'),
+                       'folder_path': i.get('FolderPath').replace('\\', '/') if i.get('FolderPath') else '',
+                       'origin_id': i.get('OriginId'),
+                       'compilation_sdk': i.get('CompilationStatus', {}).get('SdkVersion'),
+                       'compilation_status': i.get('CompilationStatus', {}).get('CompilationStatusId'),
+                       'deployment_status': i.get('DeploymentStatus', '').lower()}
         took_time = get_metrics_took_time(start_time)
 
         self.log.info('status=success, action=get_all_objects, msg="Query executed, response have been read", '
@@ -694,29 +683,28 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                                                                              filters,
                                                                              line_counter,
                                                                              db_name))
-        self.log.info('hostname="{}", metric=get_all_objects, took={}ms, objects={}'.format(self.__kb_hostname,
-                                                                                            took_time,
-                                                                                            line_counter))
+        self.log.info(
+            f'hostname="{self.__kb_hostname}", metric=get_all_objects, took={took_time}ms, objects={line_counter}')
 
     def __iterate_objects(self, url: str, params: dict, headers: dict, offset: int, limit: int):
-        params["withoutGroups"] = False
-        params["recursive"] = True
-        params["skip"] = offset
-        params["take"] = limit
+        params['withoutGroups'] = False
+        params['recursive'] = True
+        params['skip'] = offset
+        params['take'] = limit
         rq = exec_request(self.__kb_session,
                           url,
-                          method="POST",
+                          method='POST',
                           timeout=self.settings.connection_timeout,
                           headers=headers,
                           json=params)
         response = rq.json()
-        if response is None or "Rows" not in response:
+        if response is None or 'Rows' not in response:
             self.log.error('status=failed, action=kb_objects_iterate, msg="KB data request return None or '
                            'has wrong response structure", '
                            'hostname="{}"'.format(self.__kb_hostname))
-            raise Exception("KB data request return None or has wrong response structure")
+            raise Exception('KB data request return None or has wrong response structure')
 
-        return response.get("Rows")
+        return response.get('Rows')
 
     def get_id_by_name(self, db_name: str, content_type: str, object_name: str) -> list:
         """
@@ -733,8 +721,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         ret = []
         for k, v in self.__rules_mapping[db_name][content_type].items():
-            if v.get("name") == object_name:
-                ret.append({"id": k, "folder_id": v.get("folder_id"), "guid": v.get("guid")})
+            if v.get('name') == object_name:
+                ret.append({'id': k, 'folder_id': v.get('folder_id'), 'guid': v.get('guid')})
         return ret
 
     def __update_rules_mapping(self, db_name: str, content_type: str):
@@ -742,11 +730,11 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             self.__rules_mapping[db_name] = {}
         if self.__rules_mapping.get(db_name).get(content_type) is None:
             self.__rules_mapping[db_name][content_type] = {}
-        params = {"filters": {"SiemObjectType": [content_type]}}
+        params = {'filters': {'SiemObjectType': [content_type]}}
         for i in self.get_all_objects(db_name, params):
-            self.__rules_mapping[db_name][content_type][i.get("id")] = {"name": i.get("name"),
-                                                                        "folder_id": i.get("folder_id"),
-                                                                        "guid": i.get("guid")}
+            self.__rules_mapping[db_name][content_type][i.get('id')] = {'name': i.get('name'),
+                                                                        'folder_id': i.get('folder_id'),
+                                                                        'guid': i.get('guid')}
 
     def get_rule(self, db_name: str, content_type: str, rule_id: str) -> dict:
         """
@@ -758,7 +746,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :return: {'param1': value, 'param2': value}
         """
         if content_type == MPContentTypes.TABLE:
-            raise Exception('Method get_rule not supported {}'.format(MPContentTypes.TABLE))
+            raise Exception(f'Method get_rule not supported {MPContentTypes.TABLE}')
 
         self.log.info('status=success, action=get_rule, msg="Try to get rule {}", '
                       'hostname="{}", db="{}"'.format(rule_id, self.__kb_hostname, db_name))
@@ -766,7 +754,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
         api_url = self.__api_rule_code.format(content_type.lower(), rule_id)
-        url = "https://{}:{}{}".format(self.__kb_hostname, self.__kb_port, api_url)
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{api_url}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -776,21 +764,21 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         rule = r.json()
 
         rule_groups = []
-        for i in rule.get("Groups"):
-            rule_groups.append({"id": i.get("Id"), "name": i.get("SystemName")})
+        for i in rule.get('Groups'):
+            rule_groups.append({'id': i.get('Id'), 'name': i.get('SystemName')})
 
-        ret = {"id": rule.get("Id"),
-               "guid": rule.get("ObjectId"),
-               "folder_id": rule.get("Folder", {}).get("Id"),
-               "origin_id": rule.get("OriginId"),
-               "name": rule.get("SystemName"),
-               "formula": rule.get("Formula"),
-               "groups": rule_groups,
-               "localization_rules": rule.get("LocalizationRules"),
-               "compilation_sdk": rule.get("CompilationStatus", {}).get("SdkVersion"),
-               "compilation_status": rule.get("CompilationStatus", {}).get("CompilationStatusId"),
-               "deployment_status": rule.get("DeploymentStatus", '').lower()}
-        ret["hash"] = sha256(str(ret.get("formula", '')).encode("utf-8")).hexdigest()
+        ret = {'id': rule.get('Id'),
+               'guid': rule.get('ObjectId'),
+               'folder_id': rule.get('Folder', {}).get('Id'),
+               'origin_id': rule.get('OriginId'),
+               'name': rule.get('SystemName'),
+               'formula': rule.get('Formula'),
+               'groups': rule_groups,
+               'localization_rules': rule.get('LocalizationRules'),
+               'compilation_sdk': rule.get('CompilationStatus', {}).get('SdkVersion'),
+               'compilation_status': rule.get('CompilationStatus', {}).get('CompilationStatusId'),
+               'deployment_status': rule.get('DeploymentStatus', '').lower()}
+        ret["hash"] = sha256(str(ret.get('formula', '')).encode('utf-8')).hexdigest()
 
         self.log.info('status=success, action=get_rule, msg="Got rule {}", '
                       'hostname="{}", db="{}"'.format(rule_id, self.__kb_hostname, db_name))
@@ -809,7 +797,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
         api_url = self.__api_table_info.format(table_id)
-        url = "https://{}:{}{}".format(self.__kb_hostname, self.__kb_port, api_url)
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{api_url}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -819,33 +807,33 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         table = r.json()
 
         table_groups = []
-        for i in table.get("Groups"):
-            table_groups.append({"id": i.get("Id"), "name": i.get("SystemName")})
+        for i in table.get('Groups'):
+            table_groups.append({'id': i.get('Id'), 'name': i.get('SystemName')})
 
         table_fields = []
-        for i in table.get("Fields"):
-            table_fields.append({"name": i.get("Name"),
-                                 "mapping": i.get("Mapping"),
-                                 "type_id": i.get("TypeId"),
-                                 "primary_key": i.get("IsPrimaryKey"),
-                                 "indexed": i.get("IsIndex"),
-                                 "nullable": i.get("IsNullable")})
+        for i in table.get('Fields'):
+            table_fields.append({'name': i.get('Name'),
+                                 'mapping': i.get('Mapping'),
+                                 'type_id': i.get('TypeId'),
+                                 'primary_key': i.get('IsPrimaryKey'),
+                                 'indexed': i.get('IsIndex'),
+                                 'nullable': i.get('IsNullable')})
 
-        ret = {"id": table.get("Id"),
-               "guid": table.get("ObjectId"),
-               "folder_id": table.get("Folder").get("Id") if table.get("Folder") is not None else None,
-               "origin_id": table.get("OriginId"),
-               "name": table.get("SystemName"),
-               "size_max": table.get("MaxSize"),
-               "size_typical": table.get("TypicalSize"),
-               "ttl": table.get("Ttl"),
-               "fields": table_fields,
-               "description": table.get("Description"),
-               "groups": table_groups,
-               "fill_type": table.get("FillType").lower(),
-               "pdql": table.get("PdqlQuery"),
-               "asset_groups": table.get("AssetGroups"),
-               "deployment_status": table.get("DeploymentStatus").lower()}
+        ret = {'id': table.get('Id'),
+               'guid': table.get('ObjectId'),
+               'folder_id': table.get('Folder').get('Id') if table.get('Folder') is not None else None,
+               'origin_id': table.get('OriginId'),
+               'name': table.get('SystemName'),
+               'size_max': table.get('MaxSize'),
+               'size_typical': table.get('TypicalSize'),
+               'ttl': table.get('Ttl'),
+               'fields': table_fields,
+               'description': table.get('Description'),
+               'groups': table_groups,
+               'fill_type': table.get('FillType').lower(),
+               'pdql': table.get('PdqlQuery'),
+               'asset_groups': table.get('AssetGroups'),
+               'deployment_status': table.get('DeploymentStatus').lower()}
 
         self.log.info('status=success, action=get_table_info, msg="Got table {}", '
                       'hostname="{}", db="{}"'.format(table_id, self.__kb_hostname, db_name))
@@ -865,7 +853,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         """
         api_url = self.__api_table_rows.format(table_id)
 
-        url = "https://{}:{}{}".format(self.__kb_hostname, self.__kb_port, api_url)
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{api_url}'
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
         params = {'sort': None}
@@ -886,7 +874,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             offset += limit
             for i in ret:
                 line_counter += 1
-                i.pop("Id")
+                i.pop('Id')
                 yield i
         took_time = get_metrics_took_time(start_time)
 
@@ -897,22 +885,22 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                                                                                          line_counter))
 
     def __iterate_table_rows(self, url: str, params: dict, headers: dict, offset: int, limit: int):
-        params["skip"] = offset
-        params["take"] = limit
+        params['skip'] = offset
+        params['take'] = limit
         rq = exec_request(self.__kb_session,
                           url,
-                          method="POST",
+                          method='POST',
                           timeout=self.settings.connection_timeout,
                           headers=headers,
                           json=params)
         response = rq.json()
-        if response is None or "Rows" not in response:
+        if response is None or 'Rows' not in response:
             self.log.error('status=failed, action=kb_objects_iterate, msg="KB data request return None or '
                            'has wrong response structure", '
                            'hostname="{}"'.format(self.__kb_hostname))
-            raise Exception("KB data request return None or has wrong response structure")
+            raise Exception('KB data request return None or has wrong response structure')
 
-        return response.get("Rows")
+        return response.get('Rows')
 
     def create_folder(self, db_name: str, name: str, parent_id: Optional[str] = None) -> str:
         """
@@ -924,14 +912,12 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :return: ID созданной папки
         """
         params = {
-            "name": name,
-            "parentId": parent_id
+            'name': name,
+            'parentId': parent_id
         }
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
-        url = "https://{hostname}:{port}{endpoint}".format(hostname=self.__kb_hostname,
-                                                           port=self.__kb_port,
-                                                           endpoint=self.__api_folders)
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_folders}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -965,12 +951,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
-        url = "https://{hostname}:{port}{endpoint}/{folderId}".format(
-            hostname=self.__kb_hostname,
-            port=self.__kb_port,
-            endpoint=self.__api_folders,
-            folderId=folder_id
-        )
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_folders}/{folder_id}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1002,29 +983,25 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :return: ID созданного правила
         """
         params = {
-            "systemName": name,
-            "formula": code,
-            "description": {},
-            "folderId": folder_id,
-            "groupsToSave": group_ids,
-            "localizationRulesToAdd": [],
-            "mappingConflictAction": "exception"
+            'systemName': name,
+            'formula': code,
+            'description': {},
+            'folderId': folder_id,
+            'groupsToSave': group_ids,
+            'localizationRulesToAdd': [],
+            'mappingConflictAction': 'exception'
         }
 
         if ru_desc:
             params.update({
-                "description": {
-                    "RUS": ru_desc
+                'description': {
+                    'RUS': ru_desc
                 }
             })
 
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
-        url = "https://{hostname}:{port}{endpoint}".format(
-            hostname=self.__kb_hostname,
-            port=self.__kb_port,
-            endpoint=self.__api_co_rules
-        )
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_co_rules}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1042,7 +1019,6 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         return r.json()
 
-
     def create_group(self, db_name: str, name: str, parent_id: Optional[str] = None) -> str:
         """
         Создать набор установки
@@ -1053,18 +1029,14 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :return: ID созданного набора установки
         """
         params = {
-            "systemName": name,
-            "parentGroupId": parent_id,
-            "locales": []
+            'systemName': name,
+            'parentGroupId': parent_id,
+            'locales': []
         }
 
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
-        url = "https://{hostname}:{port}{endpoint}".format(
-            hostname=self.__kb_hostname,
-            port=self.__kb_port,
-            endpoint=self.__api_groups
-        )
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_groups}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1099,12 +1071,9 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
 
-        params = {"MappingConflictAction": "exception"}
+        params = {'MappingConflictAction': 'exception'}
 
-        url = "https://{hostname}:{port}{endpoint}/{ruleId}".format(hostname=self.__kb_hostname,
-                                                                    port=self.__kb_port,
-                                                                    endpoint=self.__api_groups,
-                                                                    ruleId=group_id)
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_groups}/{group_id}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1134,23 +1103,20 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
 
-        params = { "skip" : 0,
-                   "folderId" : None,
-                   "filters" : None,
-                   "search":"",
-                   "sort":[
-                       {"name":"objectId","order":0,"type":0}
-                   ],
-                   "recursive" : True,
-                   "groupId":group_id,
-                   "withoutGroups" : False,
-                   "take":50
-                   }
+        params = {'skip': 0,
+                  'folderId': None,
+                  'filters': None,
+                  'search': "",
+                  'sort': [
+                      {'name': 'objectId', 'order': 0, 'type': 0}
+                  ],
+                  'recursive': True,
+                  'groupId': group_id,
+                  'withoutGroups': False,
+                  'take': 50
+                  }
 
-        url = "https://{hostname}:{port}{endpoint}".format(hostname=self.__kb_hostname,
-                                                                    port=self.__kb_port,
-                                                                    endpoint=self.__api_list_objects
-                                                                    )
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_list_objects}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1249,17 +1215,12 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         headers = {'Content-Locale': 'RUS'}
 
         params = {
-            "format": export_format,
-            "groupId": group_id,
-            "mode": "group"
+            'format': export_format,
+            'groupId': group_id,
+            'mode': "group"
         }
 
-        url = "https://{hostname}:{port}{endpoint}/?contentDatabase={db_name}".format(
-            hostname=self.__kb_hostname,
-            port=self.__kb_port,
-            endpoint=self.__api_export,
-            db_name=db_name
-        )
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_export}/?contentDatabase={db_name}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1278,7 +1239,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                     retval = kbfile.write(r.content)
 
                 self.log.info('status=success, action=export_group, msg="group {} with id {} exported to {}", '
-                              'hostname="{}", db="{}"'.format(group_path, group_id, local_filepath, self.__kb_hostname, db_name))
+                              'hostname="{}", db="{}"'.format(group_path, group_id, local_filepath, self.__kb_hostname,
+                                                              db_name))
             else:
                 self.log.info('status=success, action=export_group, msg="group {} with id {} is empty", '
                               'hostname="{}", db="{}"'.format(group_path, group_id, self.__kb_hostname, db_name))
@@ -1289,7 +1251,6 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                            'hostname="{}", db="{}"'.format(group_id, self.__kb_hostname, db_name))
 
         return retval
-
 
     def import_group(self, db_name: str, filepath: str, mode: Optional[str] = IMPORT_ADD_AND_UPDATE) -> int:
         """
@@ -1304,15 +1265,10 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                    'Content-Locale': 'RUS',
                    'Content-Type': 'application/octet-stream'}
 
-
         filename = os.path.basename(filepath)
 
-        url = "https://{hostname}:{port}{endpoint}?fileName={filename}&storageType=Temp".format(
-            hostname=self.__kb_hostname,
-            port=self.__kb_port,
-            endpoint=self.__api_temp_file_storage_upload,
-            filename=filename
-        )
+        url = (f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_temp_file_storage_upload}?'
+               f'fileName={filename}&storageType=Temp')
 
         uploaded_id = ""
         with open(filepath, 'rb') as kbfile:
@@ -1341,16 +1297,12 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                        'Content-Locale': 'RUS'}
 
             params = {
-                "importMacros": False,
-                "mode": mode,
-                "uploadId": uploaded_id
+                'importMacros': False,
+                'mode': mode,
+                'uploadId': uploaded_id
             }
 
-            url = "https://{hostname}:{port}{endpoint}".format(
-                hostname=self.__kb_hostname,
-                port=self.__kb_port,
-                endpoint=self.__api_import
-            )
+            url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_import}'
 
             r = exec_request(self.__kb_session,
                              url,
@@ -1381,13 +1333,13 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :return: идентификатор листьевого набора установки
         """
         path_parts = group_path.split('/')
-        for i in range(1, len(path_parts)+1):
-            parent_path = '/'.join(path_parts[0:i-1])
+        for i in range(1, len(path_parts) + 1):
+            parent_path = '/'.join(path_parts[0:i - 1])
             path = '/'.join(path_parts[0:i])
             group_id = self.get_group_id_by_path(db_name, path)
             if not group_id:
                 parent_group_id = self.get_group_id_by_path(db_name, parent_path) or None
-                self.create_group(db_name, path_parts[i-1], parent_group_id)
+                self.create_group(db_name, path_parts[i - 1], parent_group_id)
 
         return self.get_group_id_by_path(db_name, group_path)
 
@@ -1423,23 +1375,19 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         if core_major_ver >= 24:
             params = {
-                "selectedObjects": {
-                    "ids": [content_item_id, ],
-                    "selectionMode": "Selected"
+                'selectedObjects': {
+                    'ids': [content_item_id, ],
+                    'selectionMode': 'Selected'
                 },
-                "filter": None
+                'filter': None
             }
         else:
             params = {
-                        "include":[content_item_id, ],
-                        "filter": None
+                'include': [content_item_id, ],
+                'filter': None
             }
 
-        url = "https://{hostname}:{port}{endpoint}".format(
-            hostname=self.__kb_hostname,
-            port=self.__kb_port,
-            endpoint=self.__api_siem_objgroups_values
-        )
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_siem_objgroups_values}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1467,7 +1415,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         :param db_name: Имя БД
         :param content_items_ids: идентификаторы контента
-        :param group_ids: идентификаторы наборов устновки
+        :param group_ids: идентификаторы наборов установки
         :return:
         """
 
@@ -1475,7 +1423,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         content_item_names = [obj['name'] for obj in self.get_all_objects(db_name) if obj['id'] in content_items_ids]
 
         # получить имя набора установки с которым осуществляется связывание
-        group_names =[group_data.get('name', '') for group_id, group_data in self.get_groups_list(db_name).items() if group_id in group_ids]
+        group_names = [group_data.get('name', '') for group_id, group_data in self.get_groups_list(db_name).items() if
+                       group_id in group_ids]
 
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
@@ -1483,41 +1432,37 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         core_major_ver = int(self.auth.get_core_version().split('.')[0])
         if core_major_ver >= 24:
             params = {
-                "Operations": [
+                'Operations': [
                     {
-                        "Id": "SiemObjectGroup",
-                        "ValuesToSave": group_ids,
-                        "ValuesToRemove": []
+                        'Id': 'SiemObjectGroup',
+                        'ValuesToSave': group_ids,
+                        'ValuesToRemove': []
                     }
                 ],
-                "Entities": {
-                    "selectedObjects": {
-                        "ids": content_items_ids,
-                        "selectionMode": "Selected"
+                'Entities': {
+                    'selectedObjects': {
+                        'ids': content_items_ids,
+                        'selectionMode': 'Selected'
                     },
-                    "filter": {}
+                    'filter': {}
                 }
             }
         else:
             params = {
-                "Operations":[
+                'Operations': [
                     {
-                        "Id":"SiemObjectGroup",
-                        "ValuesToSave": group_ids,
-                        "ValuesToRemove":[]
+                        'Id': 'SiemObjectGroup',
+                        'ValuesToSave': group_ids,
+                        'ValuesToRemove': []
                     }
                 ],
-                "Entities":{
-                    "include": content_items_ids,
-                    "filter":{}
+                'Entities': {
+                    'include': content_items_ids,
+                    'filter': {}
                 }
             }
 
-        url = "https://{hostname}:{port}{endpoint}".format(
-            hostname=self.__kb_hostname,
-            port=self.__kb_port,
-            endpoint=self.__api_mass_operations
-        )
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_mass_operations}'
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1529,10 +1474,12 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         if r.status_code == 200:
             self.log.info('status=success, action=link_content_to_groups, msg="{} linked to {}", '
-                          'hostname="{}", db="{}"'.format(str(content_item_names), str(group_names), self.__kb_hostname, db_name))
+                          'hostname="{}", db="{}"'.format(str(content_item_names), str(group_names), self.__kb_hostname,
+                                                          db_name))
         else:
             self.log.error('status=failed, action=import_file, msg="can not link {} to {}", '
-                           'hostname="{}", db="{}"'.format(str(content_item_names), str(group_names), self.__kb_hostname, db_name))
+                           'hostname="{}", db="{}"'.format(str(content_item_names), str(group_names),
+                                                           self.__kb_hostname, db_name))
 
     def process_kb_metadata(self, db_name, obj_map, kb_meta):
         if 'group_path' in kb_meta and kb_meta['group_path']:
@@ -1546,7 +1493,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                     for content_path in kb_meta['kb_tree'][content_type]:
                         key = (content_type, content_path)
 
-                        # Пробуем найти маппинт (Type, Path)->GUID
+                        # Пробуем найти маппинг (Type, Path)->GUID
                         if key in obj_map:
                             contend_guid_strs.append(obj_map[key])
                         else:
@@ -1559,76 +1506,74 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                     self.link_content_to_groups(db_name, contend_guid_strs, [group_id, ])
 
     def get_folder_path_by_id(self, db_name: str, folder_id: str) -> str:
-        '''
+        """
         Получить путь в дереве папок по ID папки
 
         :param db_name: имя БД
         :param folder_id: ID папки
         :return: путь в дереве папок
-        '''
+        """
         folders = self.get_folders_list(db_name)
         parent = folders[folder_id]['parent_id']
         name = folders[folder_id]['name']
         ret_path = self.get_folder_path_by_id(db_name, parent) if parent else ''
         return '/'.join((ret_path, name)) if ret_path else name
 
-
     def get_folder_id_by_path(self, db_name: str, path: str) -> str:
-        '''
+        """
         Получить ID папки по пути в дереве папок
 
         :param db_name: имя БД
         :param path: путь в дереве папок
         :return: ID папки
-        '''
+        """
         folders = self.get_folders_list(db_name)
         path_to_id_map = {self.get_folder_path_by_id(db_name, folder_id): folder_id for folder_id in folders}
         return path_to_id_map.get(path)
 
     def get_content_data_by_folder_id(self, db_name: str, folder_id) -> dict:
-        '''
+        """
         Получить данные по контенту лежащему в папке с заданным ID
 
         :param db_name: имя БД
         :param folder_id: ID папки
         :return: словарь вида {'ID объекта' : 'Тип объекта'}
-        '''
+        """
         filters = {
-            "folderId": folder_id,
-            "filters": None,
-            "search": "",
-            "sort": [
-                {"name": "objectId","order": 0,"type": 0}
+            'folderId': folder_id,
+            'filters': None,
+            'search': "",
+            'sort': [
+                {'name': 'objectId', 'order': 0, 'type': 0}
             ],
-            "recursive": False,
-            "groupId": None,
-            "withoutGroups": False
+            'recursive': False,
+            'groupId': None,
+            'withoutGroups': False
         }
         content = list(self.get_all_objects(db_name, filters))
-        nested_data = {item['id']:item['object_kind'] for item in content if item['folder_id'] == folder_id}
+        nested_data = {item['id']: item['object_kind'] for item in content if item['folder_id'] == folder_id}
         return nested_data
 
     def get_nested_folder_ids_by_folder_id(self, db_name: str, folder_id: str) -> list:
-        '''
+        """
         Получить идентификаторы дочерних папок по ID папки
 
         :param db_name: имя БД
         :param folder_id: ID папки
         :return: идентификаторы вложенных папок
-        '''
+        """
         folders = self.get_folders_list(db_name)
         return [fold_id for fold_id, fold_data in folders.items() if fold_data['parent_id'] == folder_id]
 
-
     def move_folder(self, db_name: str, folder_id: str, dst_folder_id: str):
-        '''
+        """
         Переместить папку под другого родителя
 
         :param db_name:
         :param folder_id:
         :param dst_folder_id:
         :return:
-        '''
+        """
 
         folder_path = self.get_folder_path_by_id(db_name, folder_id)
         dst_folder_path = self.get_folder_path_by_id(db_name, dst_folder_id)
@@ -1636,17 +1581,12 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
-        url = "https://{hostname}:{port}{endpoint}/{folderId}".format(
-            hostname=self.__kb_hostname,
-            port=self.__kb_port,
-            endpoint=self.__api_folders,
-            folderId=folder_id
-        )
+        url = f'https://{self.__kb_hostname}:{self.__kb_port}{self.__api_folders}/{folder_id}'
 
         params = {
-            "id": folder_id,
-            "name": folder_name,
-            "parentId": dst_folder_id
+            'id': folder_id,
+            'name': folder_name,
+            'parentId': dst_folder_id
         }
 
         r = exec_request(self.__kb_session,
@@ -1667,22 +1607,23 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return r
 
     def get_content_item(self, db_name: str, item_id: str, item_type: str) -> dict:
-        '''
+        """
         Получить элемент контента по типу и ID
 
         :param db_name: имя БД
         :param item_id: ID элемента контента
         :param item_type: тип (CorrelationRule/AggregationRule/EnrichmentRule/NormalizationRule/TabularList)
         :return: dict с полями для элемента контента
-        '''
+        """
 
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
-        url = "https://{hostname}:{port}{endpoint}/{item_type}/{item_id}".format(hostname=self.__kb_hostname,
-                                                                    port=self.__kb_port,
-                                                                    endpoint=self.__api_siem,
-                                                                    item_type=KnowledgeBase.ITEM_TYPE_MAP.get(item_type),
-                                                                    item_id=item_id)
+        url = ('https://{hostname}:{port}{endpoint}/{item_type}/{item_id}'.
+               format(hostname=self.__kb_hostname,
+                      port=self.__kb_port,
+                      endpoint=self.__api_siem,
+                      item_type=KnowledgeBase.ITEM_TYPE_MAP.get(item_type),
+                      item_id=item_id))
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1699,9 +1640,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         return r.json()
 
-
-    def move_content_item(self, db_name: str, item_id: str, item_type: str,  dst_folder_id: str):
-        '''
+    def move_content_item(self, db_name: str, item_id: str, item_type: str, dst_folder_id: str):
+        """
         Переместить элемент контента в другую папку
 
         :param db_name: имя БД
@@ -1709,7 +1649,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :param item_type: тип контента
         :param dst_folder_id: (CorrelationRule/AggregationRule/EnrichmentRule/NormalizationRule/TabularList)
         :return:
-        '''
+        """
 
         dst_folder_path = self.get_folder_path_by_id(db_name, dst_folder_id)
 
@@ -1723,16 +1663,16 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         if item_type == 'TabularList':
             put_content.update({
-            'userCanEditContent': item_data.get('UserCanEditContent'),
-            'fields': [{
-                "id": d['Id'],
-                "name": d['Name'],
-                "typeId": d['TypeId'],
-                "isPrimaryKey": d['IsPrimaryKey'],
-                "isIndex": d['IsIndex'],
-                "isNullable": d['IsNullable'],
-                "mapping": d['Mapping']
-            } for d in item_data.get('Fields')],
+                'userCanEditContent': item_data.get('UserCanEditContent'),
+                'fields': [{
+                    "id": d['Id'],
+                    "name": d['Name'],
+                    "typeId": d['TypeId'],
+                    "isPrimaryKey": d['IsPrimaryKey'],
+                    "isIndex": d['IsIndex'],
+                    "isNullable": d['IsNullable'],
+                    "mapping": d['Mapping']
+                } for d in item_data.get('Fields')],
             })
         else:
             put_content.update({
@@ -1742,12 +1682,12 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
-        url = "https://{hostname}:{port}{endpoint}/{item_type}/{item_id}".format(hostname=self.__kb_hostname,
-                                                                                 port=self.__kb_port,
-                                                                                 endpoint=self.__api_siem,
-                                                                                 item_type=KnowledgeBase.ITEM_TYPE_MAP.get(
-                                                                                     item_type),
-                                                                                 item_id=item_id)
+        url = ('https://{hostname}:{port}{endpoint}/{item_type}/{item_id}'.
+               format(hostname=self.__kb_hostname,
+                      port=self.__kb_port,
+                      endpoint=self.__api_siem,
+                      item_type=KnowledgeBase.ITEM_TYPE_MAP.get(item_type),
+                      item_id=item_id))
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1757,12 +1697,13 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                          json=put_content)
 
         if r.status_code == 200:
-            self.log.info('status=success, action=move_conten_item, msg={} {} moved to {}", '
-                          'hostname="{}", db="{}"'.format(item_type, item_name, dst_folder_path, self.__kb_hostname, db_name))
+            self.log.info('status=success, action=move_content_item, msg={} {} moved to {}", '
+                          'hostname="{}", db="{}"'.format(item_type, item_name, dst_folder_path,
+                                                          self.__kb_hostname, db_name))
         else:
-            self.log.error('status=failed, action=move_conten_item, msg="Failed to move {} {} to {}", '
-                           'hostname="{}", db="{}"'.format(item_type, item_name, dst_folder_path, self.__kb_hostname, db_name))
-
+            self.log.error('status=failed, action=move_content_item, msg="Failed to move {} {} to {}", '
+                           'hostname="{}", db="{}"'.format(item_type, item_name, dst_folder_path,
+                                                           self.__kb_hostname, db_name))
 
     def delete_content_item(self, db_name: str, item_id: str, item_type: str):
         """
@@ -1783,11 +1724,12 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
-        url = "https://{hostname}:{port}{endpoint}/{item_type}/{item_id}".format(hostname=self.__kb_hostname,
-                                                                    port=self.__kb_port,
-                                                                    endpoint=self.__api_siem,
-                                                                    item_type=KnowledgeBase.ITEM_TYPE_MAP.get(item_type),
-                                                                    item_id=item_id)
+        url = ('https://{hostname}:{port}{endpoint}/{item_type}/{item_id}'.
+               format(hostname=self.__kb_hostname,
+                      port=self.__kb_port,
+                      endpoint=self.__api_siem,
+                      item_type=KnowledgeBase.ITEM_TYPE_MAP.get(item_type),
+                      item_id=item_id))
 
         r = exec_request(self.__kb_session,
                          url,
@@ -1805,14 +1747,14 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return r
 
     def move_folder_content(self, db_name: str, src_folder_path: str, dst_folder_path: str):
-        '''
+        """
         Переместить всю начинку папки (дочерние папки и контент) в другую папку
 
         :param db_name: имя БД
         :param src_folder_path: путь до исходной папки
         :param dst_folder_path: путь до папки назанчения
         :return:
-        '''
+        """
         src_folder_id = self.get_folder_id_by_path(db_name, src_folder_path)
         dst_folder_id = self.get_folder_id_by_path(db_name, dst_folder_path)
 
@@ -1847,7 +1789,6 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             content_items.extend(content_objects)
 
         return content_items
-
 
     def close(self):
         if self.__kb_session is not None:

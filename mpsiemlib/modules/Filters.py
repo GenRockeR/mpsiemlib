@@ -33,7 +33,7 @@ class Filters(ModuleInterface, LoggingHandler):
         if len(self.__folders) != 0:
             return self.__folders
 
-        url = "https://{}{}".format(self.__core_hostname, self.__api_filters_list)
+        url = f'https://{self.__core_hostname}{self.__api_filters_list}'
 
         r = exec_request(self.__core_session,
                          url,
@@ -146,19 +146,19 @@ class Filters(ModuleInterface, LoggingHandler):
 
     def __iterate_folders_tree(self, root_node, parent_id=None):
         for i in root_node:
-            node_id = i.get("id")
-            node_name = i.get("name")
-            node_source = i.get("meta", {}).get("source")
-            if i.get("type") == "filter_node":
-                self.__filters[node_id] = {"folder_id": parent_id,
-                                           "name": node_name,
-                                           "source": node_source}
+            node_id = i.get('id')
+            node_name = i.get('name')
+            node_source = i.get('meta', {}).get('source')
+            if i.get('type') == 'filter_node':
+                self.__filters[node_id] = {'folder_id': parent_id,
+                                           'name': node_name,
+                                           'source': node_source}
                 continue
-            if i.get("type") == "folder_node":
-                self.__folders[node_id] = {"parent_id": parent_id,
-                                           "name": node_name,
-                                           "source": node_source}
-                node_children = i.get("children")
+            if i.get('type') == 'folder_node':
+                self.__folders[node_id] = {'parent_id': parent_id,
+                                           'name': node_name,
+                                           'source': node_source}
+                node_children = i.get('children')
                 if node_children is not None and len(node_children) != 0:
                     self.__iterate_folders_tree(node_children, node_id)
 
@@ -179,7 +179,7 @@ class Filters(ModuleInterface, LoggingHandler):
         :return: {"param1": "value", "param2": "value"}
         """
         api_url = self.__api_filter_info.format(filter_id)
-        url = "https://{}{}".format(self.__core_hostname, api_url)
+        url = f'https://{self.__core_hostname}{api_url}'
 
         r = exec_request(self.__core_session,
                          url,
@@ -202,7 +202,7 @@ class Filters(ModuleInterface, LoggingHandler):
                           "distribute": filters.get("distributeBy"),
                           "top": filters.get("top"),
                           "aliases": filters.get("aliases")}
-                }
+
 
     def get_filter_info_v3(self, filter_id: str) -> dict:
         """

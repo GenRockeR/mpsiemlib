@@ -41,7 +41,7 @@ def exec_request(session: requests.Session, url: str, method='GET', timeout=30, 
     :return: requests.Response
     """
 
-    log_body = "MP_DEBUG_LOG_BODY" in os.environ
+    log_body = 'MP_DEBUG_LOG_BODY' in os.environ
     if log_body:  # включаем verbose для requests
         import http.client as http_client
         http_client.HTTPConnection.debuglevel = 1
@@ -89,7 +89,7 @@ def exec_request(session: requests.Session, url: str, method='GET', timeout=30, 
         raise err
 
     if log_body:
-        log.debug('status=success, action=request, msg="{}"'.format(response.text))
+        log.debug(f'status=success, action=request, msg="{response.text}"')
 
     return response
 

@@ -36,10 +36,7 @@ class AggregationRule:
         self.parse_tokens()
 
     def __str__(self):
-        return 'AR RULE [{ObjectId}] {name}'.format(
-            ObjectId=self.ObjectId,
-            name=self.name
-        )
+        return f'AR RULE [{self.ObjectId}] {self.name}'
 
     def __repr__(self):
         return self.__str__()
@@ -83,16 +80,10 @@ class EnrichmentRule:
         self.parse_tokens()
 
     def __str__(self):
-        return 'ER RULE [{ObjectId}] {name}'.format(
-            ObjectId=self.ObjectId,
-            name=self.name
-        )
+        return f'ER RULE [{self.ObjectId}] {self.name}'
 
     def __repr__(self):
-        return 'ER RULE [{ObjectId}] {name}'.format(
-            ObjectId=self.ObjectId,
-            name=self.name
-        )
+        return f'ER RULE [{self.ObjectId}] {self.name}'
 
     def print_all(self):
         print(self.__str__())
@@ -130,16 +121,10 @@ class CorrelationRule:
         self.parse_tokens()
 
     def __str__(self):
-        return 'CR RULE [{ObjectId}] {name}'.format(
-            ObjectId=self.ObjectId,
-            name=self.name
-        )
+        return f'CR RULE [{self.ObjectId}] {self.name}'
 
     def __repr__(self):
-        return 'CR RULE [{ObjectId}] {name}'.format(
-            ObjectId=self.ObjectId,
-            name=self.name
-        )
+        return f'CR RULE [{self.ObjectId}] {self.name}'
 
     def print_all(self):
         print(self.__str__())
@@ -162,16 +147,10 @@ class TablularList:
         self.hasDefaults = True if 'defaults' in code else False
 
     def __str__(self):
-        return 'TABULAR LIST [{ObjectId}] {name}'.format(
-            ObjectId=self.ObjectId,
-            name=self.name
-        )
+        return f'TABULAR LIST [{self.ObjectId}] {self.name}'
 
     def __repr__(self):
-        return 'TABULAR LIST [{ObjectId}] {name}'.format(
-            ObjectId=self.ObjectId,
-            name=self.name
-        )
+        return f'TABULAR LIST [{self.ObjectId}] {self.name}'
 
     def print_defaults(self):
         defaults = self.code['defaults']['LOC']
@@ -770,20 +749,20 @@ class ContentPack:
         """
         tree = [
             {
-                "Kind": "Taxonomy",
-                "Name": "Taxonomy"
+                'Kind': 'Taxonomy',
+                'Name': 'Taxonomy'
             },
             {
-                "Kind": "Origins",
-                "Name": "Origins"
+                'Kind': 'Origins',
+                'Name': 'Origins'
             },
             {
-                "Kind": "EventCategories",
-                "Name": "EventCategories"
+                'Kind': 'EventCategories',
+                'Name': 'EventCategories'
             },
             {
-                "Kind": "RulesFiltersTag",
-                "Name": "rules_filters_tag"
+                'Kind': 'RulesFiltersTag',
+                'Name': 'rules_filters_tag'
             },
         ]
 

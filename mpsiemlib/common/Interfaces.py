@@ -40,7 +40,8 @@ class ModuleNames:
     def get_modules_list():
         return [ModuleNames.AUTH, ModuleNames.ASSETS, ModuleNames.EVENTS, ModuleNames.EVENTSAPI, ModuleNames.TABLES,
                 ModuleNames.FILTERS, ModuleNames.TASKS, ModuleNames.HEALTH,
-                ModuleNames.URM, ModuleNames.KB, ModuleNames.INCIDENTS, ModuleNames.SOURCE_MONITOR]
+                ModuleNames.URM, ModuleNames.KB, ModuleNames.INCIDENTS, ModuleNames.SOURCE_MONITOR, ModuleNames.MACROS,
+                ModuleNames.CONVEYOR]
 
 
 class MPComponents:
@@ -48,25 +49,26 @@ class MPComponents:
     Именование компонент. Должны совпадать с названиями в IAM
     """
 
-    CORE = "mpx"
-    SIEM = "siem"
-    STORAGE = "storage"
-    MS = "idmgr"
-    KB = "ptkb"
+    CORE = 'mpx'
+    SIEM = 'siem'
+    STORAGE = 'storage'
+    MS = 'idmgr'
+    KB = 'ptkb'
 
 
 class MPContentTypes:
-    NORMALIZATION = "Normalization"
-    AGGREGATION = "Aggregation"
-    ENRICHMENT = "Enrichment"
-    CORRELATION = "Correlation"
-    TABLE = "TabularList"
+    NORMALIZATION = 'Normalization'
+    AGGREGATION = 'Aggregation'
+    ENRICHMENT = 'Enrichment'
+    CORRELATION = 'Correlation'
+    TABLE = 'TabularList'
 
 
 class StorageVersion:
-    ES7 = "7"
-    ES17 = "1.7"
-    ALL = "ALL"
+    ES7_17 = '7.17'
+    ES7 = '7'
+    ES17 = '1.7'
+    ALL = 'ALL'
     LS = '1'
 
 

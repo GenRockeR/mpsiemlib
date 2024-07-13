@@ -30,14 +30,14 @@ class TablesTestCase(unittest.TestCase):
         ret = []
         for i in self.__module.get_table_data(key):
             ret.append(i)
-        self.assertTrue((len(ret) != 0) and ("_id" in ret[0]))
+        self.assertTrue((len(ret) != 0) and ('_id' in ret[0]))
 
     def test_get_table_data_filtered(self):
-        filters = {"select": ["_last_changed"],
-                   "where": "_id>5",
-                   "orderBy": [{"field": "_last_changed",
-                                "sortOrder": "descending"}],
-                   "timeZone": 0}
+        filters = {'select': ['_last_changed'],
+                   'where': '_id>5',
+                   'orderBy': [{'field': '_last_changed',
+                                'sortOrder': 'descending'}],
+                   'timeZone': 0}
         is_id_less = True
         is_valid_struct = True
         tables = list(self.__module.get_tables_list())
@@ -45,10 +45,10 @@ class TablesTestCase(unittest.TestCase):
         ret = []
         for i in self.__module.get_table_data(key, filters):
             ret.append(i)
-            if int(i.get("_id")) <= 5:
+            if int(i.get('_id')) <= 5:
                 is_id_less = False
                 break
-            if len(i) != 2 or "_last_changed" not in i:  # должно быть только поле _id и _last_changed
+            if len(i) != 2 or '_last_changed' not in i:  # должно быть только поле _id и _last_changed
                 is_valid_struct = False
                 break
 
@@ -59,19 +59,19 @@ class TablesTestCase(unittest.TestCase):
         key = tables[0]
         table_info = self.__module.get_table_info(key)
 
-        lookup_fields = ["id", "type", "editable", "size_max", "size_typical", "size_current",
-                         "ttl", "ttl_enabled", "description", "created", "updated", "fields",
-                         "notifications"]
+        lookup_fields = ['id', 'type', 'editable', 'size_max', 'size_typical', 'size_current',
+                         'ttl', 'ttl_enabled', 'description', 'created', 'updated', 'fields',
+                         'notifications']
         has_all_fields = len(set(table_info).intersection(lookup_fields)) == len(lookup_fields)
 
         is_valid_struct = True
         is_asset_table = False
         for k, v in table_info.items():
-            if k == "type" and v in ["assetgrid", "registry"]:
+            if k == 'type' and v in ['assetgrid', 'registry']:
                 is_asset_table = True
-            if k in ["notifications", "size_max", "size_typical", "ttl", "ttl_enabled"] and is_asset_table:
+            if k in ['notifications', 'size_max', 'size_typical', 'ttl', 'ttl_enabled'] and is_asset_table:
                 continue
-            if v is None and k != "notifications":
+            if v is None and k != 'notifications':
                 is_valid_struct = False
                 break
 
@@ -101,19 +101,21 @@ class TablesTestCase(unittest.TestCase):
         ret = []
         for i in self.__module.get_table_data("test_tl_2_r251"):
             ret.append(i)
-        self.assertTrue((len(ret) != 0) and ("_id" in ret[0]))
+        self.assertTrue((len(ret) != 0) and ('_id' in ret[0]))
 
-    @unittest.skip("Dangerous")
+    # @unittest.skip("Dangerous")
     def test_truncate(self):
+
         self.assertTrue(self.__module.truncate_table("test_tl_2_r251"))
 
+
     def test_set_table_row(self):
-        add = [{"cust": "test1",
-                "user": "user1",
-                "session_stat": "12.12.2020 15:23:23"},
-               {"cust": "test2",
-                "user": "user2",
-                "session_stat": "12.12.2020 15:23:23"}
+        add = [{'cust': 'test1',
+                'user': 'user1',
+                "session_stat": '12.12.2020 15:23:23'},
+               {'cust': 'test2',
+                'user': 'user2',
+                'session_stat': '12.12.2020 15:23:23'}
                ]
         self.__module.set_table_row("test_tl_2_r251", add_rows=add, remove_rows=None)
         is_added = False
@@ -125,6 +127,7 @@ class TablesTestCase(unittest.TestCase):
         is_removed = True
         for i in self.__module.get_table_data("test_tl_2_r251"):
             if i.get("cust") == "test1" and i.get("user") == "user1":
+
                 is_removed = False
 
         self.assertTrue(is_added and is_removed)

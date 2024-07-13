@@ -15,6 +15,7 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
     __api_agents_status = '/api/components/agent'
     __api_agents_status_new = '/api/v1/scanner_agents'
     __api_kb_status = '/api/v1/knowledgeBase'
+    __kb_port = 8091
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
@@ -23,6 +24,7 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
         self.__core_session = auth.sessions['core']
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
+        self.__kb_session = auth.connect(MPComponents.KB)
 
     def get_health_status(self) -> str:
         """
@@ -30,13 +32,13 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
 
         :return: "ok" - если нет ошибок
         """
-        url = "https://{}{}".format(self.__core_hostname, self.__api_global_status)
+        url = f'https://{self.__core_hostname}{self.__api_global_status}'
         r = exec_request(self.__core_session,
                          url,
                          method='GET',
                          timeout=self.settings.connection_timeout)
         response = r.json()
-        status = response.get("status")
+        status = response.get('status')
 
         self.log.info('status=success, action=get_health_status, msg="Got global status", '
                       'hostname="{}" status="{}"'.format(self.__core_hostname, status))
@@ -52,28 +54,28 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
         limit = 1000
         offset = 0
         api_url = self.__api_checks.format(limit, offset)
-        url = "https://{}{}".format(self.__core_hostname, api_url)
+        url = f'https://{self.__core_hostname}{api_url}'
         r = exec_request(self.__core_session,
                          url,
                          method='GET',
                          timeout=self.settings.connection_timeout)
         response = r.json()
-        errors = response.get("items")
+        errors = response.get('items')
 
         ret = []
         for i in errors:
-            source = i.get("source") if i.get("source") is not None else {}
-            params = i.get("parameters") if i.get("parameters") is not None else {}
-            ret.append({"id": i.get("id"),
-                        "timestamp": i.get("timestamp"),
-                        "status": i.get("status", "").lower(),
-                        "type": i.get("type", "").lower(),
-                        "name": source.get("displayName").lower(),
-                        "hostname": source.get("hostName"),
-                        "ip": source.get("ipAddresses"),
-                        "component_name": params.get("componentName"),
-                        "component_hostname": params.get("hostName"),
-                        "component_ip": params.get("ipAddresses")
+            source = i.get('source') if i.get('source') is not None else {}
+            params = i.get('parameters') if i.get('parameters') is not None else {}
+            ret.append({'id': i.get('id'),
+                        'timestamp': i.get('timestamp'),
+                        'status': i.get('status', '').lower(),
+                        'type': i.get('type', '').lower(),
+                        'name': source.get('displayName').lower(),
+                        'hostname': source.get('hostName'),
+                        'ip': source.get('ipAddresses'),
+                        'component_name': params.get('componentName'),
+                        'component_hostname': params.get('hostName'),
+                        'component_ip': params.get('ipAddresses')
                         })
 
         self.log.info('status=success, action=get_health_errors, msg="Got errors", '
@@ -87,19 +89,19 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
 
         :return: Dict
         """
-        url = "https://{}{}".format(self.__core_hostname, self.__api_license_status)
+        url = f'https://{self.__core_hostname}{self.__api_license_status}'
         r = exec_request(self.__core_session,
                          url,
                          method='GET',
                          timeout=self.settings.connection_timeout)
         response = r.json()
-        lic = response.get("license")
-        status = {"valid": response.get("validity") == "valid",
-                  "key": lic.get("keyNumber"),
-                  "type": lic.get("licenseType"),
-                  "granted": lic.get("keyDate"),
-                  "expiration": lic.get("expirationDate"),
-                  "assets": lic.get("assetsCount")}
+        lic = response.get('license')
+        status = {'valid': response.get('validity') == 'valid',
+                  'key': lic.get('keyNumber'),
+                  'type': lic.get('licenseType'),
+                  'granted': lic.get('keyDate'),
+                  'expiration': lic.get('expirationDate'),
+                  'assets': lic.get('assetsCount')}
 
         self.log.info('status=success, action=get_health_license_status, msg="Got license status", '
                       'hostname="{}"'.format(self.__core_hostname))
@@ -116,6 +118,7 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
             url = "https://{}{}".format(self.__core_hostname, self.__api_agents_status)
         else:
             url = "https://{}{}".format(self.__core_hostname, self.__api_agents_status_new)
+
         r = exec_request(self.__core_session,
                          url,
                          method='GET',
@@ -125,16 +128,16 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
         agents = []
         for i in response:
             agents.append({
-                "id": i.get("id"),
-                "name": i.get("name"),
-                "hostname": i.get("address"),
-                "version": i.get("version"),
-                "updates": i.get("availableUpdates"),
-                "status": i.get("status"),
-                "roles": i.get("roleNames"),
-                "ip": i.get("ipAddresses"),
-                "platform": i.get("platform"),
-                "modules": i.get("modules")
+                'id': i.get('id'),
+                'name': i.get('name'),
+                'hostname': i.get('address'),
+                'version': i.get('version'),
+                'updates': i.get('availableUpdates'),
+                'status': i.get('status'),
+                'roles': i.get('roleNames'),
+                'ip': i.get('ipAddresses'),
+                'platform': i.get('platform'),
+                'modules': i.get('modules')
             })
 
         self.log.info('status=success, action=get_health_agents_status, msg="Got agents status", '
@@ -148,19 +151,19 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
 
         :return: dict.
         """
-        url = "https://{}{}".format(self.__core_hostname, self.__api_kb_status)
-        r = exec_request(self.__core_session,
+        url = f'https://{self.__core_hostname}:{self.__kb_port}{self.__api_kb_status}'
+        r = exec_request(self.__kb_session,
                          url,
                          method='GET',
                          timeout=self.settings.connection_timeout)
         response = r.json()
-        local = response.get("localKnowledgeBase")
-        remote = response.get("remoteKnowledgeBase")
-        status = {"status": response.get("status"),
-                  "local_updated": local.get("lastUpdate"),
-                  "local_current_revision": local.get("localRevision"),
-                  "local_global_revision": local.get("globalRevision"),
-                  "kb_db_name": remote.get("name")}
+        local = response.get('localKnowledgeBase')
+        remote = response.get('remoteKnowledgeBase')
+        status = {'status': response.get('status'),
+                  'local_updated': local.get('lastUpdate'),
+                  'local_current_revision': local.get('localRevision'),
+                  'local_global_revision': local.get('globalRevision'),
+                  'kb_db_name': remote.get('name')}
 
         self.log.info('status=success, action=get_health_kb_status, msg="Got KB status", '
                       'hostname="{}"'.format(self.__core_hostname))
