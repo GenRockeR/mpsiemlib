@@ -16,16 +16,16 @@ class KBTestCase(unittest.TestCase):
     __creds = creds
     __settings = settings
 
-    __test_co_rule = "event Event:\n\tkey:\n\t\tsrc.ip\n\tfilter {\n        msgid == \"4688\"\n\t}\n\nrule TestRule: " \
-                     "Event\nemit {\n\t$id = 'TestRule'\n}"
+    __test_co_rule = 'event Event:\n\tkey:\n\t\tsrc.ip\n\tfilter {\n        msgid == "4688"\n\t}\n\nrule TestRule: ' \
+                     'Event\nemit {\n\t$id = \'TestRule\'\n}'
 
     def __choose_any_db(self):
         dbs = self.__module.get_databases_list()
         db_name = None
-        if "Editable" in dbs:
-            db_name = "Editable"
-        elif "dev" in dbs:
-            db_name = "dev"
+        if 'BZ_content' in dbs:
+            db_name = 'BZ_content'
+        elif 'dev' in dbs:
+            db_name = 'dev'
         else:
             db_name = next(iter(dbs))
 
@@ -35,7 +35,7 @@ class KBTestCase(unittest.TestCase):
         db_name = None
         dbs = self.__module.get_databases_list()
         for k, v in dbs.items():
-            if v.get("deployable"):
+            if v.get('BZ_content'):
                 db_name = k
                 break
 
@@ -52,17 +52,17 @@ class KBTestCase(unittest.TestCase):
 
     def test_get_databases_list(self):
         ret = self.__module.get_databases_list()
-        self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     def test_get_groups_list(self):
         db_name = self.__choose_any_db()
         ret = self.__module.get_groups_list(db_name)
-        self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     def test_get_folders_list(self):
         db_name = self.__choose_deployable_db()
         ret = self.__module.get_folders_list(db_name)
-        self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     def test_get_packs_list(self):
         db_name = self.__choose_deployable_db()
@@ -80,9 +80,9 @@ class KBTestCase(unittest.TestCase):
         agg = []
         for i in self.__module.get_aggregations_list(db_name):
             agg.append(i)
-        enrch = []
+        enrich = []
         for i in self.__module.get_enrichments_list(db_name):
-            enrch.append(i)
+            enrich.append(i)
         tbls = []
         for i in self.__module.get_tables_list(db_name):
             tbls.append(i)
@@ -90,21 +90,21 @@ class KBTestCase(unittest.TestCase):
         self.assertTrue((len(norm) != 0) and
                         (len(corr) != 0) and
                         (len(agg) != 0) and
-                        (len(enrch) != 0) and
+                        (len(enrich) != 0) and
                         (len(tbls) != 0))
 
     def test_get_object_id_by_name(self):
         db_name = self.__choose_any_db()
 
         norm = next(self.__module.get_normalizations_list(db_name))
-        object_name = norm.get("name")
-        object_id = norm.get("id")
+        object_name = norm.get('name')
+        object_id = norm.get('id')
 
         calc_ids = self.__module.get_id_by_name(db_name, MPContentTypes.NORMALIZATION, object_name)
 
         found = False
         for i in calc_ids:
-            if i.get("id") == object_id:
+            if i.get('id') == object_id:
                 found = True
 
         self.assertTrue(found)
@@ -113,53 +113,53 @@ class KBTestCase(unittest.TestCase):
         db_name = self.__choose_any_db()
 
         rule_info = next(self.__module.get_normalizations_list(db_name))
-        rule_id = rule_info.get("id")
+        rule_id = rule_info.get('id')
         norm_rule = self.__module.get_rule(db_name, MPContentTypes.NORMALIZATION, rule_id)
 
         rule_info = next(self.__module.get_correlations_list(db_name))
-        rule_id = rule_info.get("id")
+        rule_id = rule_info.get('id')
         corr_rule = self.__module.get_rule(db_name, MPContentTypes.CORRELATION, rule_id)
 
         rule_info = next(self.__module.get_aggregations_list(db_name))
-        rule_id = rule_info.get("id")
+        rule_id = rule_info.get('id')
         agg_rule = self.__module.get_rule(db_name, MPContentTypes.AGGREGATION, rule_id)
 
         rule_info = next(self.__module.get_enrichments_list(db_name))
-        rule_id = rule_info.get("id")
-        enrch_rule = self.__module.get_rule(db_name, MPContentTypes.ENRICHMENT, rule_id)
+        rule_id = rule_info.get('id')
+        enrich_rule = self.__module.get_rule(db_name, MPContentTypes.ENRICHMENT, rule_id)
 
         self.assertTrue((len(norm_rule) != 0) and
                         (len(corr_rule) != 0) and
                         (len(agg_rule) != 0) and
-                        (len(enrch_rule) != 0))
+                        (len(enrich_rule) != 0))
 
     def test_get_table_info(self):
         db_name = self.__choose_any_db()
 
         tbl = next(self.__module.get_tables_list(db_name))
-        tbl_id = tbl.get("id")
+        tbl_id = tbl.get('id')
 
         ret = self.__module.get_table_info(db_name, tbl_id)
 
-        self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     def test_get_table_data(self):
         db_name = self.__choose_any_db()
 
         tbl = next(self.__module.get_tables_list(db_name))
-        tbl_id = tbl.get("id")
+        tbl_id = tbl.get('id')
 
         ret = self.__module.get_table_data(db_name, tbl_id)
 
         self.assertTrue(ret is not None)
 
-    # @unittest.skip("Skip for development testing")
+    @unittest.skip("Skip for development testing")
     def test_deploy(self):
         db_name = self.__choose_deployable_db()
 
         norm_rule = None
-        for i in self.__module.get_normalizations_list(db_name, filters={"filters": {"DeploymentStatus": ["1"]}}):
-            if i.get("deployment_status") == "notinstalled":
+        for i in self.__module.get_normalizations_list(db_name, filters={'filters': {'DeploymentStatus': ['1']}}):
+            if i.get('deployment_status') == 'notinstalled':
                 norm_rule = i
                 break
         deploy_id = self.__module.install_objects(db_name, [norm_rule.get('id')])
@@ -168,7 +168,7 @@ class KBTestCase(unittest.TestCase):
         for i in range(30):
             time.sleep(10)
             deploy_status = self.__module.get_deploy_status(db_name, deploy_id)
-            if deploy_status.get("deployment_status") == "succeeded":
+            if deploy_status.get('deployment_status') == 'succeeded':
                 success_install = True
                 break
 
@@ -178,12 +178,11 @@ class KBTestCase(unittest.TestCase):
         for i in range(30):
             time.sleep(10)
             deploy_status = self.__module.get_deploy_status(db_name, deploy_id)
-            if deploy_status.get("deployment_status") == "succeeded":
+            if deploy_status.get('deployment_status') == 'succeeded':
                 success_uninstall = True
                 break
 
         self.assertTrue(success_install and success_uninstall)
-
 
     def test_install_sync(self):
         db_name = self.__choose_deployable_db()
@@ -202,7 +201,6 @@ class KBTestCase(unittest.TestCase):
         new_rule_id_str = self.__module.create_co_rule(db_name, rule_name, code, 'Descr', new_folder_id_str,
                                                        group_ids=groups)
 
-
         content_items = self.__module.get_content_items_by_group_id(db_name, new_group_id_str, False)
         content_items_ids = [item['id'] for item in content_items]
         self.__module.install_objects_sync(db_name, content_items_ids)
@@ -210,8 +208,7 @@ class KBTestCase(unittest.TestCase):
         content_item = self.__module.get_content_items_by_group_id(db_name, new_group_id_str, False)[0]
         self.assertEqual('installed', content_item.get('deployment_status', ''))
 
-
-    @unittest.skip("Not Implemented")
+    @unittest.skip('Not Implemented')
     def test_deploy_group(self):
         db_name = self.__choose_deployable_db()
 
@@ -221,7 +218,7 @@ class KBTestCase(unittest.TestCase):
         for i in range(30):
             time.sleep(10)
             deploy_status = self.__module.get_deploy_status(db_name, deploy_id)
-            if deploy_status.get("deployment_status") == "succeeded":
+            if deploy_status.get('deployment_status') == 'succeeded':
                 success_install = True
                 break
 
@@ -230,16 +227,16 @@ class KBTestCase(unittest.TestCase):
     # @unittest.skip("Skip for development testing")
     def test_start_stop_rule(self):
         db_name = self.__choose_deployable_db()
-        rule = next(self.__module.get_correlations_list(db_name, filters={"filters": {"DeploymentStatus": ["1"]}}))
-        rule_id = rule.get("id")
+        rule = next(self.__module.get_correlations_list(db_name, filters={'filters': {'DeploymentStatus': ['1']}}))
+        rule_id = rule.get('id')
         self.__module.stop_rule(db_name, MPContentTypes.CORRELATION, [rule_id])
         is_stopped = self.__module.get_rule_running_state(db_name,
                                                           MPContentTypes.CORRELATION,
-                                                          rule_id).get("state") == "stopped"
+                                                          rule_id).get('state') == 'stopped'
         self.__module.start_rule(db_name, MPContentTypes.CORRELATION, [rule_id])
         is_running = self.__module.get_rule_running_state(db_name,
                                                           MPContentTypes.CORRELATION,
-                                                          rule_id).get("state") == "running"
+                                                          rule_id).get('state') == 'running'
 
         self.assertTrue(is_stopped and is_running)
 
@@ -364,8 +361,8 @@ class KBTestCase(unittest.TestCase):
                                                        group_ids=groups)
 
         filename = gen_lowercase_string(20) + '.kb'
-        with TemporaryDirectory() as tmpdirname:
-            filepath = os.path.join(tmpdirname, filename)
+        with TemporaryDirectory() as tmp_dir_name:
+            filepath = os.path.join(tmp_dir_name, filename)
 
             bytes = self.__module.export_group(db_name, new_group_id_str, filepath)
             self.assertGreater(bytes, 0)
@@ -387,8 +384,8 @@ class KBTestCase(unittest.TestCase):
                                                        group_ids=groups)
 
         filename = gen_lowercase_string(20) + '.zip'
-        with TemporaryDirectory() as tmpdirname:
-            filepath = os.path.join(tmpdirname, filename)
+        with TemporaryDirectory() as tmp_dir_name:
+            filepath = os.path.join(tmp_dir_name, filename)
             bytes = self.__module.export_group(db_name, new_group_id_str, filepath,
                                                export_format=self.__module.EXPORT_FORMAT_SIEM_LITE)
             self.assertGreater(bytes, 0)
@@ -543,7 +540,7 @@ class KBTestCase(unittest.TestCase):
         rule_id_str2 = self.__module.create_co_rule(db_name, rule_name2, code2, 'Descr', nested_folder_id)
 
         nested_ids = self.__module.get_content_data_by_folder_id(db_name, parent_folder_id)
-        self.assertDictEqual({rule_id_str1: "CorrelationRule"}, nested_ids)
+        self.assertDictEqual({rule_id_str1: 'CorrelationRule'}, nested_ids)
 
     def test_move_folder(self):
         db_name = self.__choose_deployable_db()
@@ -565,7 +562,7 @@ class KBTestCase(unittest.TestCase):
         rule_name = gen_lowercase_string(20)  # случайное имя
         code = self.__test_co_rule
         new_rule_id_str = self.__module.create_co_rule(db_name, rule_name, code, 'Descr', None)
-        rule_data = self.__module.get_content_item(db_name, new_rule_id_str, "CorrelationRule")
+        rule_data = self.__module.get_content_item(db_name, new_rule_id_str, 'CorrelationRule')
         self.assertEqual(code, rule_data.get('Formula'))
 
     def test_move_co_rule(self):
@@ -609,7 +606,6 @@ class KBTestCase(unittest.TestCase):
         self.assertEqual('/'.join((dst_folder_name, child_folder_name)),
                          self.__module.get_folder_path_by_id(db_name, child_folder_id))
 
-
     def test_get_content_items_by_group_id(self):
         db_name = self.__choose_deployable_db()
 
@@ -621,16 +617,17 @@ class KBTestCase(unittest.TestCase):
         root_rule_name = gen_lowercase_string(20)  # случайное имя
         code = self.__test_co_rule
         root_rule_id_str = self.__module.create_co_rule(db_name, root_rule_name, code, 'Descr',
-                                                                        folder_id=None, group_ids=[root_group_id,])
+                                                        folder_id=None, group_ids=[root_group_id, ])
 
         child_rule_name = gen_lowercase_string(20)  # случайное имя
         code = self.__test_co_rule
         child_rule_id_str = self.__module.create_co_rule(db_name, child_rule_name, code, 'Descr',
-                                                        folder_id=None, group_ids=[child_group_id, ])
+                                                         folder_id=None, group_ids=[child_group_id, ])
 
         rule_data = self.__module.get_content_items_by_group_id(db_name, root_group_id, recursive=True)
         rule_ids = [obj['id'] for obj in rule_data]
         self.assertCountEqual([root_rule_id_str, child_rule_id_str], rule_ids)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -23,18 +23,18 @@ class FiltersTestCase(unittest.TestCase):
     def test_get_folders_list(self):
         folders = self.__module.get_folders_list()
 
-        self.assertTrue(len(folders) != 0)
+        self.assertGreater(len(folders), 0)
 
     def test_get_filters_list(self):
         filters = self.__module.get_filters_list()
 
-        self.assertTrue(len(filters) != 0)
+        self.assertGreater(len(filters), 0)
 
     def test_get_filter_info(self):
         filter_id = next(iter(self.__module.get_filters_list()))
         filter_info = self.__module.get_filter_info(filter_id)
 
-        self.assertTrue(len(filter_info) != 0)
+        self.assertGreater(len(filter_info), 0)
 
 
 if __name__ == '__main__':

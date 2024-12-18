@@ -89,8 +89,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        #self.__kb_session = auth.connect(MPComponents.KB)
-        self.__core_session = auth.sessions['kb']
+        self.__kb_session = auth.sessions['kb']
         self.__kb_hostname = auth.creds.core_hostname
         self.__rules_mapping = {}
         self.__groups = {}
@@ -103,7 +102,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         Установить объекты из KB в SIEM
 
         :param db_name: Имя БД
-        :param guids_list: Список обЪектов для установки
+        :param guids_list: Список объектов для установки
         :param do_remove:
         :return: deploy ID
         """
@@ -197,8 +196,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :param db_name: имя БД
         :param guids_list: список ID элементов контента
         :param do_remove: False - инсталляция контента, True - деинсталляция контента
-        :param timeout: таймаут между попытками провеки статуса установки
-        :param max_retries: максимальное коилчество попыток проверки статуса установки.
+        :param timeout: таймаут между попытками проверки статуса установки
+        :param max_retries: максимальное количество попыток проверки статуса установки.
                             Если процент установки меняется - счетчик сбрасывается
         :return:
         """
@@ -1158,7 +1157,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         Получить идентификатор набора установки по пути в дереве
 
         :param db_name: Имя БД
-        :param path: Путь в формате root/child/grandchild
+        :param search_path: Путь в формате root/child/grandchild
         :return: идентификатор набора установки
         """
         groups = self.get_groups_list(db_name)

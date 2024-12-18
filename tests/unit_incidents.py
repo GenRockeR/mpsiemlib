@@ -45,7 +45,7 @@ class EventsTestCase(unittest.TestCase):
         incident_id = incident_short.get("id")
         incident = self.__module.get_incident_info(incident_id)
 
-        self.assertTrue(len(incident) != 0)
+        self.assertGreater(len(incident), 0)
 
 
 if __name__ == '__main__':

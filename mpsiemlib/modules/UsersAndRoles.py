@@ -11,6 +11,7 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
     __headers = {'Content-Type': 'application/json'}
 
     __api_applications_list = '/ptms/api/sso/v1/applications'
+    __api_applications_v2_list = '/ptms/api/sso/v2/applications'
     __api_roles_list = '/ptms/api/sso/v2/applications/{}/roles'
     __api_roles_delete = '/ptms/api/sso/v2/applications/{}/roles/delete'
     __api_privileges_list = '/ptms/api/sso/v2/applications/{}/privileges'
@@ -24,9 +25,9 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        #self.__ms_session = auth.connect(MPComponents.MS)
-        self.__core_session = auth.sessions['ms']
+        self.__ms_session = auth.sessions['core']
         self.__ms_hostname = auth.creds.core_hostname
+        self.__core_version = auth.get_core_version()
         self.__applications = {}
         self.__roles = {}
         self.__privileges = {}
@@ -45,7 +46,12 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         self.log.debug(f'status=prepare, action=get_applications, msg="Try to get applications '
                        f'as {self.auth.creds.core_login}", hostname="{self.__ms_hostname}"')
 
-        url = f'https://{self.__ms_hostname}:{self.__ms_port}{self.__api_applications_list}'
+        if int(self.__core_version.split('.')[0]) < 27:
+            url = f'https://{self.__ms_hostname}:{self.__ms_port}{self.__api_applications_list}'
+        else:
+            self.log.debug(f'version={self.__core_version}')
+            self.log.debug(f'session={self.__ms_session}')
+            url = f'https://{self.__ms_hostname}:{self.__ms_port}{self.__api_applications_v2_list}'
         response = exec_request(self.__ms_session, url, method="GET", timeout=self.settings.connection_timeout).json()
 
         for i in response:
@@ -196,6 +202,7 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
 
         self.log.info(f'status=success, action=create_user, msg="User {params.get("userName")} (ID: {response["id"]}) '
                       f'created", hostname="{self.__ms_hostname}"')
+        return response
 
     def update_user(self, data: dict) -> None:
         """
@@ -242,7 +249,7 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
                       f'(ID: {self.__users.get(params.get("userName"))["id"]}) '
                       f'update", hostname="{self.__ms_hostname}"')
 
-    def delete_user(self, user_name: str) -> None:
+    def lock_user(self, user_name: str) -> None:
         """
         Заблокировать пользователя
 
@@ -271,12 +278,13 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
                                 method="POST",
                                 timeout=self.settings.connection_timeout,
                                 headers=self.__headers,
-                                json=params)
+                                json=params).json()
 
         self.log.debug(f'status=success, action=delete_user, msg="User {user_name}'
                        f'blocked", hostname="{self.__ms_hostname}"')
+        return response
 
-    def recover_user(self, user_name: str) -> None:
+    def unlock_user(self, user_name: str) -> None:
         """
         Разблокировать пользователя
 
@@ -305,10 +313,12 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
                                 method="POST",
                                 timeout=self.settings.connection_timeout,
                                 headers=self.__headers,
-                                json=params)
+                                json=params).json()
 
         self.log.debug(f'status=success, action=recover_user, msg="User {user_name}'
                        f'unblocked", hostname="{self.__ms_hostname}"')
+
+        return response
 
     def user_roles_update(self, user_name: str, roles: dict) -> None:
         """
@@ -353,10 +363,11 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
                                 method="PUT",
                                 timeout=self.settings.connection_timeout,
                                 headers=self.__headers,
-                                json=params)
+                                json=params).json()
 
         self.log.debug(f'status=success, action=user_roles_update, msg="User {user_name}'
                        f'update roles", hostname="{self.__ms_hostname}"')
+        return response
 
     def get_roles_list(self) -> dict:
         """
@@ -576,7 +587,7 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         url = f'https://{self.__ms_hostname}:{self.__ms_port}{api_url}'
 
         params = [{"description": role_description, "name": role_new_name if role_new_name else role_name,
-                  "privileges": privileges, "type": "Custom", "id": self.__roles[role_component][role_name]['id']}]
+                   "privileges": privileges, "type": "Custom", "id": self.__roles[role_component][role_name]['id']}]
 
         response = exec_request(self.__ms_session,
                                 url,

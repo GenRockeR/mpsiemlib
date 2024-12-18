@@ -68,7 +68,7 @@ class ModuleTestCase(unittest.TestCase):
         mpsiemworker = MPSIEMWorker(self.__creds, self.__settings)
         module = mpsiemworker.get_module(ModuleNames.AUTH)
         version = int(module.get_core_version().split('.')[0])
-        self.assertTrue(version > 20)
+        self.assertGreater(version, 25)
 
     def test_MPSIEMAuth_get_storage_version(self):
         mpsiemworker = MPSIEMWorker(self.__creds, self.__settings)

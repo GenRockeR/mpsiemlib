@@ -1,6 +1,8 @@
 import re
 import html
 import json
+from os import access
+
 import requests
 
 from .Interfaces import LoggingHandler, AuthType, MPComponents, AuthInterface, Settings, StorageVersion
@@ -20,6 +22,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
 
     __ms_port = 3334
     __api_ms_authorize = '/connect/authorize'
+    __token_uri = '/connect/token'
 
     __api_core_auth_login_page = '/ui/login'
     __api_core_auth_form_page = '/account/login?returnUrl=/#/authorization/landing'
@@ -48,6 +51,26 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         self.__kb_version = None
         self.__kb_token = None
         self.sessions = None
+        self.client_secret = None
+
+    def get_token(self):
+        """
+        Аутентификация в MC через токены
+        """
+
+        url = f'https://{self.creds.core_hostname}:{self.__ms_port}{self.__token_uri}'
+        payload = dict(grant_type='password', client_id='mpx', client_secret=self.creds.client_secret,
+                       scope='authorization offline_access mpx.api ptkb.api idmgr.api',
+                       response_type='code id_token token', username=self.creds.core_login,
+                       password=self.creds.core_pass)
+        token = requests.post(url, data=payload, verify=False).json().get('access_token')
+        return token
+
+    def set_auth_header(self, token):
+        """
+        Установка токена bearer
+        """
+        self.__session.headers.update({'Authorization': 'Bearer ' + token})
 
     def connect(self, component, creds=None):
         """
@@ -73,6 +96,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         else:
             raise NotImplementedError(f"Unsupported component for Auth {component}")
 
+        self.set_auth_header(token=self.get_token())
 
         return self.__session
 
@@ -280,7 +304,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         try:
             login_url = f"https://{self.creds.core_hostname}:{self.__kb_port}{self.__api_kb_auth_login_page}"
 
-            # Получаем форму с токенами, т.к. мы уже аутентифицированы
+            # Получаем форму с токенами, так как мы уже аутентифицированы
             self.log.debug('hostname="{}", status=prepare, action=auth, '
                            'msg="Auth. Phase 1. Get auth form from KB"'.format(self.creds.core_hostname))
 

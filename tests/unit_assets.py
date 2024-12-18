@@ -122,9 +122,9 @@ class AssetsTestCase(unittest.TestCase):
 
         status = self.__module.delete_assets_by_ids(asset_ids=hosts)
 
-        self.assertTrue((len(hosts) > 0) and (status is not None) and (status['succeedCount'] == len(hosts)))
+        self.assertGreater(len(hosts), 0) and (status is not None) and (status['succeedCount'] == len(hosts))
 
-    def test_delete_assets_by_id_v26_1(self):
+    def test_delete_assets_by_id_v27_2(self):
         group_id = self.__module.get_group_id_by_name("Root")
         token = self.__module. \
             create_assets_request(pdql='qsearch("xxxxxxxxxx.test.local") | select(Host. @ id as id)',
@@ -136,7 +136,7 @@ class AssetsTestCase(unittest.TestCase):
 
         status = self.__module.delete_assets_by_ids(asset_ids=hosts)
 
-        self.assertTrue((len(hosts) > 0) and (status is not None) and (status['succeedCount'] == len(hosts)))
+        self.assertGreater(len(hosts), 0) and (status is not None) and (status['succeedCount'] == len(hosts))
 
 
 if __name__ == '__main__':

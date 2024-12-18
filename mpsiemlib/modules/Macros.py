@@ -1,5 +1,4 @@
 import re
-from operator import add
 
 from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, MPComponents, Settings
 from mpsiemlib.common import exec_request
@@ -84,13 +83,13 @@ class Macros(ModuleInterface, LoggingHandler):
 
         return self.__filters
 
-    def get_macro_by_id(self, macro_id):
+    def get_macros_by_id(self, macro_id):
         """
         Получение макроса по id
         """
         raise NotImplementedError("Get macro by id not implemented")
 
-    def get_macro_by_name(self, macro_name):
+    def get_macros_by_name(self, macro_name):
         """
         Получение макроса по имени
         """
@@ -99,13 +98,13 @@ class Macros(ModuleInterface, LoggingHandler):
                 return macro
         return []
 
-    def get_macro_by_filter_name(self, macro_name):
+    def get_macros_by_filter_name(self, macro_name):
         """
         Получение макроса по имени фильтра
         """
         raise NotImplementedError("Get macro by filter name not implemented")
 
-    def get_macro_by_object_id(self, object_id):
+    def get_macros_by_object_id(self, object_id):
         """
         Получение макроса по имени
         """
@@ -114,7 +113,7 @@ class Macros(ModuleInterface, LoggingHandler):
                 return macro
         return []
 
-    def get_macro_id_by_filter_name(self, filter_name):
+    def get_macros_id_by_filter_name(self, filter_name):
         url = f'https://{self.__core_hostname}:{self.__kb_port}{self.__api_macros_list}'
         params = dict(tagId=None, sort=[
             dict(name='objectId', order=0, type=0)
@@ -133,11 +132,11 @@ class Macros(ModuleInterface, LoggingHandler):
         for macro in macros.get('Rows'):
             return macro.get('ObjectId')
 
-    def unpack_macro(self):
+    def unpack_macros(self):
         """
         Раскрытие внутренних макросов внутри основного макроса
         """
-        global_macro = self.get_macro_by_object_id(object_id='LOC-RF-34')
+        global_macro = self.get_macros_by_object_id(object_id='LOC-RF-34')
         macro_filter = self.get_macros_info(macro_id=global_macro.get('id'))
 
         filter_list = re.findall(r'filter::(\S+)\(\)', str(macro_filter))

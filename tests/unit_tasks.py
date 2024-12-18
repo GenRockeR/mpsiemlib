@@ -23,33 +23,28 @@ class TasksTestCase(unittest.TestCase):
 
     def test_get_agents_list(self):
         ret = self.__module.get_agents_list()
-        self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     def test_get_modules_list(self):
         ret = self.__module.get_modules_list()
-        self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     def test_get_profiles_list(self):
         ret = self.__module.get_profiles_list()
-        self.assertTrue(len(ret) != 0)
-
-    @unittest.skip("Deprecated after R23")
-    def test_get_transports_list(self):
-        ret = self.__module.get_transports_list()
-        self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     def test_get_credentials_list(self):
         ret = self.__module.get_credentials_list()
-        self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     def test_get_tasks_list(self):
         ret = self.__module.get_tasks_list()
-        self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     def test_get_tasks_info(self):
         task_id = next(iter(self.__module.get_tasks_list()))
         ret = self.__module.get_task_info(task_id)
-        self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     def test_get_jobs_list(self):
         task_id = None
@@ -59,7 +54,7 @@ class TasksTestCase(unittest.TestCase):
                 break
 
         ret = self.__module.get_jobs_list(task_id)
-        self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     @unittest.skip("Long test")
     def test_stop_start(self):

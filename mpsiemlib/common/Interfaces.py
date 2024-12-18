@@ -13,7 +13,7 @@ class Settings:
     tables_batch_size = 1000  # размер выгружаемой пачки записей из табличек
     kb_objects_batch_size = 1000  # размер выгружаемой пачки правил из KB
     incidents_batch_size = 100  # размер выгружаемой пачки инцидентов
-    source_monitor_batch_size = 100  # размер выгружаемой пачки источников
+    source_monitor_batch_size = 1000  # размер выгружаемой пачки источников
     assets_batch_size = 1000  # размер выгружаемой пачки активов
 
 
@@ -23,6 +23,8 @@ class AuthType:
 
 
 class ModuleNames:
+    MACROS = "macros"
+    CONVEYOR = "conveyor"
     AUTH = "auth"
     EVENTS = "events"
     EVENTSAPI = "eventsapi"
@@ -80,6 +82,7 @@ class Creds:
         self.__core_pass = None
         self.__siem_hostname = None
         self.__storage_hostname = None
+        self.__client_secret = None
 
         if params is not None:
             self.__core_hostname = params.get('core', {}).get('hostname', None)
@@ -88,6 +91,7 @@ class Creds:
             self.__core_auth_type = params.get('core', {}).get('auth_type', None)
             self.__siem_hostname = params.get('siem', {}).get('hostname', None)
             self.__storage_hostname = params.get('storage', {}).get('hostname', None)
+            self.__client_secret = params.get('client_secret')
 
     @property
     def core_hostname(self):
@@ -138,6 +142,14 @@ class Creds:
     @storage_hostname.setter
     def storage_hostname(self, p):
         self.__storage_hostname = p
+
+    @property
+    def client_secret(self):
+        return self.__client_secret
+
+    @client_secret.setter
+    def client_secret(self, p):
+        self.__client_secret = p
 
 
 class WorkerInterface:

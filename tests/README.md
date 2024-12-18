@@ -6,10 +6,15 @@
 - MP_SIEM_HOSTNAME: IP/Hostname для доступа к MP SIEM Server (без схемы http(s))
 - MP_LOGIN: учетная запись с ролью администратора в PT KB, IAM, SIEM
 - MP_PASSWORD: пароль
+- USE_LOCAL_AUTH: true
+- CLIENT_SECRET: токен из MP SIEM
+```bash
+  sudo grep ClientSecret /var/lib/deployer/role_instances/core*/params.yaml
+```
 - При запуске выставить директорию запуска: mpsiemlib
 
 # Особенности
-- Все тесты используют LDAP учетную запись. Сменить поведение можно в tests/settings.py
+- Все тесты используют локальную учетную запись. Сменить поведение можно в tests/settings.py
 - Далеко не все тесты имеют строгие проверки возвращаемых данных.
 
 ## Events

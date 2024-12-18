@@ -1,9 +1,9 @@
-import pytz
-
 from datetime import datetime
 from typing import Optional, Iterator
 
-from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, MPComponents, Settings
+import pytz
+
+from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, Settings
 from mpsiemlib.common import exec_request, get_metrics_start_time, get_metrics_took_time
 
 
@@ -16,7 +16,6 @@ class Incidents(ModuleInterface, LoggingHandler):
 
     __api_incidents_list = "/api/v2/incidents"
     __api_incidents_list_r25 = "/api/v2/incidents/"
-
 
     __api_incident_info = ''
     __api_incident_info_new = '/api/incidentsReadModel/incidents/{}'  # From R23
@@ -45,7 +44,6 @@ class Incidents(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        #self.__core_session = auth.connect(MPComponents.CORE)
         self.__core_session = auth.sessions['core']
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
@@ -229,7 +227,6 @@ class Incidents(ModuleInterface, LoggingHandler):
                'events': events,
                'issues': issues
                }
-        
 
         if inc.get("source") == "netFor":
             netfor = self.__load_netfor(incident_id)
@@ -286,7 +283,6 @@ class Incidents(ModuleInterface, LoggingHandler):
 
             for i in evts:
                 events.append({"id": i.get("id"), "description": i.get("description"), "date": i.get("date")})
-
 
         return events
 
