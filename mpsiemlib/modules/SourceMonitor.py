@@ -8,9 +8,7 @@ from mpsiemlib.common import exec_request, get_metrics_start_time, get_metrics_t
 
 
 class SourceMonitor(ModuleInterface, LoggingHandler):
-    """
-    Source monitor module
-    """
+    """Source monitor module."""
 
     __time_format = '%Y-%m-%dT%H:%M:%S.%fZ'
     __time_27_format = '%Y-%m-%dT%H:%M:%S.000Z'
@@ -19,7 +17,6 @@ class SourceMonitor(ModuleInterface, LoggingHandler):
     __api_forwarders_list = '/api/events_monitoring/v2/forwarders'
     __api_sources_v3_list = '/api/events_monitoring/v3/assets'
     __api_forwarders_v3_list = '/api/events_monitoring/v3/forwarders'
-
     'https://mow03-mpsiem-dev.soc.bi.zone/api/events_monitoring/v3/assets?stateFilter=all&limit=50&offset=0'
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
@@ -34,12 +31,13 @@ class SourceMonitor(ModuleInterface, LoggingHandler):
                          begin: int,
                          end: Optional[int] = None,
                          forwarder_id: Optional[str] = None) -> Iterator[dict]:
-        """
-        Получить список источников из мониторинга
+        """Получить список источников из мониторинга.
 
         :param begin: Timestamp начала диапазона
-        :param end: timestamp. Если задан, то (end-begin)>=24h, иначе API вернет пусто результат
-        :param forwarder_id: ID форвардера для которого надо вывести источники
+        :param end: timestamp. Если задан, то (end-begin)>=24h, иначе
+            API вернет пусто результат
+        :param forwarder_id: ID форвардера для которого надо вывести
+            источники
         :return:
         """
         if int(self.__core_version.split('.')[0]) < 27:
@@ -108,11 +106,11 @@ class SourceMonitor(ModuleInterface, LoggingHandler):
                                                                                              line_counter))
 
     def get_forwarders_list(self, begin: int, end: Optional[int] = None) -> Iterator[dict]:
-        """
-        Получить список форвардеров из мониторинга
+        """Получить список форвардеров из мониторинга.
 
         :param begin: timestamp начала диапазона
-        :param end: timestamp. если задан, то (end-begin)>=24h, иначе API вернет пусто результат
+        :param end: timestamp. если задан, то (end-begin)>=24h, иначе
+            API вернет пусто результат
         :return:
         """
 
@@ -180,10 +178,8 @@ class SourceMonitor(ModuleInterface, LoggingHandler):
                              line_counter))
 
     def get_sources_by_forwarder(self, forwarder_id: str, begin: int, end: Optional[int] = None) -> Iterator[dict]:
-        """
-        Получить все источники для форвардера
-        Обертка над get_sources_list
-        """
+        """Получить все источники для форвардера Обертка над
+        get_sources_list."""
         return self.get_sources_list(begin, end, forwarder_id)
 
     def __prepare_params(self, begin, end=None):

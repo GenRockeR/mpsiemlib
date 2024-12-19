@@ -1,22 +1,21 @@
-import re
 import html
 import json
-from os import access
-
-import requests
-
-from .Interfaces import LoggingHandler, AuthType, MPComponents, AuthInterface, Settings, StorageVersion
-from .BaseFunctions import exec_request
-
-from requests import RequestException
+import re
 # TODO: requests.utils.urlparse ?
 from urllib.parse import urlparse
 
+import requests
+from requests import RequestException
+
+from .BaseFunctions import exec_request
+from .Interfaces import LoggingHandler, AuthType, MPComponents, AuthInterface, Settings, StorageVersion
+
 
 class MPSIEMAuth(AuthInterface, LoggingHandler):
-    """
-    Аутентификация на компонентах MP, если требуется.
-    Получение текущий версии компонент.
+    """Аутентификация на компонентах MP, если требуется. Получение текущий
+    версии компонент.
+
+    :no-index:
     """
     __auth_type = AuthType.LOCAL  # 0 - Local, 1 - LDAP
 
@@ -54,9 +53,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         self.client_secret = None
 
     def get_token(self):
-        """
-        Аутентификация в MC через токены
-        """
+        """Аутентификация в MC через токены."""
 
         url = f'https://{self.creds.core_hostname}:{self.__ms_port}{self.__token_uri}'
         payload = dict(grant_type='password', client_id='mpx', client_secret=self.creds.client_secret,
@@ -67,16 +64,15 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         return token
 
     def set_auth_header(self, token):
-        """
-        Установка токена bearer
-        """
+        """Установка токена bearer."""
+
         self.__session.headers.update({'Authorization': 'Bearer ' + token})
 
     def connect(self, component, creds=None):
-        """
-        Подключение к выбранным компонентам
-        :param component: Компонент для подключения Interfaces.MPComponents
-        :param creds: креды для подключения Interfaces.Creds
+        """Подключение к выбранным компонентам :param component: Компонент для
+        подключения Interfaces.MPComponents :param creds: креды для подключения
+        Interfaces.Creds.
+
         :return: session или None
         """
         if creds is not None:
@@ -102,6 +98,8 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
 
     def disconnect(self):
         # TODO logout in MP CORE
+        """Очистка сессии."""
+
         if self.__session is not None:
             self.__session.close()
         self.__is_connected = False
@@ -119,8 +117,8 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         return self.creds
 
     def get_core_version(self) -> str:
-        """
-        Текущая версия Core
+        """Текущая версия Core.
+
         :return: StorageVersion
         """
         if self.__core_version is None:
@@ -128,8 +126,8 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         return self.__core_version
 
     def get_storage_version(self) -> str:
-        """
-        Текущая версия Storage
+        """Текущая версия Storage.
+
         :return: StorageVersion
         """
         if self.__storage_version is None:
@@ -137,8 +135,8 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         return self.__storage_version
 
     def get_kb_version(self) -> str:
-        """
-        Текущая версия PT KB
+        """Текущая версия PT KB.
+
         :return: StorageVersion
         """
         if self.__kb_version is None:
@@ -146,9 +144,8 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         return self.__kb_version
 
     def __core_try_connect(self):
-        """
-        Пробуем подключиться к Core
-        """
+        """Пробуем подключиться к Core."""
+
         if self.creds.core_hostname is None or self.creds.core_login is None or self.creds.core_pass is None:
             raise Exception('hostname="{}", status=failed, action=auth, '
                             'msg="Core hostname or login or pass is empty"'.format(self.creds.core_hostname))
@@ -292,9 +289,8 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         self.log.info('hostname="{}", status=success, action=auth'.format(self.creds.storage_hostname))
 
     def __kb_try_connect(self):
-        """
-        Пробуем подключиться к PT KB
-        """
+        """Пробуем подключиться к PT KB."""
+
         if self.creds.core_hostname is None or self.creds.core_login is None or self.creds.core_pass is None:
             raise Exception('hostname="{}", status=failed, action=auth, '
                             'msg="Core hostname or login or pass is empty"'.format(self.creds.core_hostname))

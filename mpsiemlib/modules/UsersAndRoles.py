@@ -3,9 +3,7 @@ from mpsiemlib.common import exec_request
 
 
 class UsersAndRoles(ModuleInterface, LoggingHandler):
-    """
-    Users and Roles management
-    """
+    """Users and Roles management."""
 
     __ms_port = 3334
     __headers = {'Content-Type': 'application/json'}
@@ -36,8 +34,7 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         self.__code_privileges = {}
 
     def get_applications_list(self) -> dict:
-        """
-        Получить информацию по приложениям, включая тенанты
+        """Получить информацию по приложениям, включая тенанты.
 
         :return: {'app_id': {'name': 'value', 'tenants': ['', '']}}
         """
@@ -68,14 +65,11 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         return self.__applications
 
     def get_users_list(self, filters=None) -> dict:
-        """
-        Получить список всех пользователей
+        """Получить список всех пользователей.
 
-        :param filters: {"rolesIds": ["id", "id"],
-                  "authTypes": [1, 0],
-                  "ldapPoolNames": ["ldap_pool_name"],
-                  "statuses": ["active", "blocked"],
-                  "withoutRoles": True}
+        :param filters: {"rolesIds": ["id", "id"], "authTypes": [1, 0],
+            "ldapPoolNames": ["ldap_pool_name"], "statuses": ["active",
+            "blocked"], "withoutRoles": True}
         :return: {"user_name": {"param1": "value"}}
         """
 
@@ -138,8 +132,7 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         return self.__users
 
     def get_user_info(self, user_name: str) -> dict:
-        """
-        Получить информацию по пользователю
+        """Получить информацию по пользователю.
 
         :param user_name:
         :return: {"param1": "value", "param2": "value"}
@@ -151,26 +144,24 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         return self.__users.get(user_name)
 
     def create_user(self, data: dict, password_generation: True) -> None:
-        """
-        Создать пользователя
-        :param data:
-            {"userName": str,
-            "email": str or None,
-            "authType": 0, # 0 - локальный, 1 - LDAP
-            "ldapSyncEnabled": False,
-            "status": "active" or "blocked",
-            "passwordChange": False,
-            "firstName": str or None,
-            "lastName": str or None,
-            "middleName": str or None,
-            "phone": str or None,
-            "position": str or None,
-            "manager": str or None,
-            "department": str or None,
-            "password": str}
+        """Создать пользователя
+        :param data: {"userName": str,
+        "email": str or None,
+        "authType": 0, # 0 - локальный, 1 - LDAP
+        "ldapSyncEnabled": False,
+        "status": "active" or "blocked",
+        "passwordChange": False,
+        "firstName": str or None,
+        "lastName": str or None,
+        "middleName": str or None,
+        "phone": str or None,
+        "position": str or None,
+        "manager": str or None,
+        "department": str or None,
+        "password": str}
         :param password_generation # Генерация пароля для пользователя
-        :return: None
-        """
+
+        :return: None"""
 
         params = data
 
@@ -205,10 +196,8 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         return response
 
     def update_user(self, data: dict) -> None:
-        """
-        Изменить пользователя
-        :param data:
-            {"userName": str,
+        """Изменить пользователя :param data: {"userName": str,
+
             "email": str or None,
             "authType": 0, # 0 - локальный, 1 - LDAP
             "ldapSyncEnabled": False,
@@ -222,6 +211,7 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
             "manager": str or None,
             "department": str or None,
             "newPassword": str or None}
+
         :return: None
         """
 
@@ -250,10 +240,9 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
                       f'update", hostname="{self.__ms_hostname}"')
 
     def lock_user(self, user_name: str) -> None:
-        """
-        Заблокировать пользователя
-
+        """Заблокировать пользователя.
         :param user_name:
+
         :return: None
         """
         if len(self.__users) == 0:
@@ -285,10 +274,9 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         return response
 
     def unlock_user(self, user_name: str) -> None:
-        """
-        Разблокировать пользователя
-
+        """Разблокировать пользователя.
         :param user_name:
+
         :return: None
         """
         if len(self.__users) == 0:
@@ -321,15 +309,13 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         return response
 
     def user_roles_update(self, user_name: str, roles: dict) -> None:
-        """
-            Назначение/изменение ролей пользователя
+        """Назначение/изменение ролей пользователя.
 
-            :param user_name:
-            :param roles:
-            {'idmgr': [role_name],
-            'mpx': [role_name],
-            'ptkb': [role_name]}
-            :return: None
+        :param user_name:
+        :param roles: {'idmgr': [role_name], 'mpx': [role_name], 'ptkb':
+            [role_name]}
+
+        :return: None
         """
 
         self.__role_id.clear()
@@ -370,8 +356,7 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         return response
 
     def get_roles_list(self) -> dict:
-        """
-        Получить полный список ролей
+        """Получить полный список ролей.
 
         :return: {'component': {'role_name': {'param1': 'value1'}}}
         """
@@ -410,12 +395,11 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
                        f'hostname="{self.__ms_hostname}" roles="{self.__roles}"')
 
     def get_role_info(self, role_name: str, component: str) -> dict:
-        """
-        Получить информацию по конкретной роле
+        """Получить информацию по конкретной роле
         :param role_name: Имя роли
         :param component: MPComponents
-        :return: dict
-        """
+
+        :return: dict."""
 
         if len(self.__roles) == 0:
             self.get_roles_list()
@@ -423,8 +407,7 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         return self.__roles[component][role_name]
 
     def get_privileges_list(self) -> dict:
-        """
-        Получить полный список всех доступных в системе привилегий
+        """Получить полный список всех доступных в системе привилегий.
 
         :return: {'component': {'priv': 'name'}}
         """
@@ -446,10 +429,9 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         return self.__privileges
 
     def __get_privileges(self, app_type: str) -> None:
-        """
-        Парсинг ответа от сервера и заполнение привилегий
-
+        """Парсинг ответа от сервера и заполнение привилегий.
         :param app_type: MPComponent
+
         :return: None
         """
 
@@ -468,14 +450,13 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
                        f'hostname="{self.__ms_hostname}" privileges="{self.__privileges}"')
 
     def create_role(self, role_name: str, role_description: str, role_component: str, role_privileges: list) -> None:
-        """
-        Создание роли
+        """Создание роли
         :param role_name: Имя роли
         :param role_component: MPComponents
         :param role_description: Описание роли
-        :param role_privileges: Присваемые привилегии (имена)
-        :return: None
-        """
+        :param role_privileges: привилегии роли
+
+        :return: None."""
 
         if len(self.__roles) == 0:
             self.get_roles_list()
@@ -547,15 +528,14 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
 
     def update_role(self, role_name: str, role_new_name: None, role_description: str,
                     role_component: str, role_privileges: list) -> None:
-        """
-        Редактирование роли
+        """Редактирование роли
         :param role_name: Имя роли
         :param role_new_name: Новое имя роли
         :param role_component: MPComponents
         :param role_description: Описание роли
         :param role_privileges: Присваемые привилегии (имена)
-        :return: None
-        """
+
+         :return: None."""
 
         if len(self.__roles) == 0:
             self.get_roles_list()
@@ -601,12 +581,11 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
                       f', hostname="{self.__ms_hostname}"')
 
     def delete_role(self, role_name: str, role_component: str) -> None:
-        """
-        Удаление роли
+        """Удаление роли
         :param role_name: Имя роли
         :param role_component: MPComponents
-        :return: None
-        """
+
+        :return: None."""
         if len(self.__roles) == 0:
             self.get_roles_list()
 

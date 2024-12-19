@@ -22,3 +22,7 @@ Submodules
    mpsiemlib.modules.Tables
    mpsiemlib.modules.Tasks
    mpsiemlib.modules.UsersAndRoles
+   mpsiemlib.modules.Conveyor
+   mpsiemlib.modules.EventsAPI
+   mpsiemlib.modules.Macros
+   mpsiemlib.modules

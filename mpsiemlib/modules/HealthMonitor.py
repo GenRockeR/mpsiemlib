@@ -5,9 +5,7 @@ from mpsiemlib.common import exec_request
 
 
 class HealthMonitor(ModuleInterface, LoggingHandler):
-    """
-    Health monitor module
-    """
+    """Health monitor module."""
 
     __api_global_status = '/api/health_monitoring/v2/total_status'
     __api_checks = '/api/health_monitoring/v2/checks?limit={}&offset={}'
@@ -26,8 +24,7 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
         self.__kb_session = auth.connect(MPComponents.KB)
 
     def get_health_status(self) -> str:
-        """
-        Получить общее состояние системы
+        """Получить общее состояние системы.
 
         :return: "ok" - если нет ошибок
         """
@@ -45,8 +42,7 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
         return status
 
     def get_health_errors(self) -> List[dict]:
-        """
-        Получить список ошибок из семафора.
+        """Получить список ошибок из семафора.
 
         :return: Список ошибок или пустой массив, если ошибок нет
         """
@@ -83,8 +79,7 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
         return ret
 
     def get_health_license_status(self) -> dict:
-        """
-        Получить статус лицензии.
+        """Получить статус лицензии.
 
         :return: Dict
         """
@@ -108,8 +103,7 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
         return status
 
     def get_health_agents_status(self) -> List[dict]:
-        """
-        Получить статус агентов.
+        """Получить статус агентов.
 
         :return: Список агентов и их параметры.
         """
@@ -145,8 +139,7 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
         return agents
 
     def get_health_kb_status(self) -> dict:
-        """
-        Получить статус обновления VM контента в Core.
+        """Получить статус обновления VM контента в Core.
 
         :return: dict.
         """

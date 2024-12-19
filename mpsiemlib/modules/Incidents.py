@@ -8,9 +8,7 @@ from mpsiemlib.common import exec_request, get_metrics_start_time, get_metrics_t
 
 
 class Incidents(ModuleInterface, LoggingHandler):
-    """
-    Incidents worker
-    """
+    """Incidents worker."""
     __time_format = "%Y-%m-%dT%H:%M:%S.%fZ"
     __time_format_r25 = "%Y-%m-%dT%H:%M:%S.000Z"
 
@@ -63,17 +61,16 @@ class Incidents(ModuleInterface, LoggingHandler):
                            end: int,
                            time_type: str = TimeFilterType.CREATED,
                            filters: Optional[dict] = None) -> Iterator[dict]:
-        """
-        Получить список инцидентов за временной период
+        """Получить список инцидентов за временной период.
 
         :param begin: Timestamp. Начало диапазона выгрузки
         :param end: Timestamp. окончание диапазона выгрузки
-        :param time_type: Статус инцидента, к которому применяется временное окно. По умолчанию "созданные"
-        :param filters:  filters = { select": ["key", "name", "category", "type", "status", "created", "assigned"],
-                "where": "",
-                "orderby": [{"field": "created",
-                             "sortOrder": "descending"}
-                            ]},
+        :param time_type: Статус инцидента, к которому применяется
+            временное окно. По умолчанию "созданные"
+        :param filters: filters = { select": ["key", "name", "category",
+            "type", "status", "created", "assigned"], "where": "",
+            "orderby": [{"field": "created", "sortOrder": "descending"}
+            ]},
         :return: Итератор
         """
 
@@ -166,9 +163,8 @@ class Incidents(ModuleInterface, LoggingHandler):
         return response.get('incidents')
 
     def get_incident_id_by_key(self, incident_key):
-        """
-        Получить ID инцидента по его Key (INC-<Number>).
-        Поиск возможен только на глубину в 365 дней.
+        """Получить ID инцидента по его Key (INC-<Number>). Поиск возможен
+        только на глубину в 365 дней.
 
         :param incident_key: Key инцидента (INC-<Number>)
         :return: ID инцидента
@@ -187,8 +183,7 @@ class Incidents(ModuleInterface, LoggingHandler):
         return incident.get('id') if incident is not None else None
 
     def get_incident_info(self, incident_id: str) -> dict:
-        """
-        Получить информацию по инциденту.
+        """Получить информацию по инциденту.
 
         :param incident_id: ID инцидента. Key (INC-<Number>) != ID
         :return: Перечень свойств инцидента
@@ -238,8 +233,7 @@ class Incidents(ModuleInterface, LoggingHandler):
         return ret
 
     def __load_comments(self, incident_id):
-        """
-        Загрузка комментариев
+        """Загрузка комментариев.
 
         :param incident_id:
         :return:
@@ -261,8 +255,7 @@ class Incidents(ModuleInterface, LoggingHandler):
         return comments
 
     def __load_events(self, incident_id):
-        """
-        Загрузка событий
+        """Загрузка событий.
 
         :param incident_id:
         :return:
@@ -287,8 +280,7 @@ class Incidents(ModuleInterface, LoggingHandler):
         return events
 
     def __load_issues(self, incident_id):
-        """
-        Загрузить задачи
+        """Загрузить задачи.
 
         :param incident_id:
         :return:
@@ -312,8 +304,8 @@ class Incidents(ModuleInterface, LoggingHandler):
         return issues
 
     def __load_netfor(self, incident_id):
-        """
-        Загрузить информацию по сетевому трафику (для инцидентов, созданных нажатием кнопки в PT NAD)
+        """Загрузить информацию по сетевому трафику (для инцидентов, созданных
+        нажатием кнопки в PT NAD)
 
         :param incident_id:
         :return:
@@ -332,8 +324,8 @@ class Incidents(ModuleInterface, LoggingHandler):
         return netfor
 
     def __load_netfor_sessions(self, incident_id):
-        """
-        Загрузить информацию по сессиям в сетевом трафике (для инцидентов, созданных нажатием кнопки в PT NAD)
+        """Загрузить информацию по сессиям в сетевом трафике (для инцидентов,
+        созданных нажатием кнопки в PT NAD)
 
         :param incident_id:
         :return:
@@ -348,8 +340,8 @@ class Incidents(ModuleInterface, LoggingHandler):
         return response
 
     def __load_netfor_alerts(self, incident_id):
-        """
-        Загрузить информацию по алертам в сетевом трафике (для инцидентов, созданных нажатием кнопки в PT NAD)
+        """Загрузить информацию по алертам в сетевом трафике (для инцидентов,
+        созданных нажатием кнопки в PT NAD)
 
         :param incident_id:
         :return:

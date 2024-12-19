@@ -6,9 +6,7 @@ from mpsiemlib.common import exec_request, get_metrics_start_time, get_metrics_t
 
 
 class Tables(ModuleInterface, LoggingHandler):
-    """
-    Tables module
-    """
+    """Tables module."""
     __table_add_time_format = '%d.%m.%Y %H:%M:%S'
 
     __api_table_info = '/api/events/v2/table_lists/{}?siem_id={}'
@@ -28,9 +26,8 @@ class Tables(ModuleInterface, LoggingHandler):
         self.log.debug('status=success, action=prepare, msg="Table Module init"')
 
     def get_tables_list(self, siem_id=None) -> dict:
-        """
-        Получить список всех установленных табличных списков
-        :param siem_id: UUID конвейера
+        """Получить список всех установленных табличных списков :param siem_id:
+        UUID конвейера.
 
         :return: {'id': 'name'}
         """
@@ -56,20 +53,16 @@ class Tables(ModuleInterface, LoggingHandler):
         return self.__tables_cache
 
     def get_table_data(self, table_name: str, filters=None, siem_id=None) -> Iterator[dict]:
-        """
-        Итеративно загружаем содержимое табличного списка
+        """Итеративно загружаем содержимое табличного списка.
 
-        Пример фильтра:
-            filters = {"select": ["_last_changed", "field2", "field3"],
-                   "where": "_id>5",
-                   "orderBy": [{"field": "_last_changed",
-                                "sortOrder": "descending"}],
-                   "timeZone": 0}
+        Пример фильтра:     filters = {"select": ["_last_changed",
+        "field2", "field3"],            "where": "_id>5",
+        "orderBy": [{"field": "_last_changed",
+        "sortOrder": "descending"}],            "timeZone": 0}
 
         :param table_name: Имя таблицы
         :param filters: Фильтр, опционально
         :param siem_id: UUID конвейера
-
         :return: Итератор по строкам таблицы
         """
         api_url = self.__api_table_search.format(self.get_table_id_by_name(table_name, siem_id), siem_id)
@@ -124,9 +117,8 @@ class Tables(ModuleInterface, LoggingHandler):
         return response.get('items')
 
     def set_table_data(self, table_name: str, data: bytes, siem_id=None) -> None:
-        """
-        Импортировать бинарные данные в табличный список.
-        Данные должны быть в формате CSV, понятном MP SIEM.
+        """Импортировать бинарные данные в табличный список. Данные должны быть
+        в формате CSV, понятном MP SIEM.
 
         Usage:
             with open("import.csv", "rb") as data:
@@ -189,12 +181,10 @@ class Tables(ModuleInterface, LoggingHandler):
                                                                          imported_records))
 
     def get_table_info(self, table_name, siem_id=None) -> dict:
-        """
-        Получить метаданные по табличке
+        """Получить метаданные по табличке.
 
         :param table_name: Имя таблицы
         :param siem_id: UUID конвейера
-
         :return: {'property': 'value'}
         """
         self.log.debug('status=prepare, action=get_table_info, msg="Try to get table info for {}", '
@@ -223,8 +213,7 @@ class Tables(ModuleInterface, LoggingHandler):
         return table_info
 
     def truncate_table(self, table_name: str, siem_id=None) -> bool:
-        """
-        Очистить табличный список
+        """Очистить табличный список.
 
         :param table_name: Имя таблицы
         :param siem_id: UUID конвейера
@@ -251,12 +240,10 @@ class Tables(ModuleInterface, LoggingHandler):
         return True
 
     def get_table_id_by_name(self, table_name: str, siem_id=None) -> str:
-        """
-        Получение ID таблицы по её имени
+        """Получение ID таблицы по её имени.
 
         :param table_name: Имя таблицы
         :param siem_id: UUID конвейера
-
         :return: UUID
         """
 
@@ -269,14 +256,13 @@ class Tables(ModuleInterface, LoggingHandler):
 
     def set_table_row(self, table_name: str, add_rows: Optional[List[dict]] = None,
                       remove_rows: Optional[List[dict]] = None, siem_id=None):
-        """
-        Опасная (без остановки правил) работа со строками, установленных в SIEM таблиц.
+        """Опасная (без остановки правил) работа со строками, установленных в
+        SIEM таблиц.
 
         :param table_name: Имя таблицы
         :param add_rows: [{"field1": "value"}]
         :param remove_rows: [{"field1": "value"}]
         :param siem_id: UUID конвейера
-
         :return:
         """
         self.log.debug('status=prepare, action=set_table_row, msg="Try to add|remove table row {}", '

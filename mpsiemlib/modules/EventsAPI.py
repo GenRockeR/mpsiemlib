@@ -4,9 +4,7 @@ from mpsiemlib.common import exec_request, get_metrics_start_time, get_metrics_t
 
 
 class EventsAPI(ModuleInterface, LoggingHandler):
-    """
-    Модуль получения информации о событиях через API UI
-    """
+    """Модуль получения информации о событиях через API UI."""
     __api_events_metadata = '/api/events/v2/events_metadata'
     __api_event_details = '/api/events/v2/events/{}/normalized?time={}'
     __api_events_aggregation = '/api/events/v2/events/aggregation?offset=0'
@@ -22,8 +20,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
         self.log.debug('status=success, action=prepare, msg="EventsUI Module init"')
 
     def get_events_group_by_api_json(self, params: dict, group_ids=None) -> dict:
-        """
-        Получить группировки в формате JSON по фильтру запроса
+        """Получить группировки в формате JSON по фильтру запроса.
 
         :param: params: Параметры запроса
         :param: group_ids: Группа
@@ -61,8 +58,8 @@ class EventsAPI(ModuleInterface, LoggingHandler):
         return response.get('rows')
 
     def get_event_details(self, event_id, event_date) -> dict:
-        """
-        Получить событие (все заполненные поля) по его идентификатору и дате
+        """Получить событие (все заполненные поля) по его идентификатору и
+        дате.
 
         Args:
             event_id : идентификатор события
@@ -84,9 +81,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
         return response.get('event')
 
     def get_events_metadata(self):
-        """
-        Получить список поддерживаемых полей таксономии событий
-        """
+        """Получить список поддерживаемых полей таксономии событий."""
 
         url = 'https://{}{}'.format(self.__core_hostname, self.__api_events_metadata)
 
@@ -102,8 +97,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
         return response.get('fields')
 
     def get_events_grouped_by_fields(self, query_filter, group_by_fields, time_from, time_to) -> dict[str, int]:
-        """
-        Получить события по фильтру, сгруппированные по заданным полям
+        """Получить события по фильтру, сгруппированные по заданным полям.
 
         Args:
             query_filter : фильтр на языке PDQL
@@ -111,7 +105,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
             time_from : начало диапазона поиска (Unix timestamp в секундах)
             time_to : конец диапазона поиска (Unix timestamp в секундах)
         Returns:
-            [type]: массив событий 
+            [type]: массив событий
         """
         null = None
         false = False
@@ -168,8 +162,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
         return {' | '.join(str(s) for s in e['groups']): int(e['values'][0]) for e in response['rows']}
 
     def get_events_by_filter(self, pdql_filter, fields, time_from, time_to, limit, offset) -> dict:
-        """
-        Получить события по фильтру
+        """Получить события по фильтру.
 
         Args:
             pdql_filter : фильтр на языке PDQL
@@ -179,7 +172,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
             limit: число запрашиваемых событий, соответствующих фильтру
             offset: позиция, начиная с которой возвращать требуемое число событий, соответствующих фильтру
         Returns:
-            [type]: массив событий 
+            [type]: массив событий
         """
         null = None
         params = {
@@ -218,8 +211,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
         return response.get('events')
 
     def get_events_for_incident(self, fields, incident_id, time_from, time_to, limit, offset):
-        """
-        Получить события, связанные с инцидентом 
+        """Получить события, связанные с инцидентом.
 
         Args:
             fields : список запрашиваемых полей событий
@@ -229,7 +221,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
             limit: число запрашиваемых событий, связанных с инцидентом
             offset: позиция, начиная с которой возвращать требуемое число событий, связанны с инцидентом
         Returns:
-            [type]: массив событий 
+            [type]: массив событий
         """
         null = None
         params = {

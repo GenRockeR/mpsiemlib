@@ -11,7 +11,7 @@ from .Filters import Filters
 from .Tasks import Tasks
 from .SourceMonitor import SourceMonitor
 from .Macros import Macros
-from .Сonveyor import Conveyor
+from .Conveyor import Conveyor
 
 
 class MPSIEMWorker(WorkerInterface, LoggingHandler):
