@@ -107,7 +107,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
             raise Exception("Core data request return None or has wrong response structure")
         return response.get("events")
 
-    def __get_events_by_filter_v3(self, filter: str, time_from: int, time_to: int, offset:int, limit: int,) -> dict:
+    def __get_events_by_filter_v3(self, filter: str, time_from: int, time_to: int, offset:int, limit: int, token:str=None) -> dict:
         """
         Получить события по фильру 
 
@@ -117,6 +117,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
             time_to (int): конец диапазона поиска (Unix timestamp в секундах)
             offset: (int) позиция, начиная с которой возвращать требуемое число событий, соответсвующих фильтру 
             limit: (int) число запрашиваемых событий, соответсвующих фильтру
+            token: (str) токен запроса (ускоряет ответ при запросе новой пачки событий по предыдущему фильтру)
         Returns:
             [dict]: массив событий 
         """
@@ -129,6 +130,8 @@ class EventsAPI(ModuleInterface, LoggingHandler):
         }
         api_url = self.__api_events_v3.format(limit, offset)
         url = "https://{}{}".format(self.__core_hostname, api_url)
+        if token is not None:
+            url += "&token={}".format(token)
 
         rq = exec_request(self.__core_session, url, method="POST", json=params)
         response = rq.json()
@@ -138,7 +141,7 @@ class EventsAPI(ModuleInterface, LoggingHandler):
                            'has wrong response structure", '
                            'hostname="{}"'.format(self.__core_hostname))
             raise Exception("Core data request return None or has wrong response structure")
-        return response.get("events")
+        return response#.get("events")
 
     def get_events_by_filter_v3(self, filter: str, time_from: int, time_to: int) -> Iterator[dict]:
         """Получить события по фильтру
@@ -160,14 +163,17 @@ class EventsAPI(ModuleInterface, LoggingHandler):
         is_end = False
         offset = 0
         limit = self.settings.events_batch_size
+        token = None
         line_counter = 0    
         start_time = get_metrics_start_time()   
         while not is_end:
-            ret = self.__get_events_by_filter_v3(filter, time_from, time_to, offset, limit)
-            if len(ret) < limit:
+            ret = self.__get_events_by_filter_v3(filter, time_from, time_to, offset, limit, token)
+            events = ret.get("events")
+            token = ret.get("token") #последующие запросы с токеном должны быстрее, чем без него
+            if len(events) < limit:
                 is_end = True
             offset += limit
-            for i in ret:
+            for i in events:
                 line_counter += 1
                 yield i
         took_time = get_metrics_took_time(start_time)
