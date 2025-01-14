@@ -15,6 +15,7 @@ class Settings:
     incidents_batch_size = 100  # размер выгружаемой пачки инцидентов
     source_monitor_batch_size = 100  # размер выгружаемой пачки источников
     assets_batch_size = 1000  # размер выгружаемой пачки активов
+    events_batch_size = 50  # размер выгружаемой пачки событий через EventsAPI
 
 
 class AuthType:
@@ -26,6 +27,7 @@ class ModuleNames:
     AUTH = "auth"
     EVENTS = "events"
     EVENTSAPI = "eventsapi"
+    EDR = "edr"
     ASSETS = "assets"
     TABLES = "tables"
     FILTERS = "filters"
@@ -40,7 +42,7 @@ class ModuleNames:
     def get_modules_list():
         return [ModuleNames.AUTH, ModuleNames.ASSETS, ModuleNames.EVENTS, ModuleNames.EVENTSAPI, ModuleNames.TABLES,
                 ModuleNames.FILTERS, ModuleNames.TASKS, ModuleNames.HEALTH,
-                ModuleNames.URM, ModuleNames.KB, ModuleNames.INCIDENTS, ModuleNames.SOURCE_MONITOR]
+                ModuleNames.URM, ModuleNames.KB, ModuleNames.INCIDENTS, ModuleNames.SOURCE_MONITOR, ModuleNames.EDR]
 
 
 class MPComponents:
