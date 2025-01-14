@@ -27,7 +27,6 @@ class ModuleNames:
     AUTH = "auth"
     EVENTS = "events"
     EVENTSAPI = "eventsapi"
-    EDR = "edr"
     ASSETS = "assets"
     TABLES = "tables"
     FILTERS = "filters"
