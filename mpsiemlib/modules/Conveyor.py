@@ -3,9 +3,7 @@ from mpsiemlib.common import exec_request
 
 
 class Conveyor(ModuleInterface, LoggingHandler):
-    """
-    Conveyor module
-    """
+    """Conveyor module."""
 
     __api_conveyor_list = '/api/siem_manager/v1/siems'
 
@@ -19,9 +17,7 @@ class Conveyor(ModuleInterface, LoggingHandler):
         self.__default_conveyor = None
 
     def get_conveyor_list(self) -> list:
-        """
-        Получить список всех конвейеров
-        """
+        """Получить список всех конвейеров."""
         if len(self.__conveyor) != 0:
             return self.__conveyor
 

@@ -3,9 +3,7 @@ from mpsiemlib.common import exec_request
 
 
 class Filters(ModuleInterface, LoggingHandler):
-    """
-    Filters module
-    """
+    """Filters module."""
 
     __api_filters_list = "/api/v2/events/filters_hierarchy"
     __api_filter_info = "/api/v2/events/filters/{}"
@@ -16,7 +14,6 @@ class Filters(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        #self.__core_session = auth.connect(MPComponents.CORE)
         self.__core_session = auth.sessions['core']
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
@@ -25,10 +22,10 @@ class Filters(ModuleInterface, LoggingHandler):
         self.log.debug('status=success, action=prepare, msg="Filters Module init"')
 
     def get_folders_list(self) -> dict:
-        """
-        Получить список всех папок с фильтрами
+        """Получить список всех папок с фильтрами.
 
-        :return: {"id": {"parent_id": "value", "name": "value", "source": "value"}}
+        :return: {"id": {"parent_id": "value", "name": "value",
+            "source": "value"}}
         """
         if len(self.__folders) != 0:
             return self.__folders
@@ -49,13 +46,11 @@ class Filters(ModuleInterface, LoggingHandler):
         return self.__folders
 
     def create_event_filter_folder(self, folder_name: str, parent_id: str) -> str:
-        """
-        Создать директорию для фильтров
-        :param folder_name: имя создаваемой директории
-        :param parent_id: ID родительской директории
+        """Создать директорию для фильтров :param folder_name: имя создаваемой
+        директории :param parent_id: ID родительской директории.
 
-        :return: folder_id: ID созданнной директории
-        """      
+        :return: folder_id: ID созданной директории
+        """
 
         api_url = self.__api_folder
         url = "https://{}{}".format(self.__core_hostname, api_url)
@@ -70,19 +65,16 @@ class Filters(ModuleInterface, LoggingHandler):
         return folder_id
 
     def create_event_filter_v2(self, filter_name: str, folder_id: str, params: dict) -> str:
-        """
-        Создать директорию для фильтров
-        :param filter_name: имя создаваемого фильтра
-        :param folder_id: ID директории, в которой создается фильтр
-        :param pdql_query: поисковой запрос
+        """Создать директорию для фильтров :param filter_name: имя создаваемого
+        фильтра :param folder_id: ID директории, в которой создается фильтр
+        :param params: поисковой запрос.
 
-        :return: filter_id: ID созданнного фильтра
-        """      
+        :return: filter_id: ID созданного фильтра
+        """
 
         api_url = self.__api_filter_v2
         url = "https://{}{}".format(self.__core_hostname, api_url)
-        #params = {'folderId':folder_id, 'name': filter_name, 'pdqlQuery': pdql_query}
-        params['folderId'] = folder_id 
+        params['folderId'] = folder_id
         params['name'] = filter_name
         r = exec_request(self.__core_session,
                          url,
@@ -92,22 +84,20 @@ class Filters(ModuleInterface, LoggingHandler):
         r = r.json()
         filter_id = r.get("id")
         self.log.info('status=success, action=create_event_filter_v3, msg="Created filter {}", '
-              'hostname="{}"'.format(filter_id, self.__core_hostname))
+                      'hostname="{}"'.format(filter_id, self.__core_hostname))
         return filter_id
 
     def create_event_filter_v3(self, filter_name: str, folder_id: str, pdql_query: str) -> str:
-        """
-        Создать директорию для фильтров
-        :param filter_name: имя создаваемого фильтра
-        :param folder_id: ID директории, в которой создается фильтр
-        :param pdql_query: поисковой запрос
+        """Создать директорию для фильтров :param filter_name: имя создаваемого
+        фильтра :param folder_id: ID директории, в которой создается фильтр
+        :param pdql_query: поисковой запрос.
 
-        :return: filter_id: ID созданнного фильтра
-        """      
+        :return: filter_id: ID созданного фильтра
+        """
 
         api_url = self.__api_filter_v3
         url = "https://{}{}".format(self.__core_hostname, api_url)
-        params = {'folderId':folder_id, 'name': filter_name, 'pdqlQuery': pdql_query}
+        params = {'folderId': folder_id, 'name': filter_name, 'pdqlQuery': pdql_query}
         r = exec_request(self.__core_session,
                          url,
                          method='POST',
@@ -116,7 +106,7 @@ class Filters(ModuleInterface, LoggingHandler):
         r = r.json()
         filter_id = r.get("id")
         self.log.info('status=success, action=create_event_filter_v3, msg="Created filter {}", '
-              'hostname="{}"'.format(filter_id, self.__core_hostname))
+                      'hostname="{}"'.format(filter_id, self.__core_hostname))
         return filter_id
 
     def create_event_filter(self, filter_name: str, folder_id: str, pdql_query: str) -> str:
@@ -128,10 +118,10 @@ class Filters(ModuleInterface, LoggingHandler):
             return self.create_event_filter_v3(filter_name, folder_id, pdql_query)
 
     def get_filters_list(self) -> dict:
-        """
-        Получить список всех фильтров
+        """Получить список всех фильтров.
 
-        :return: {"id": {"folder_id": "value", "name": "value", "source": "value"}}
+        :return: {"id": {"folder_id": "value", "name": "value",
+            "source": "value"}}
         """
         if len(self.__filters) != 0:
             return self.__filters
@@ -172,8 +162,7 @@ class Filters(ModuleInterface, LoggingHandler):
             return self.get_filter_info_v3(filter_id)
 
     def get_filter_info_v2(self, filter_id: str) -> dict:
-        """
-        Получить информацию по фильтру
+        """Получить информацию по фильтру.
 
         :param filter_id: ID фильтра
         :return: {"param1": "value", "param2": "value"}
@@ -201,12 +190,10 @@ class Filters(ModuleInterface, LoggingHandler):
                           "aggregate": filters.get("aggregateBy"),
                           "distribute": filters.get("distributeBy"),
                           "top": filters.get("top"),
-                          "aliases": filters.get("aliases")}
-
+                          "aliases": filters.get("aliases")}}
 
     def get_filter_info_v3(self, filter_id: str) -> dict:
-        """
-        Получить информацию по фильтру
+        """Получить информацию по фильтру.
 
         :param filter_id: ID фильтра
         :return: {"param1": "value", "param2": "value"}

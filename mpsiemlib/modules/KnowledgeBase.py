@@ -9,9 +9,7 @@ from mpsiemlib.common import exec_request, get_metrics_start_time, get_metrics_t
 
 
 class KnowledgeBase(ModuleInterface, LoggingHandler):
-    """
-    PT KB module
-    """
+    """PT KB module."""
 
     __kb_port = 8091
 
@@ -89,8 +87,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        #self.__kb_session = auth.connect(MPComponents.KB)
-        self.__core_session = auth.sessions['kb']
+        self.__kb_session = auth.sessions['kb']
         self.__kb_hostname = auth.creds.core_hostname
         self.__rules_mapping = {}
         self.__groups = {}
@@ -99,11 +96,10 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         self.log.debug('status=success, action=prepare, msg="KB Module init"')
 
     def install_objects(self, db_name: str, guids_list: list, do_remove=False) -> str:
-        """
-        Установить объекты из KB в SIEM
+        """Установить объекты из KB в SIEM.
 
         :param db_name: Имя БД
-        :param guids_list: Список обЪектов для установки
+        :param guids_list: Список объектов для установки
         :param do_remove:
         :return: deploy ID
         """
@@ -146,11 +142,11 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return response.get('Id')
 
     def install_objects_by_group_id(self, db_name: str, group_id: str) -> str:
-        """
-        Установить объекты из KB в SIEM
+        """Установить объекты из KB в SIEM.
 
         :param db_name: Имя БД
-        :param group_id: ID набора для установки, None для установки всего контента
+        :param group_id: ID набора для установки, None для установки
+            всего контента
         :return: deploy ID
         """
         self.log.info('status=prepare, action=install_objects_by_group_id, msg="Try to install group {}", '
@@ -177,8 +173,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return response.get('Id')
 
     def uninstall_objects(self, db_name: str, guids_list: list) -> str:
-        """
-        Удалить объекты из SIEM
+        """Удалить объекты из SIEM.
 
         :param db_name: Имя БД
         :param guids_list: Список обЪектов для удаления из SIEM
@@ -191,14 +186,13 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                              do_remove=False,
                              timeout: int = DEPLOYMENT_TIMEOUT,
                              max_retries: int = DEPLOYMENT_RETRIES):
-        """
-        Синхронный вариант инсталляции/деинсталляции контента из SIEM
+        """Синхронный вариант инсталляции/деинсталляции контента из SIEM.
 
         :param db_name: имя БД
         :param guids_list: список ID элементов контента
         :param do_remove: False - инсталляция контента, True - деинсталляция контента
-        :param timeout: таймаут между попытками провеки статуса установки
-        :param max_retries: максимальное коилчество попыток проверки статуса установки.
+        :param timeout: таймаут между попытками проверки статуса установки
+        :param max_retries: максимальное количество попыток проверки статуса установки.
                             Если процент установки меняется - счетчик сбрасывается
         :return:
         """
@@ -231,12 +225,12 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                 break
 
     def get_deploy_status(self, db_name: str, deploy_id: str) -> dict:
-        """
-        Получить общий статус установки контента
+        """Получить общий статус установки контента.
 
         :param db_name: Имя БД
         :param deploy_id: Идентификатор процесса установки/удаления
-        :return: {"start_date": "date_string", "deployment_status": "succeeded|running"}
+        :return: {"start_date": "date_string", "deployment_status":
+            "succeeded|running"}
         """
         headers = {'Content-Database': db_name,
                    'Content-Locale': 'RUS'}
@@ -264,26 +258,24 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         }
 
     def start_rule(self, db_name: str, content_type: str, guids_list: list):
-        """
-        Запустить правила, установленные в SIEM Server
-        Используются ID правил из KB.
-        
+        """Запустить правила, установленные в SIEM Server Используются ID
+        правил из KB.
+
         :param db_name: Имя БД в KB
         :param content_type: MPContentType
         :param guids_list: Список ID правил для установки
-        :return: 
+        :return:
         """
         self.__manipulate_rule(db_name, content_type, guids_list, 'start')
 
     def stop_rule(self, db_name: str, content_type: str, guids_list: list):
-        """
-        Остановить правило, установленное в SIEM Server
-        Используются ID правил из KB.
-        
+        """Остановить правило, установленное в SIEM Server Используются ID
+        правил из KB.
+
         :param db_name: Имя БД в KB
         :param content_type: MPContentType
         :param guids_list: Список ID правил для установки
-        :return: 
+        :return:
         """
         self.__manipulate_rule(db_name, content_type, guids_list, 'stop')
 
@@ -338,14 +330,13 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                                                                         db_name))
 
     def get_rule_running_state(self, db_name: str, content_type: str, guid: str):
-        """
-        Получить статус правила, работающего в SIEM Server.
-        Используются ID правил из KB.
-        
+        """Получить статус правила, работающего в SIEM Server. Используются ID
+        правил из KB.
+
         :param db_name: Имя БД в KB
         :param content_type: MPContentType
         :param guid: ID правила
-        :return: 
+        :return:
         """
         object_type = None
         if content_type == MPContentTypes.CORRELATION:
@@ -373,8 +364,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return {'state': state.get('name'), 'reason': state.get('reason'), 'context': state.get('context')}
 
     def get_databases_list(self) -> dict:
-        """
-        Получить список БД
+        """Получить список БД.
 
         :return: {'db_name': {'param1': 'value1'}}
         """
@@ -401,8 +391,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return ret
 
     def get_groups_list(self, db_name: str, do_refresh=False) -> dict:
-        """
-        Получить список групп
+        """Получить список групп.
 
         :param db_name: Имя БД
         :param do_refresh: Обновить кэш
@@ -433,8 +422,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return self.__groups
 
     def get_folders_list(self, db_name: str, do_refresh=False) -> dict:
-        """
-        Получить список папок
+        """Получить список папок.
 
         :param db_name: Имя БД
         :param do_refresh: Обновить кэш
@@ -451,8 +439,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return self.__folders
 
     def get_packs_list(self, db_name: str, do_refresh=False) -> dict:
-        """
-        Получить список паков
+        """Получить список паков.
 
         :param db_name: Имя БД
         :param do_refresh: Обновить кэш
@@ -537,8 +524,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                 self.__iterate_folders_tree(db_name, obj_id)
 
     def get_normalizations_list(self, db_name: str, filters: Optional[dict] = None) -> Iterator[dict]:
-        """
-        Получить список правил нормализации
+        """Получить список правил нормализации.
 
         :param db_name: Имя БД
         :param filters: см get_all_objects
@@ -553,8 +539,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return self.get_all_objects(db_name, filters)
 
     def get_correlations_list(self, db_name: str, filters: Optional[dict] = None) -> Iterator[dict]:
-        """
-        Получить список правил корреляции
+        """Получить список правил корреляции.
 
         :param db_name: Имя БД
         :param filters: см get_all_objects
@@ -569,8 +554,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return self.get_all_objects(db_name, filters)
 
     def get_enrichments_list(self, db_name: str, filters: Optional[dict] = None) -> Iterator[dict]:
-        """
-        Получить список правил обогащения
+        """Получить список правил обогащения.
 
         :param db_name: Имя БД
         :param filters: см get_all_objects
@@ -585,8 +569,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return self.get_all_objects(db_name, filters)
 
     def get_aggregations_list(self, db_name: str, filters: Optional[dict] = None) -> Iterator[dict]:
-        """
-        Получить список правил агрегации
+        """Получить список правил агрегации.
 
         :param db_name: Имя БД
         :param filters: см get_all_objects
@@ -601,8 +584,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return self.get_all_objects(db_name, filters)
 
     def get_tables_list(self, db_name: str, filters: Optional[dict] = None) -> Iterator[dict]:
-        """
-        Получить список табличек
+        """Получить список табличек.
 
         :param db_name: Имя БД
         :param filters: см get_all_objects
@@ -617,22 +599,15 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return self.get_all_objects(db_name, filters)
 
     def get_all_objects(self, db_name: str, filters: Optional[dict] = None, group_id: str = None) -> Iterator[dict]:
-        """
-        Выгрузка всех объектов, кроме макросов
+        """Выгрузка всех объектов, кроме макросов.
 
         :param db_name: Имя БД из которой идет выгрузка
-        :param filters: {"folderId": null,
-                        "filters": {
-                            "SiemObjectType": ["Normalization"],
-                            "ContentType": ["System"],
-                            "DeploymentStatus": ["0"],
-                            "CompilationStatus": ["2"],
-                            "SiemObjectRegex": [".*_test_name"]
-                        },
-                        "search": "",
-                        "sort": [{"name": "objectId", "order": 0, "type": 1}],
-                        "groupId": null,
-                    }
+        :param filters: {"folderId": null, "filters": {
+            "SiemObjectType": ["Normalization"], "ContentType":
+            ["System"], "DeploymentStatus": ["0"], "CompilationStatus":
+            ["2"], "SiemObjectRegex": [".*_test_name"] }, "search": "",
+            "sort": [{"name": "objectId", "order": 0, "type": 1}],
+            "groupId": null, }
         :param group_id: Идентификатор набора установки
         :return: {"param1": "value1", "param2": "value2"}
         """
@@ -707,9 +682,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return response.get('Rows')
 
     def get_id_by_name(self, db_name: str, content_type: str, object_name: str) -> list:
-        """
-        Узнать ID объекта по его имени.
-        KB позволяет создавать объекты с неуникальным именем.
+        """Узнать ID объекта по его имени. KB позволяет создавать объекты с
+        неуникальным именем.
 
         :param db_name: Имя БД
         :param content_type: Тип объекта MPContentType
@@ -737,8 +711,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                                                                         'guid': i.get('guid')}
 
     def get_rule(self, db_name: str, content_type: str, rule_id: str) -> dict:
-        """
-        Получить полное описание и тело правила.
+        """Получить полное описание и тело правила.
 
         :param db_name: Имя БД
         :param content_type: Тип объекта MPContentType
@@ -786,8 +759,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return ret
 
     def get_table_info(self, db_name: str, table_id: str) -> dict:
-        """
-        Получить описание табличного списка.
+        """Получить описание табличного списка.
 
         :param db_name: Имя БД
         :param table_id: KB ID табличного списка
@@ -841,14 +813,14 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return ret
 
     def get_table_data(self, db_name: str, table_id: str, filters: Optional[dict] = None) -> Iterator[dict]:
-        """
-        Получить содержимое табличного из KB.
-        В KB только справочники могут содержать записи.
-        Для доступа к данным иных типов таблиц необходимо использовать class Table
+        """Получить содержимое табличного из KB. В KB только справочники могут
+        содержать записи. Для доступа к данным иных типов таблиц необходимо
+        использовать class Table.
 
         :param db_name: Имя БД
         :param table_id: KB ID табличного списка
-        :param filters: KB фильтр записей в таблице. Спецификацию можно найти путем реверса WEB API
+        :param filters: KB фильтр записей в таблице. Спецификацию можно
+            найти путем реверса WEB API
         :return: Iterator
         """
         api_url = self.__api_table_rows.format(table_id)
@@ -903,8 +875,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return response.get('Rows')
 
     def create_folder(self, db_name: str, name: str, parent_id: Optional[str] = None) -> str:
-        """
-        Создать папку для контента
+        """Создать папку для контента.
 
         :param db_name: Имя БД
         :param name: Имя создаваемой папки
@@ -940,8 +911,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return r.json()
 
     def delete_folder(self, db_name: str, folder_id: str):
-        """
-        Удалить папку
+        """Удалить папку.
 
         :param db_name: Имя БД
         :param folder_id: ID удаляемой папки
@@ -971,15 +941,15 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
     def create_co_rule(self, db_name: str, name: str, code: str, ru_desc: Optional[str],
                        folder_id: str, group_ids: Optional[list] = []) -> str:
-        """
-        Создать правило корреляции
+        """Создать правило корреляции.
 
         :param db_name: Имя БД
         :param name: имя создаваемого правила корреляции
         :param code: код правила
         :param ru_desc: описание в русской локали
         :param folder_id: ID каталога, в который разместить правило
-        :param group_ids: ID наборов установки, в которые включить правило
+        :param group_ids: ID наборов установки, в которые включить
+            правило
         :return: ID созданного правила
         """
         params = {
@@ -1020,8 +990,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return r.json()
 
     def create_group(self, db_name: str, name: str, parent_id: Optional[str] = None) -> str:
-        """
-        Создать набор установки
+        """Создать набор установки.
 
         :param db_name: Имя БД
         :param name: Имя набора установки
@@ -1059,8 +1028,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return r.json()
 
     def delete_group(self, db_name: str, group_id: str):
-        """
-        Удалить набор установки
+        """Удалить набор установки.
 
         :param db_name: Имя БД
         :param group_id: ID удаляемого набора установки
@@ -1093,8 +1061,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return r
 
     def is_group_empty(self, db_name: str, group_id: str) -> bool:
-        """
-        Проверить есть ли данные в наборе установки
+        """Проверить есть ли данные в наборе установки.
 
         :param db_name: имя БД
         :param group_id: идентификатор набора установки
@@ -1139,12 +1106,13 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                            'hostname="{}", db="{}"'.format(group_id, self.__kb_hostname, db_name))
 
     def get_group_path_by_id(self, db_name: str, folder_id: str) -> str:
-        """
-        Получить путь в дереве наборов установки по идентификатору набора установки
+        """Получить путь в дереве наборов установки по идентификатору набора
+        установки.
 
         :param db_name: Имя БД
         :param folder_id: идентификатор набора установки
-        :return: путь в дереве наборов установки вида root/child/grandchild
+        :return: путь в дереве наборов установки вида
+            root/child/grandchild
         """
         groups = self.get_groups_list(db_name)
 
@@ -1154,11 +1122,10 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return '/'.join((ret_path, name)) if ret_path else name
 
     def get_group_id_by_path(self, db_name: str, search_path: str) -> str:
-        """
-        Получить идентификатор набора установки по пути в дереве
+        """Получить идентификатор набора установки по пути в дереве.
 
         :param db_name: Имя БД
-        :param path: Путь в формате root/child/grandchild
+        :param search_path: Путь в формате root/child/grandchild
         :return: идентификатор набора установки
         """
         groups = self.get_groups_list(db_name)
@@ -1179,8 +1146,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return retval
 
     def get_nested_group_ids(self, db_name: str, group_id: str) -> list:
-        """
-        Получить идентификаторы дочерних наборов установки
+        """Получить идентификаторы дочерних наборов установки.
 
         :param db_name: Имя БД
         :param group_id: идентификатор группы
@@ -1200,14 +1166,12 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     def export_group(self, db_name: str, group_id: str, local_filepath: str,
                      export_format: Optional[str] = EXPORT_FORMAT_KB
                      ) -> int:
-        """
-        Экспортировать набор установки
+        """Экспортировать набор установки.
 
         :param db_name: имя БД
         :param group_id: ID набора установки
         :param local_filepath: файл в который сохранить набор установки
         :param export_format: формат экспорта (KB / SIEM Lite)
-
         :return: размер созданного файла
         """
         group_path = self.get_group_path_by_id(db_name, group_id)
@@ -1253,8 +1217,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return retval
 
     def import_group(self, db_name: str, filepath: str, mode: Optional[str] = IMPORT_ADD_AND_UPDATE) -> int:
-        """
-        Импортировать набор установки
+        """Импортировать набор установки.
 
         :param db_name: имя БД
         :param filepath: имя файла набора установки
@@ -1325,8 +1288,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             return -1
 
     def create_group_path(self, db_name: str, group_path: str) -> str:
-        """
-        Последовательное создание пути в дереве наборов установки
+        """Последовательное создание пути в дереве наборов установки.
 
         :param db_name: Имя БД
         :param group_path: путь в дереве наборов установки
@@ -1344,8 +1306,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return self.get_group_id_by_path(db_name, group_path)
 
     def __get_linked_ids(self, objects):
-        """
-        Разбор ответа на запрос привязанных наборов установки
+        """Разбор ответа на запрос привязанных наборов установки.
 
         :param objects: ответ API MPSIEM
         :return:
@@ -1361,8 +1322,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return linked
 
     def get_linked_groups(self, db_name: str, content_item_id: str) -> list:
-        """
-        Получить список идентификаторов связанных наборов установки для элемента контента
+        """Получить список идентификаторов связанных наборов установки для
+        элемента контента.
 
         :param db_name: Имя БД
         :param content_item_id: идентификатор контента
@@ -1410,8 +1371,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                            'hostname="{}", db="{}"'.format(content_item_id, self.__kb_hostname, db_name))
 
     def link_content_to_groups(self, db_name: str, content_items_ids: list, group_ids: list):
-        """
-        Связать идентификаторы контента с идентификаторами наборов установки
+        """Связать идентификаторы контента с идентификаторами наборов
+        установки.
 
         :param db_name: Имя БД
         :param content_items_ids: идентификаторы контента
@@ -1506,8 +1467,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                     self.link_content_to_groups(db_name, contend_guid_strs, [group_id, ])
 
     def get_folder_path_by_id(self, db_name: str, folder_id: str) -> str:
-        """
-        Получить путь в дереве папок по ID папки
+        """Получить путь в дереве папок по ID папки.
 
         :param db_name: имя БД
         :param folder_id: ID папки
@@ -1520,8 +1480,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return '/'.join((ret_path, name)) if ret_path else name
 
     def get_folder_id_by_path(self, db_name: str, path: str) -> str:
-        """
-        Получить ID папки по пути в дереве папок
+        """Получить ID папки по пути в дереве папок.
 
         :param db_name: имя БД
         :param path: путь в дереве папок
@@ -1532,8 +1491,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return path_to_id_map.get(path)
 
     def get_content_data_by_folder_id(self, db_name: str, folder_id) -> dict:
-        """
-        Получить данные по контенту лежащему в папке с заданным ID
+        """Получить данные по контенту лежащему в папке с заданным ID.
 
         :param db_name: имя БД
         :param folder_id: ID папки
@@ -1555,8 +1513,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return nested_data
 
     def get_nested_folder_ids_by_folder_id(self, db_name: str, folder_id: str) -> list:
-        """
-        Получить идентификаторы дочерних папок по ID папки
+        """Получить идентификаторы дочерних папок по ID папки.
 
         :param db_name: имя БД
         :param folder_id: ID папки
@@ -1566,8 +1523,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return [fold_id for fold_id, fold_data in folders.items() if fold_data['parent_id'] == folder_id]
 
     def move_folder(self, db_name: str, folder_id: str, dst_folder_id: str):
-        """
-        Переместить папку под другого родителя
+        """Переместить папку под другого родителя.
 
         :param db_name:
         :param folder_id:
@@ -1607,8 +1563,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return r
 
     def get_content_item(self, db_name: str, item_id: str, item_type: str) -> dict:
-        """
-        Получить элемент контента по типу и ID
+        """Получить элемент контента по типу и ID.
 
         :param db_name: имя БД
         :param item_id: ID элемента контента
@@ -1641,8 +1596,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return r.json()
 
     def move_content_item(self, db_name: str, item_id: str, item_type: str, dst_folder_id: str):
-        """
-        Переместить элемент контента в другую папку
+        """Переместить элемент контента в другую папку.
 
         :param db_name: имя БД
         :param item_id: ID элемента контента
@@ -1706,8 +1660,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
                                                            self.__kb_hostname, db_name))
 
     def delete_content_item(self, db_name: str, item_id: str, item_type: str):
-        """
-        Удаление элемента контента
+        """Удаление элемента контента.
 
         :param db_name:  Имя БД
         :param item_id: ID элемента контента
@@ -1747,8 +1700,8 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         return r
 
     def move_folder_content(self, db_name: str, src_folder_path: str, dst_folder_path: str):
-        """
-        Переместить всю начинку папки (дочерние папки и контент) в другую папку
+        """Переместить всю начинку папки (дочерние папки и контент) в другую
+        папку.
 
         :param db_name: имя БД
         :param src_folder_path: путь до исходной папки
@@ -1770,12 +1723,12 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             self.move_content_item(db_name, child_content_id, child_content_type, dst_folder_id)
 
     def get_content_items_by_group_id(self, db_name: str, group_id: str, recursive: bool = True) -> list:
-        """
-        Получить элементы контента по ID набора установки
+        """Получить элементы контента по ID набора установки.
 
         :param db_name: Имя БД
         :param group_id: ID набора установки
-        :param recursive: получить элементы контента из дочерних наборов установки
+        :param recursive: получить элементы контента из дочерних наборов
+            установки
         :return: элементы контента в виде списка dict
         """
         content_items = []

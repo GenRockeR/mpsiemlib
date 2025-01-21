@@ -1,14 +1,7 @@
-certifi==2023.7.22
-chardet==5.2.0
-idna==3.4
-python-dateutil==2.8.2
-pytz==2023.3.post1
-PyYAML==6.0.1
-requests==2.31.0
-six==1.16.0
-urllib3==2.0.7
-setuptools==68.2.2
-# Elasticsearch 7.x
-elasticsearch>=7.10.0,<8.0.0
-wheel==0.41.3
-
+requests~=2.32.3
+setuptools~=75.6.0
+PyYAML~=6.0.2
+pytz~=2024.2
+elasticsearch~=7.17.12
+urllib3~=1.26.20
+Faker~=33.1.0

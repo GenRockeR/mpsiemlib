@@ -1,19 +1,17 @@
 import json
-import pytz
-from typing import Iterator
 from datetime import datetime, timedelta
+from typing import Iterator
 
-from elasticsearch7 import Elasticsearch, helpers
-from elasticsearch7.exceptions import NotFoundError
+import pytz
+from elasticsearch import Elasticsearch
+from elasticsearch.exceptions import NotFoundError
 
 from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, Settings, StorageVersion
 from mpsiemlib.common import get_metrics_start_time, get_metrics_took_time
 
 
 class Events(ModuleInterface, LoggingHandler):
-    """
-    Elasticsearch module
-    """
+    """Elasticsearch module."""
 
     __storage_port = 9200
 
@@ -35,13 +33,14 @@ class Events(ModuleInterface, LoggingHandler):
         self.log.debug('status=success, action=prepare, msg="Events Module init"')
 
     def get_events_group_by(self, filters: dict, begin: int, end: int) -> Iterator[dict]:
-        """
-        Отфильтровать события и сгруппировать за выбранный интервал по указанным полям
+        """Отфильтровать события и сгруппировать за выбранный интервал по
+        указанным полям.
 
         :param filters: filter dict смотри в ElasticQueryBuilder
         :param begin: begin timestamp
         :param end: end timestamp
-        :return: Iterator dicts {"field1_alias": "field1", "field2_alias": "field2", "count": 42}
+        :return: Iterator dicts {"field1_alias": "field1",
+            "field2_alias": "field2", "count": 42}
         """
         self.log.debug('status=prepare, action=get_groups, msg="Try to exec query with filter", '
                        'hostname="{}", filter="{}" begin="{}", end="{}"'.format(self.__storage_hostname,
@@ -93,16 +92,14 @@ class Events(ModuleInterface, LoggingHandler):
                                                                                        took_time,
                                                                                        line_counter))
 
-    # def get_events(self, filters: dict, begin: int, end: int) -> Iterator[dict]:
     def get_events(self, filters: dict, begin: int, end: int):
-        """
-        Итеративно получить все события по фильтру за указанный временной интервал
-
+        """Итеративно получить все события по фильтру за указанный временной интервал.
         :param filters: filter dict смотри в ElasticQueryBuilder
         :param begin: begin timestamp
         :param end: end timestamp
-        :return: Iterator dicts {"field1_alias": "field1", "field2_alias": "field2", "count": 42}
-        """
+
+        :return: Iterator dicts"""
+
         self.log.debug('status=prepare, action=get_events, msg="Try to exec query with filter", '
                        'hostname="{}", filter="{}" begin="{}", end="{}"'.format(self.__storage_hostname,
                                                                                 filters,
@@ -140,12 +137,12 @@ class Events(ModuleInterface, LoggingHandler):
                                                                                        took_time,
                                                                                        line_counter))
 
-    def __make_return_schema(self, filters):
-        """
-        При группировке ES не возвращает поля если они null, надо их явно восстановить в респонсе
+    def __make_return_schema(self, filters):    # noqa
+        """При группировке ES не возвращает поля если они null, надо их явно
+        восстановить в респонсе.
 
         :param filters:
-        :return: {'field1': '', 'field2': ''}
+        :return: Dict
         """
         ret = {}
         field = filters.get('fields', '')
@@ -157,8 +154,8 @@ class Events(ModuleInterface, LoggingHandler):
         return ret
 
     def __get_datastream_list(self, begin: int, end: int) -> list:
-        """
-        Расчет кол-ва дней между двумя timestamp и генерация имен стримов в Storage
+        """Расчет кол-ва дней между двумя timestamp и генерация имен стримов в
+        Storage.
 
         :param begin: Query start time
         :param end: Query end time
@@ -182,8 +179,8 @@ class Events(ModuleInterface, LoggingHandler):
         return ret
 
     def __get_indexes_list(self, begin: int, end: int) -> list:
-        """
-        Расчет кол-ва дней между двумя timestamp и генерация имен индексов в Storage
+        """Расчет кол-ва дней между двумя timestamp и генерация имен индексов в
+        Storage.
 
         :param begin: Query start time
         :param end: Query end time
@@ -203,11 +200,11 @@ class Events(ModuleInterface, LoggingHandler):
             return ret
 
     def __convert_aggregation_response(self, aggs: dict) -> list:
-        """
-        Convert ES response to dict
+        """Convert ES response to dict.
 
         :param aggs: ES Aggregation response
-        :return: [{'field1':'a', 'field2':'b', 'count':2}, {'field1':'c', 'field2':'d', 'count':1}]
+        :return: [{'field1':'a', 'field2':'b', 'count':2},
+            {'field1':'c', 'field2':'d', 'count':1}]
         """
         ret = []
         for k, v in aggs.items():
@@ -221,7 +218,7 @@ class Events(ModuleInterface, LoggingHandler):
                             key = j
                         if i == 'doc_count':
                             cnt = j
-                        # Рекурсивный обход, т.к. может быть группировка по нескольким полям,
+                        # Рекурсивный обход, так как может быть группировка по нескольким полям,
                         # а это вложенная агрегация в ES
                         if isinstance(j, dict):
                             sub += self.__convert_aggregation_response({i: j})
@@ -236,8 +233,7 @@ class Events(ModuleInterface, LoggingHandler):
         return ret
 
     def __is_empty_response(self, storage_response: dict) -> bool:
-        """
-        Проверка ответов от Storage на пустой результат
+        """Проверка ответов от Storage на пустой результат.
 
         :param storage_response: JSON ответ от Storage
         :return: True - если результат не пустой
@@ -258,9 +254,8 @@ class Events(ModuleInterface, LoggingHandler):
         return False
 
     def __check_storage_response(self, storage_response: dict) -> None:
-        """
-        Проверка ответа от Storage на наличие ошибок исполнения запроса.
-        Если были ошибки на шардах, пишем в лог
+        """Проверка ответа от Storage на наличие ошибок исполнения запроса.
+        Если были ошибки на шардах, пишем в лог.
 
         :param storage_response: Ответ от Elastic
         :return: None
@@ -295,8 +290,7 @@ class Events(ModuleInterface, LoggingHandler):
 
 
 class ElasticQueryBuilder(LoggingHandler):
-    """
-    Построение запроса к Elastic по описанию вида
+    """Построение запроса к Elastic по описанию вида
         es_filter: [
             '{"term": {"event_src/category": "DNS server"}}'
         ]
@@ -307,8 +301,7 @@ class ElasticQueryBuilder(LoggingHandler):
             '{"range": {"dst/ip": {"gte": "10.0.0.0","lte": "10.255.255.255"}}}': 'ALL'
             '{"range": {"dst/ip": {"gte": "172.16.0.0","lte": "172.31.255.255"}}}
         ]
-        fields: 'dst/ip as object,src/ip as subject'
-    """
+        fields: 'dst/ip as object,src/ip as subject'"""
 
     def __init__(self, current_version: str, timezone: str, bucket_size: int):
         LoggingHandler.__init__(self)
@@ -337,8 +330,8 @@ class ElasticQueryBuilder(LoggingHandler):
         return query
 
     def build_agg_query(self, es_filter, agg_field, begin, end):
-        """
-        Build query for Elastic
+        """Build query for Elastic :param es_filter:
+
         :param es_filter:
         :param agg_field:
         :param begin:
@@ -371,9 +364,8 @@ class ElasticQueryBuilder(LoggingHandler):
         return query
 
     def __build_es_filter_expression(self, filters, begin, end):
-        """
-        Make filter part of query
-        :param filters:
+        """Make filter part of query :param filters:
+
         :param begin:
         :param end:
         :return: dict
@@ -424,11 +416,11 @@ class ElasticQueryBuilder(LoggingHandler):
         field_list = field.split(',')
         current_node = agg_dict
         for fld in field_list:
-            # могут быть поля A as ALIAS1, B as ALIAS2 или A as ALIAS1 или A,B или A
+            # могут быть поля A as ALIAS1, B as ALIAS2 или A as ALIAS1 или A, B или A
             fld_list = fld.strip().split(' as ')
 
-            fld_name = None
-            fld_alias = None
+            fld_name = None  # noqa
+            fld_alias = None  # noqa
             if len(fld_list) == 1:
                 fld_name = fld_alias = fld.strip()
             else:

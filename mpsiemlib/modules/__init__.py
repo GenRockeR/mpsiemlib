@@ -11,7 +11,7 @@ from .Filters import Filters
 from .Tasks import Tasks
 from .SourceMonitor import SourceMonitor
 from .Macros import Macros
-from .Сonveyor import Conveyor
+from .Conveyor import Conveyor
 
 
 class MPSIEMWorker(WorkerInterface, LoggingHandler):
@@ -24,12 +24,12 @@ class MPSIEMWorker(WorkerInterface, LoggingHandler):
         sessions = {}
         if self.creds.core_hostname:
             sessions['core'] = self.__auth.connect(MPComponents.CORE)
-            sessions['ms'] = sessions['core']
-            sessions['kb'] = self.__auth.connect(MPComponents.KB)     
-        if self.creds.siem_hostname:
-            sessions['siem'] = self.__auth.connect(MPComponents.SIEM)
-        if self.creds.storage_hostname:
-            sessions['storage'] = self.__auth.connect(MPComponents.STORAGE)
+            sessions['ms'] = self.__auth.connect(MPComponents.MS)
+            sessions['kb'] = self.__auth.connect(MPComponents.KB)
+        # if self.creds.siem_hostname:
+        #     sessions['siem'] = self.__auth.connect(MPComponents.SIEM)
+        # if self.creds.storage_hostname:
+        #     sessions['storage'] = self.__auth.connect(MPComponents.STORAGE)
         self.__auth.sessions = sessions
 
     def get_module(self, module_name: ModuleNames, creds: Creds = None):
@@ -39,8 +39,6 @@ class MPSIEMWorker(WorkerInterface, LoggingHandler):
         if creds is not None:
             self.creds = creds
             auth = MPSIEMAuth(self.creds, self.settings)
-
-        #auth = MPSIEMAuth(self.creds, self.settings)
 
         if self.__module_name == ModuleNames.AUTH:
             return auth

@@ -22,24 +22,29 @@ class KBTestCase(unittest.TestCase):
 
     def test_get_global_status(self):
         ret = self.__module.get_health_status()
-        self.assertTrue(type(ret) == str)
+        # self.assertTrue(type(ret) == str)
+        self.assertIsInstance(ret, str)
 
     def test_get_errors(self):
         ret = self.__module.get_health_errors()
-        self.assertTrue(type(ret) == list)
+        # self.assertTrue(type(ret) == list)
+        self.assertIsInstance(ret, list)
 
     def test_get_license_status(self):
         ret = self.__module.get_health_license_status()
-        self.assertTrue(len(ret) != 0)
+        # self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     def test_get_agents_status(self):
         ret = self.__module.get_health_agents_status()
-        self.assertTrue(len(ret) != 0)
+        # self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     @unittest.skip('Not implemented')
     def test_get_kb_status(self):
         ret = self.__module.get_health_kb_status()
-        self.assertTrue(len(ret) != 0)
+        # self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
 
 if __name__ == '__main__':

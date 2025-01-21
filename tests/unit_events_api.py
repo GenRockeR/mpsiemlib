@@ -5,13 +5,13 @@ import pytz
 
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-from tests.settings import creds_ldap, settings
+from tests.settings import creds_local, settings
 
 
 class TestEventsAPITestCase(unittest.TestCase):
     __mpsiemworker = None
     __module = None
-    __creds = creds_ldap
+    __creds = creds_local
     __settings = settings
     __begin = 0
     __end = 0
@@ -27,11 +27,11 @@ class TestEventsAPITestCase(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.__module.close()
         
-    def test_get_events_groupped_by_fields(self):
-        groupping_fields = ['id']
-        result = self.__module.get_events_groupped_by_fields(
-            filter='normalized = true', 
-            group_by_fields=groupping_fields,
+    def test_get_events_grouped_by_fields(self):
+        grouping_fields = ['id']
+        result = self.__module.get_events_grouped_by_fields(
+            query_filter='normalized = true',
+            group_by_fields=grouping_fields,
             time_from=self.__begin, 
             time_to=self.__end
         )

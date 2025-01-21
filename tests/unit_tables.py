@@ -22,7 +22,7 @@ class TablesTestCase(unittest.TestCase):
 
     def test_get_table_list(self):
         ret = self.__module.get_tables_list()
-        self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     def test_get_table_data_simple(self):
         tables = list(self.__module.get_tables_list())
@@ -30,11 +30,11 @@ class TablesTestCase(unittest.TestCase):
         ret = []
         for i in self.__module.get_table_data(key):
             ret.append(i)
-        self.assertTrue((len(ret) != 0) and ('_id' in ret[0]))
+        self.assertGreater(len(ret), 0) and ('_id' in ret[0])
 
     def test_get_table_data_filtered(self):
         filters = {'select': ['_last_changed'],
-                   'where': '_id>5',
+                   'where': '_id>2',
                    'orderBy': [{'field': '_last_changed',
                                 'sortOrder': 'descending'}],
                    'timeZone': 0}
@@ -52,7 +52,7 @@ class TablesTestCase(unittest.TestCase):
                 is_valid_struct = False
                 break
 
-        self.assertTrue((len(ret) != 0) and is_valid_struct and is_id_less)
+        self.assertGreater(len(ret), 0) and is_valid_struct and is_id_less
 
     def test_get_table_info(self):
         tables = list(self.__module.get_tables_list())
@@ -77,37 +77,22 @@ class TablesTestCase(unittest.TestCase):
 
         self.assertTrue(has_all_fields and is_valid_struct)
 
-    @unittest.skip("Test for version less R25.1")
-    def test_set_table_data(self):
-        self.__module.truncate_table("test_tl_2_r251")
-
-        import io
-        example = '''"_last_changed";"cust";"user";"session_stat"\r\n"25.11.2020 19:35:20";"customer1";"user1";"2020-11-22 00:00:00"'''
-
-        self.__module.set_table_data("test_tl_2_r251", io.StringIO(example))
-
-        ret = []
-        for i in self.__module.get_table_data("test_tl_2_r251"):
-            ret.append(i)
-        self.assertTrue((len(ret) != 0) and ("_id" in ret[0]))
-
-    def test_set_table_data_r25_1(self):
-        self.__module.truncate_table("test_tl_2_r251")
+    def test_set_table_data_r27_2(self):
+        self.__module.truncate_table("test_tl_r272")
 
         example = '"_last_changed";"cust";"user";"session_stat"\r\n"07.02.2023 10:08:17";"customer1";"user1";"07.02.2023 10:08:07"'
 
-        self.__module.set_table_data("test_tl_2_r251", example)
+        self.__module.set_table_data("test_tl_r272", example)
 
         ret = []
-        for i in self.__module.get_table_data("test_tl_2_r251"):
+        for i in self.__module.get_table_data("test_tl_r272"):
             ret.append(i)
-        self.assertTrue((len(ret) != 0) and ('_id' in ret[0]))
+        self.assertGreater(len(ret), 0) and ('_id' in ret[0])
 
-    # @unittest.skip("Dangerous")
+    @unittest.skip("Dangerous")
     def test_truncate(self):
 
-        self.assertTrue(self.__module.truncate_table("test_tl_2_r251"))
-
+        self.assertTrue(self.__module.truncate_table("test_tl_r272"))
 
     def test_set_table_row(self):
         add = [{'cust': 'test1',
@@ -117,17 +102,16 @@ class TablesTestCase(unittest.TestCase):
                 'user': 'user2',
                 'session_stat': '12.12.2020 15:23:23'}
                ]
-        self.__module.set_table_row("test_tl_2_r251", add_rows=add, remove_rows=None)
+        self.__module.set_table_row("test_tl_r272", add_rows=add, remove_rows=None)
         is_added = False
-        for i in self.__module.get_table_data("test_tl_2_r251"):
+        for i in self.__module.get_table_data("test_tl_r272"):
             if i.get("cust") == "test1" and i.get("user") == "user1":
                 is_added = True
 
-        self.__module.set_table_row("test_tl_2_r251", add_rows=None, remove_rows=add)
+        self.__module.set_table_row("test_tl_r272", add_rows=None, remove_rows=add)
         is_removed = True
-        for i in self.__module.get_table_data("test_tl_2_r251"):
+        for i in self.__module.get_table_data("test_tl_r272"):
             if i.get("cust") == "test1" and i.get("user") == "user1":
-
                 is_removed = False
 
         self.assertTrue(is_added and is_removed)

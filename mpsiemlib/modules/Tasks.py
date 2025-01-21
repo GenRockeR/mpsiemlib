@@ -5,9 +5,7 @@ from mpsiemlib.common import exec_request
 
 
 class Tasks(ModuleInterface, LoggingHandler):
-    """
-    Tasks module
-    """
+    """Tasks module."""
 
     __api_agents_list = "/api/v1/scanner_agents"
     __api_modules_list = "/api/v1/scanner_modules"
@@ -27,7 +25,6 @@ class Tasks(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        #self.__core_session = auth.connect(MPComponents.CORE)
         self.__core_session = auth.sessions['core']
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
@@ -83,9 +80,7 @@ class Tasks(ModuleInterface, LoggingHandler):
         return run_id
 
     def get_agents_list(self, do_refresh=False) -> dict:
-        """
-        Получить список всех агентов.
-        Есть еще одно API в HealthMonitor
+        """Получить список всех агентов. Есть еще одно API в HealthMonitor.
 
         :return:
         """
@@ -115,9 +110,7 @@ class Tasks(ModuleInterface, LoggingHandler):
         return self.__agents
 
     def get_modules_list(self, do_refresh=False) -> dict:
-        """
-        Получить список всех доступных модулей.
-        Информация урезана.
+        """Получить список всех доступных модулей. Информация урезана.
 
         :return:
         """
@@ -144,9 +137,7 @@ class Tasks(ModuleInterface, LoggingHandler):
         return self.__modules
 
     def get_profiles_list(self, do_refresh=False) -> dict:
-        """
-        Получить список всех профилей.
-        Информация урезана.
+        """Получить список всех профилей. Информация урезана.
 
         :return:
         """
@@ -179,9 +170,7 @@ class Tasks(ModuleInterface, LoggingHandler):
         return self.__profiles
 
     def get_transports_list(self, do_refresh=False) -> dict:
-        """
-        Получить список всех транспортов.
-        Информация урезана.
+        """Получить список всех транспортов. Информация урезана.
 
         :return:
         """
@@ -210,8 +199,7 @@ class Tasks(ModuleInterface, LoggingHandler):
         return self.__transports
 
     def get_credentials_list(self, do_refresh=False) -> dict:
-        """
-        Получить список всех учетных записей для подключения к источникам.
+        """Получить список всех учетных записей для подключения к источникам.
         Информация урезана.
 
         :return:
@@ -241,9 +229,7 @@ class Tasks(ModuleInterface, LoggingHandler):
         return self.__credentials
 
     def get_tasks_list(self, do_refresh=False) -> dict:
-        """
-        Получить список всех задач.
-        Информация урезана.
+        """Получить список всех задач. Информация урезана.
 
         :return:
         """
@@ -286,8 +272,7 @@ class Tasks(ModuleInterface, LoggingHandler):
         return self.__tasks
 
     def get_task_info(self, task_id: str) -> dict:
-        """
-        Получить информацию по задаче
+        """Получить информацию по задаче.
 
         :return:
         """
@@ -348,8 +333,7 @@ class Tasks(ModuleInterface, LoggingHandler):
         return params
 
     def create_task(self, params: dict) -> dict:
-        """
-        Создать задачу
+        """Создать задачу.
 
         :return: task_id: ID созданной задачи
         """
@@ -368,9 +352,8 @@ class Tasks(ModuleInterface, LoggingHandler):
         return task_id
 
     def edit_task(self, task_id: str, params: dict) -> dict:
-        """
-        Создать задачу 
-        
+        """Создать задачу.
+
         :return: task_id: ID созданной задачи
         """
 
@@ -387,11 +370,8 @@ class Tasks(ModuleInterface, LoggingHandler):
         return task_id
 
     def delete_task(self, task_id) -> int:
-        """
-        Удалить задачу
-        :param task_id: ID задачи
-        :return: status_code: если вернулось 204, знаичт задача удалена
-        """
+        """Удалить задачу :param task_id: ID задачи :return: status_code: если
+        вернулось 204, знаичт задача удалена."""
 
         api_url = self.__api_task_info.format(task_id)
         url = "https://{}{}".format(self.__core_hostname, api_url)
@@ -403,9 +383,7 @@ class Tasks(ModuleInterface, LoggingHandler):
         return r.status_code
 
     def get_jobs_list(self, task_id: str, limit: Optional[int] = 1000) -> dict:
-        """
-        Получить список всех подзадач у задачи
-        Информация урезана.
+        """Получить список всех подзадач у задачи Информация урезана.
 
         :param task_id: ID задачи
         :param limit: Кол-во запрошенных подзадач

@@ -1,4 +1,5 @@
 import unittest
+from faker import Faker
 
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
@@ -11,6 +12,11 @@ class URMTestCase(unittest.TestCase):
     __module = None
     __creds = creds
     __settings = settings
+    __user = Faker('ru_RU')
+    __username = __user.profile(fields=['username']).get('username')
+    __firstname = __user.first_name_male()
+    __lastname = __user.last_name_male()
+    __email = __user.email()
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -48,7 +54,7 @@ class URMTestCase(unittest.TestCase):
         key = next(iter(ret))
 
         ret = self.__module.get_user_info(key)
-        self.assertTrue(len(ret) != 0)
+        self.assertGreater(len(ret), 0)
 
     def test_get_roles_list(self):
         ret = self.__module.get_roles_list()
@@ -67,9 +73,7 @@ class URMTestCase(unittest.TestCase):
 
         role = self.__module.get_role_info(role_name, MPComponents.MS)
 
-        self.assertTrue((len(ret) != 0) and
-                        (role.get("id") is not None) and
-                        (role.get("privileges") is not None))
+        self.assertGreater(len(ret), 0) and role.get("id") is not None and role.get("privileges") is not None
 
     def test_get_privileges_list(self):
         ret = self.__module.get_privileges_list()
@@ -78,9 +82,19 @@ class URMTestCase(unittest.TestCase):
 
         self.assertTrue((len(ret) != 0) and (priv_name is not None))
 
-    @unittest.skip("NotImplemented")
+    # @unittest.skip("NotImplemented")
     def test_create_user(self):
-        pass
+        payload = {'userName': self.__username,
+                   'email': self.__email,
+                   'authType': 0,
+                   'ldapSyncEnabled': False,
+                   'status': 'active',
+                   'passwordChange': True,
+                   'firstName': self.__firstname,
+                   'lastName': self.__lastname}
+        user = self.__module.create_user(data=payload, password_generation=True)
+
+        self.assertGreater(len(user), 0)
 
     @unittest.skip("NotImplemented")
     def test_delete_user(self):

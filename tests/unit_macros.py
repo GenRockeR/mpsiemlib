@@ -15,11 +15,11 @@ class MacrosTestCase(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.__mpsiemworker = MPSIEMWorker(cls.__creds, cls.__settings)
         cls.__module = cls.__mpsiemworker.get_module(ModuleNames.MACROS)
-        cls.__module.set_db_name(db_name='DEV')
+        cls.__module.set_db_name(db_name='BZ_content')
 
     def test_get_custom_macros_list(self):
         macros = self.__module.get_macros_list()
-        self.assertTrue(len(macros) != 0)
+        self.assertGreater(len(macros), 0)
 
 
 if __name__ == '__main__':

@@ -14,6 +14,7 @@ creds_local.siem_hostname = os.getenv("MP_SIEM_HOSTNAME")
 creds_local.core_auth_type = AuthType.LOCAL
 creds_local.core_login = os.getenv("MP_LOGIN")
 creds_local.core_pass = os.getenv("MP_PASS")
+creds_local.client_secret = os.getenv("CLIENT_SECRET")
 
 # Используется во всех тестах
 creds_ldap = Creds()
@@ -23,6 +24,7 @@ creds_ldap.siem_hostname = os.getenv("MP_SIEM_HOSTNAME")
 creds_ldap.core_auth_type = AuthType.LDAP
 creds_ldap.core_login = os.getenv("MP_LOGIN")
 creds_ldap.core_pass = os.getenv("MP_PASS")
+creds_ldap.client_secret = os.getenv("CLIENT_SECRET")
 
 # Использовать локальную аутентификацию в тестах если это требуется
 creds = creds_local if os.getenv("USE_LOCAL_AUTH") else creds_ldap

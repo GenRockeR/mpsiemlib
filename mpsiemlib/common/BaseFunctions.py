@@ -28,15 +28,15 @@ def setup_logging(default_path='logging.yml', default_level=logging.INFO, env_ke
 
 def exec_request(session: requests.Session, url: str, method='GET', timeout=30, timeout_up=1,
                  **kwargs) -> requests.Response:
-    """
-    Выполнение HTTP запросов
-    Если в окружении MP_DEBUG_LOG_BODY, выводит в DEBUG лог сырой ответ от сервера
+    """Выполнение HTTP запросов Если в окружении MP_DEBUG_LOG_BODY, выводит в
+    DEBUG лог сырой ответ от сервера.
 
     :param session:
     :param url:
     :param method: метод GET|POST
     :param timeout: timeout соединения
-    :param timeout_up: увеличение timeout от базового на коэффициент (нужно при генерации отчетов)
+    :param timeout_up: увеличение timeout от базового на коэффициент
+        (нужно при генерации отчетов)
     :param kwargs: параметры запроса, передаваемые в requests
     :return: requests.Response
     """

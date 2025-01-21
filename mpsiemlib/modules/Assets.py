@@ -1,23 +1,22 @@
-﻿import pytz
-import time
+﻿import time
 from datetime import datetime
 from typing import List, Tuple, Optional, Iterator, Union
 
-from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, MPComponents, Settings
+import pytz
+
+from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, Settings
 from mpsiemlib.common import exec_request, get_metrics_start_time, get_metrics_took_time
 
 
 class Assets(ModuleInterface, LoggingHandler):
-    """
-    Assets module
-    """
+    """Assets module."""
 
     __api_scopes = '/api/scopes/v2/scopes'
     __api_assets_processing_input_groups = "/api/assets_processing/v2/assets_input/groups"
     __api_assets_processing_v2_groups = "/api/assets_processing/v2/groups"
     __api_assets_trm_groups_hierarchy = "/api/assets_temporal_readmodel/v2/groups/hierarchy"
     __api_assets_processing_v2_configuration = "/api/assets_processing/v2/assets_input/assets"
-    __api_assets_processing_v2_checkcreated = "/api/assets_processing/v2/assets_input/assets/checkCreated"
+    __api_assets_processing_v2_check_created = "/api/assets_processing/v2/assets_input/assets/checkCreated"
     __api_assets_trm_grid = '/api/assets_temporal_readmodel/v1/assets_grid'
     __api_assets_trm_row_count = '/api/assets_temporal_readmodel/v1/assets_grid/row_count'
     __api_assets_trm_selection = '/api/assets_temporal_readmodel/v1/assets_grid/data'
@@ -30,7 +29,6 @@ class Assets(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        #self.__core_session = auth.connect(MPComponents.CORE)
         self.__core_session = auth.sessions['core']
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
@@ -41,11 +39,10 @@ class Assets(ModuleInterface, LoggingHandler):
         self.log.debug('status=success, action=prepare, msg="Assets Module init"')
 
     def get_scopes_list(self, do_refresh=False) -> dict:
-        """
-        Получить все инфраструктуры
+        """Получить все инфраструктуры.
 
         :return: {'id': {'name': 'Инфраструктура по умолчанию',
-                         'tenant_id': '97267c62-1455-4db0-8c84-497faf9a679e'}}
+            'tenant_id': '97267c62-1455-4db0-8c84-497faf9a679e'}}
         """
         self.log.debug('status=prepare, action=get_scopes_list, msg="Try to get scopes list", '
                        'hostname="{}"'.format(self.__core_hostname))
@@ -72,8 +69,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return self.__scopes
 
     def get_scope_id_by_name(self, scope_name: str, do_refresh=False) -> str:
-        """
-        Получить id инфраструктуры по имени
+        """Получить id инфраструктуры по имени.
 
         :param scope_name: Название инфраструктуры
         :param do_refresh: Обновить кэш
@@ -94,13 +90,14 @@ class Assets(ModuleInterface, LoggingHandler):
                               group_ids: List[str] = None,
                               include_nested: bool = True,
                               utc_offset: str = None) -> str:
-        """
-        Создать поисковый pdql-запрос и получить токен для доступа к результатам
+        """Создать поисковый pdql-запрос и получить токен для доступа к
+        результатам.
 
         :param pdql: PDQL-запрос
         :param group_ids: Список ID групп в которых надо искать активы
         :param include_nested: Искать ли во вложенных группах
-        :param utc_offset: Часовой пояс смещение +00:00, по умолчанию +03:00
+        :param utc_offset: Часовой пояс смещение +00:00, по умолчанию
+            +03:00
         :return: Токен запроса
         """
         self.log.debug('status=prepare, action=create_assets_request, msg="Try to select assets with pdql {}", '
@@ -133,8 +130,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return token
 
     def get_assets_request_size(self, token: str) -> int:
-        """
-        Получить количество записей по токену
+        """Получить количество записей по токену.
 
         :param token: Токен запроса
         :return: Кол-во записей
@@ -159,8 +155,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return count
 
     def get_assets_list_json(self, token: str) -> Iterator[dict]:
-        """
-        Получить список активов в JSON по токену запроса
+        """Получить список активов в JSON по токену запроса.
 
         :param token: Токен запроса
         :return: Словарь с атрибутами активов
@@ -213,8 +208,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return response.get('records')
 
     def get_assets_list_csv(self, token: str) -> Iterator[str]:
-        """
-        Получить список активов в CSV по токену запроса
+        """Получить список активов в CSV по токену запроса.
 
         :param token: Токен запроса
         :return: Строка CSV
@@ -239,8 +233,7 @@ class Assets(ModuleInterface, LoggingHandler):
                                                                                            line_counter))
 
     def get_assets_list_stream(self, token: str) -> Iterator:
-        """
-        Получить список активов в виде бинарного потока CSV
+        """Получить список активов в виде бинарного потока CSV.
 
         :param token: Токен запроса
         :return: Поток
@@ -264,8 +257,7 @@ class Assets(ModuleInterface, LoggingHandler):
                                content: bytes,
                                scope_id: str,
                                group_id: str, timeout: int = 360) -> Tuple[bool, int, Optional[str]]:
-        """
-        Импорт активов в MP из CSV
+        """Импорт активов в MP из CSV.
 
         :param content: Тело CSV для загрузки
         :param scope_id: ID инфраструктуры, куда импортируются активы
@@ -310,13 +302,13 @@ class Assets(ModuleInterface, LoggingHandler):
         return success_install, counter_imported, error_log
 
     def __import_assets_from_csv_prepare(self, content, scope_id: str) -> dict:
-        """
-        Подготовить операцию импорта
+        """Подготовить операцию импорта.
 
         :param content: Тело CSV для загрузки
         :param scope_id: ID инфраструктуры, куда импортируются активы
-        :return: {'id': '328cbed6-6625-41c1-aea6-d33eb034c260', 'isLogFileCreated': False, 'rowsCountExceeded': False,
-                  'validRowsCount': 1, 'totalRowsCount': 1}
+        :return: {'id': '328cbed6-6625-41c1-aea6-d33eb034c260',
+            'isLogFileCreated': False, 'rowsCountExceeded': False,
+            'validRowsCount': 1, 'totalRowsCount': 1}
         """
         self.log.debug('status=prepare, action=import_assets_from_csv_prepare, '
                        'msg="Try to upload CSV with new assets", '
@@ -340,8 +332,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return resp
 
     def __import_assets_from_csv_start(self, operation_id: str, group_id: str) -> int:
-        """
-        Запуск импорта ранее загруженных данных
+        """Запуск импорта ранее загруженных данных.
 
         :param operation_id: ID операции загрузки
         :param group_id: ID группы, куда импортируются активы
@@ -366,8 +357,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return r.status_code
 
     def __import_assets_get_status(self, operation_id: str) -> dict:
-        """
-        Получить статус операции импорта
+        """Получить статус операции импорта.
 
         :return: {"state":"inprogress","succeedCount":null,"updatedGroups":null,"errorModel":null}
         """
@@ -386,10 +376,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return resp
 
     def __import_assets_get_logfile(self, operation_id: str) -> str:
-        """
-        Получить получить журнал ошибок
-        :return: csv-formatted list of problems
-        """
+        """Получить журнал ошибок :return: csv-formatted list of problems."""
 
         url = f'https://{self.__core_hostname}{self.__api_assets_v2_import_operation}/{operation_id}/logfile'
 
@@ -404,10 +391,10 @@ class Assets(ModuleInterface, LoggingHandler):
         return r.content.decode("utf-8")
 
     def import_assets_get_groups(self) -> list:
-        """
-        Получить список групп, куда можно проводить импорт
+        """Получить список групп, куда можно проводить импорт.
 
-        :return: ['12f04fc3-3e00-0001-0000-000000000006', '12e9a858-b700-0001-0000-000000000002']
+        :return: ['12f04fc3-3e00-0001-0000-000000000006',
+            '12e9a858-b700-0001-0000-000000000002']
         """
 
         url = f'https://{self.__core_hostname}{self.__api_assets_processing_input_groups}'
@@ -423,8 +410,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return resp
 
     def create_group_dynamic(self, parent_id: str, group_name: str, predicate: str) -> str:
-        """
-        Создать динамическую группу
+        """Создать динамическую группу.
 
         :param parent_id: ID родительской группы
         :param group_name: Название группы
@@ -436,11 +422,19 @@ class Assets(ModuleInterface, LoggingHandler):
                        'hostname="{}"'.format(self.__core_hostname))
 
         url = f'https://{self.__core_hostname}{self.__api_assets_processing_v2_groups}'
-        params = {'name': group_name, 'parentId': parent_id, 'groupType': 'dynamic',
-                  'predicate': predicate,
-                  'metrics': {'td': 'ND', 'cdp': 'ND', 'cr': 'ND', 'ir': 'ND', 'ar': 'ND'},
-                  'organizationInformation': {},
-                  'organizationInfrastructure': {}}
+        if int(self.__core_version.split('.')[0]) < 27:
+            params = {'name': group_name, 'parentId': parent_id, 'groupType': 'dynamic',
+                      'predicate': predicate,
+                      'metrics': {'td': 'ND', 'cdp': 'ND', 'cr': 'ND', 'ir': 'ND', 'ar': 'ND'},
+                      'organizationInformation': {},
+                      'organizationInfrastructure': {}}
+        else:
+            params = {
+                'name': group_name, 'parentId': parent_id, 'groupType': 'dynamic', 'predicate': predicate,
+                'metadata': [],
+                'organizationInformation': {},
+                'organizationInfrastructure': {}
+            }
 
         r = exec_request(self.__core_session,
                          url,
@@ -462,8 +456,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return group_id
 
     def edit_group_dynamic(self, group_id: str, predicate: str) -> str:
-        """
-        Редактировать динамическую группу
+        """Редактировать динамическую группу.
 
         :param group_id: ID редактируемой группы
         :param predicate: Фильтр динамической группы
@@ -473,9 +466,10 @@ class Assets(ModuleInterface, LoggingHandler):
                        'msg="Try to edit dynamic group", '
                        'hostname="{}"'.format(self.__core_hostname))
 
-        url = "https://{}{}".format(self.__core_hostname, '{}/{}'.format(self.__api_assets_processing_v2_groups, group_id))
-        params = [{"type": "SetPredicateGroupCommand", 
-                   "value": predicate }]
+        url = "https://{}{}".format(self.__core_hostname,
+                                    '{}/{}'.format(self.__api_assets_processing_v2_groups, group_id))
+        params = [{"type": "SetPredicateGroupCommand",
+                   "value": predicate}]
 
         r = exec_request(self.__core_session,
                          url,
@@ -497,8 +491,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return group_id
 
     def create_group_static(self, parent_id: str, group_name: str) -> str:
-        """
-        Создать статическую группу
+        """Создать статическую группу.
 
         :param parent_id: ID родительской группы
         :param group_name: Название группы
@@ -509,10 +502,14 @@ class Assets(ModuleInterface, LoggingHandler):
                        'hostname="{}"'.format(self.__core_hostname))
 
         url = f'https://{self.__core_hostname}{self.__api_assets_processing_v2_groups}'
-        params = {'name': group_name, 'parentId': parent_id, 'groupType': 'static',
-                  'metrics': {'td': 'ND', 'cdp': 'ND', 'cr': 'ND', 'ir': 'ND', 'ar': 'ND'},
-                  'organizationInformation': {},
-                  'organizationInfrastructure': {}}
+        if int(self.__core_version.split('.')[0]) < 27:
+            params = {'name': group_name, 'parentId': parent_id, 'groupType': 'static',
+                      'metrics': {'td': 'ND', 'cdp': 'ND', 'cr': 'ND', 'ir': 'ND', 'ar': 'ND'},
+                      'organizationInformation': {},
+                      'organizationInfrastructure': {}}
+        else:
+            params = {'name': group_name, 'parentId': parent_id, 'groupType': 'static',
+                      'metadata': [], 'organizationInformation': {}, 'organizationInfrastructure': {}}
 
         r = exec_request(self.__core_session,
                          url,
@@ -534,8 +531,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return group_id
 
     def delete_group(self, group_id: str) -> bool:
-        """
-        Удалить группы
+        """Удалить группы.
 
         :param group_id: ID групп для удаления
         :return: status_code
@@ -593,16 +589,18 @@ class Assets(ModuleInterface, LoggingHandler):
         return resp
 
     def get_groups_hierarchy(self) -> List[dict]:
-        """
-        Получить иерархию групп
+        """Получить иерархию групп.
 
-        :return: [{'id': '00000000-0000-0000-0000-000000000002', 'name': 'Root', 'groupType': 'static',
-                   'isReadOnly': True, 'isRemovable': False, 'isRoot': True, 'isInvalidPredicate': False,
-                   'isSlow': False, 'treePath': 'Root', 'children': [
-                     {'id': '12e9a858-b700-0001-0000-000000000002', 'name': 'AD', 'groupType': 'dynamic',
-                      'isReadOnly': False, 'isRemovable': True, 'isRoot': False, 'isInvalidPredicate': False,
-                      'isSlow': False, 'treePath': 'AD', 'children': []} ]
+        :return: [{'id': '00000000-0000-0000-0000-000000000002', 'name':
+            'Root', 'groupType': 'static', 'isReadOnly': True,
+            'isRemovable': False, 'isRoot': True, 'isInvalidPredicate':
+            False, 'isSlow': False, 'treePath': 'Root', 'children':
+            [{'id': '12e9a858-b700-0001-0000-000000000002', 'name':
+            'AD', 'groupType': 'dynamic', 'isReadOnly': False,
+            'isRemovable': True, 'isRoot': False, 'isInvalidPredicate':
+            False, 'isSlow': False, 'treePath': 'AD', 'children': []}]
         """
+
         self.log.debug('status=prepare, action=get_groups_hierarchy, msg="Try to get groups tree", '
                        'hostname="{}"'.format(self.__core_hostname))
 
@@ -619,17 +617,13 @@ class Assets(ModuleInterface, LoggingHandler):
         return resp
 
     def get_groups_list(self, do_refresh=False) -> dict:
-        """
-        Получить список всех групп активов
+        """Получить список всех групп активов :param do_refresh: bool.
 
-        :return: {"id": {"parent_id": "00000000-0000-0000-0000-000000000002",
-                         "name": "value",
-                         "type": "static",
-                         "is_readonly": True,
-                         "is_removable": False,
-                         "is_invalid_predicate": False,
-                         "is_slow": False}
-                 }
+        :return: {"id": {"parent_id":
+            "00000000-0000-0000-0000-000000000002", "name":
+            "value","type": "static","is_readonly": True,
+            "is_removable": False, "is_invalid_predicate": False,
+            "is_slow": False}}
         """
         self.log.debug('status=prepare, action=get_groups_hierarchy, msg="Try to get groups list", '
                        'hostname="{}"'.format(self.__core_hostname))
@@ -660,9 +654,7 @@ class Assets(ModuleInterface, LoggingHandler):
                 self.__iterate_groups_tree(node_children, node_id)
 
     def get_group_id_by_name(self, group_name: str, do_refresh=False) -> str:
-        """
-        Получить id группы по имени.
-        Регистр важен.
+        """Получить id группы по имени. Регистр важен.
 
         :param group_name: Имя группы
         :param do_refresh: Обновить кэш
@@ -683,10 +675,9 @@ class Assets(ModuleInterface, LoggingHandler):
         return group_id
 
     def __delete_assets_by_ids(self, asset_ids: list) -> str:
-        """
-        Удаление активов по id
+        """Удаление активов по id.
 
-        :param asset_ids: Список ID активов, котыоер необходимо удалить
+        :param asset_ids: Список ID активов, которые необходимо удалить
         :return: {"operationId":"16b577e1-3900-a001-0000-000000000e79"}
         """
         self.log.debug('status=prepare, action=__delete_assets_by_ids, '
@@ -710,8 +701,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return resp.get('operationId')
 
     def __remove_assets_get_status(self, operation_id: str) -> dict:
-        """
-        Получить статус операции удаления
+        """Получить статус операции удаления.
 
         :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
         """
@@ -736,8 +726,7 @@ class Assets(ModuleInterface, LoggingHandler):
             return None
 
     def delete_assets_by_ids(self, asset_ids: list) -> dict:
-        """
-        Удаление активов по id
+        """Удаление активов по id.
 
         :param asset_ids: Список ID активов, которые необходимо удалить
         :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
@@ -759,8 +748,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return status
 
     def __change_asset_configuration_by_id(self, asset_id: str, params: dict) -> dict:
-        """
-        Получить статус операции изменения актива
+        """Получить статус операции изменения актива.
 
         :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
         """
@@ -775,23 +763,25 @@ class Assets(ModuleInterface, LoggingHandler):
 
         if r.status_code == 200:
             resp = r.json()
-            self.log.info('status=success, action=__change_asset_configuration_by_id, msg="Check change operation status: {}", '
-                      'hostname="{}"'.format(resp, self.__core_hostname))
+            self.log.info(
+                'status=success, action=__change_asset_configuration_by_id, msg="Check change operation status: {}", '
+                'hostname="{}"'.format(resp, self.__core_hostname))
             return resp.get('ticketId')
         else:
-            self.log.info('status=success, action=__change_asset_configuration_by_id, msg="Check change operation status: HTTP:{}", '
-                      'hostname="{}"'.format(r.status_code, self.__core_hostname))
+            self.log.info(
+                'status=success, action=__change_asset_configuration_by_id, msg="Check change operation status: HTTP:{}", '
+                'hostname="{}"'.format(r.status_code, self.__core_hostname))
 
             return None
 
     def __change_assets_get_status(self, ticket_id: str) -> dict:
-        """
-        Получить статус операции удаления
+        """Получить статус операции удаления.
 
         :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
         """
 
-        url = "https://{}{}?ticketId={}".format(self.__core_hostname, self.__api_assets_processing_v2_checkcreated, ticket_id)
+        url = "https://{}{}?ticketId={}".format(self.__core_hostname, self.__api_assets_processing_v2_check_created,
+                                                ticket_id)
 
         r = exec_request(self.__core_session,
                          url,
@@ -801,17 +791,17 @@ class Assets(ModuleInterface, LoggingHandler):
         if r.status_code == 200:
             resp = r.json()
             self.log.info('status=success, action=__change_assets_get_status, msg="Check edit operation status: {}", '
-                      'hostname="{}"'.format(resp, self.__core_hostname))
+                          'hostname="{}"'.format(resp, self.__core_hostname))
             return resp
         else:
-            self.log.debug('status=success, action=__change_assets_get_status, msg="Check edit operation status: HTTP:{}", '
-                      'hostname="{}"'.format(r.status_code, self.__core_hostname))
+            self.log.debug(
+                'status=success, action=__change_assets_get_status, msg="Check edit operation status: HTTP:{}", '
+                'hostname="{}"'.format(r.status_code, self.__core_hostname))
 
             return None
 
     def change_asset_configuration_by_id(self, asset_id: str, config: dict) -> dict:
-        """
-        Изменение активов по id
+        """Изменение активов по id.
 
         :param asset_ids: ID актива, который надо сконфигурировать
         :return: {"isSuccessful":true,"assetId":"17c930dc-0340-0001-0000-000000000002"}
@@ -822,7 +812,7 @@ class Assets(ModuleInterface, LoggingHandler):
         if ticket_id is not None:
             for i in range(15):
                 time.sleep(2)
-                status = self.__change_assets_get_status(ticket_id = ticket_id)
+                status = self.__change_assets_get_status(ticket_id=ticket_id)
                 self.log.warning("status: {}".format(status))
                 if status is not None:
                     break
@@ -831,14 +821,15 @@ class Assets(ModuleInterface, LoggingHandler):
                       'msg="Editing finished", status={}, '
                       'hostname="{}"'.format(status, self.__core_hostname))
         return status
-    
-    def get_asset_configuration_by_id(self, asset_id: str) -> dict:
-        """
-        Получение информации об активе по id
 
-        :param asset_id:  ID интересующего актива
+    def get_asset_configuration_by_id(self, asset_id: str) -> dict:
+        """Получение информации об активе по id.
+
+        :param asset_id: ID интересующего актива
         :return: { dict with asset config }
         """
+
+        resp = {}
 
         url = "https://{}{}/{}".format(self.__core_hostname, self.__api_assets_processing_v2_configuration, asset_id)
         r = exec_request(self.__core_session,
@@ -848,19 +839,19 @@ class Assets(ModuleInterface, LoggingHandler):
         if r.status_code == 200:
             resp = r.json()
             self.log.info('status=success, action=get_asset_configuration_by_id, msg="Got asset configuration", '
-                      'hostname="{}"'.format(self.__core_hostname))
+                          'hostname="{}"'.format(self.__core_hostname))
             return resp
         else:
-            self.log.info('status=success, action=__remove_assets_get_status, msg="Check remove operation status: HTTP:{}", '
-                      'hostname="{}"'.format(r.status_code, self.__core_hostname))
+            self.log.info(
+                'status=success, action=__remove_assets_get_status, msg="Check remove operation status: HTTP:{}", '
+                'hostname="{}"'.format(r.status_code, self.__core_hostname))
         return resp
 
     def get_queries(self) -> dict:
-        """
-        Получить все запросы
+        """Получить все запросы.
 
         :return: {'id': {'name': 'Инфраструктура по умолчанию',
-                         'tenant_id': '97267c62-1455-4db0-8c84-497faf9a679e'}}
+            'tenant_id': '97267c62-1455-4db0-8c84-497faf9a679e'}}
         """
         url = f'https://{self.__core_hostname}{self.__api_assets_trm_stored_queries_folders}'
         r = exec_request(self.__core_session,
@@ -875,8 +866,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return response['nodes']
 
     def get_query_by_id(self, queryid: str) -> dict:
-        """
-        Получить запрос по id
+        """Получить запрос по id.
 
         :return: {"id":"23d2ffe845be453b885b97ff69bf7604","displayName":"Test__Tests.29","folderId":"994b5d4f0b394fc4842e4cdeeb560d69",
                   "filterId":null,"filterPdql":"qsearch(\"70f5ef43-196f-49d7-b5cb-46ae008376f7.com\")","selectionId":null,
@@ -896,8 +886,7 @@ class Assets(ModuleInterface, LoggingHandler):
         return response
 
     def create_query_folder(self, parent_id: str, folder_name: str) -> dict:
-        """
-        Создать папку для запросов
+        """Создать папку для запросов.
 
         :param parent_id: ID родительской папки
         :param folder_name: Название папки
@@ -924,15 +913,13 @@ class Assets(ModuleInterface, LoggingHandler):
         return resp
 
     def create_query(self, folder_id: str, query_name: str, filterPdql: str, selectionPdql: str) -> dict:
-        """
-        Создать запрос в папке
+        """Создать запрос в папке.
 
         :param folder_id: ID родительской папки
         :paraq query_name: Название запроса
         :paraq filterPdql: фильтр
         :paraq selectionPdql: выборка
         :return: {"id":"5279a28a6bdb464d9c5fcbaba08284ff","displayName":"xxxx","folderId":"a50a65f8a5c04c2785b0515d84135007","filterId":null,"filterPdql":null,"selectionId":null,"selectionPdql":"zzzz","isInvalid":false,"isDeleted":false,"type":"user"}
-
         """
 
         url = f'https://{self.__core_hostname}{self.__api_assets_trm_stored_queries_query}'
@@ -954,16 +941,13 @@ class Assets(ModuleInterface, LoggingHandler):
         return resp
 
     def update_query(self, query_id: str, folder_id: str, query_name: str, filterPdql: str, selectionPdql: str) -> dict:
-        """
-        Обновить запрос в папке
+        """Обновить запрос в папке.
 
         :param query_id: query id
-        :param folder_id: ID родительской папки
-        :paraq query_name: Название запроса
-        :paraq filterPdql: фильтр
-        :paraq selectionPdql: выборка
+        :param folder_id: ID родительской папки :paraq query_name:
+            Название запроса :paraq filterPdql: фильтр :paraq
+            selectionPdql: выборка
         :return: request response
-
         """
 
         url = f'https://{self.__core_hostname}{self.__api_assets_trm_stored_queries_query + "/" + query_id}'
