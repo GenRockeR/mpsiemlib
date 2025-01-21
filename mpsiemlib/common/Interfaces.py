@@ -15,6 +15,7 @@ class Settings:
     incidents_batch_size = 100  # размер выгружаемой пачки инцидентов
     source_monitor_batch_size = 1000  # размер выгружаемой пачки источников
     assets_batch_size = 1000  # размер выгружаемой пачки активов
+    events_batch_size = 1000  # размер выгружаемой пачки событий через EventsAPI
 
 
 class AuthType:
@@ -37,13 +38,14 @@ class ModuleNames:
     KB = "knowledge_base"
     INCIDENTS = "incidents"
     SOURCE_MONITOR = "source_monitor"
+    EDR = "edr"
 
     @staticmethod
     def get_modules_list():
         return [ModuleNames.AUTH, ModuleNames.ASSETS, ModuleNames.EVENTS, ModuleNames.EVENTSAPI, ModuleNames.TABLES,
                 ModuleNames.FILTERS, ModuleNames.TASKS, ModuleNames.HEALTH,
                 ModuleNames.URM, ModuleNames.KB, ModuleNames.INCIDENTS, ModuleNames.SOURCE_MONITOR, ModuleNames.MACROS,
-                ModuleNames.CONVEYOR]
+                ModuleNames.CONVEYOR, ModuleNames.EDR]
 
 
 class MPComponents:

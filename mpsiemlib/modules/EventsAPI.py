@@ -1,3 +1,5 @@
+from typing import Iterator
+
 from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, Settings
 
 from mpsiemlib.common import exec_request, get_metrics_start_time, get_metrics_took_time
@@ -11,13 +13,14 @@ class EventsAPI(ModuleInterface, LoggingHandler):
     __api_events_aggregation_by_asset_group = '/api/events/v2/events/aggregation?offset=0&groupIds={}'
     __api_events_for_incident = '/api/incidents/events'
     __api_events = '/api/events/v2/events'
+    __api_events_v3 = "/api/events/v3/events?limit={}&offset={}"
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
         self.__core_session = auth.sessions['core']
         self.__core_hostname = auth.creds.core_hostname
-        self.log.debug('status=success, action=prepare, msg="EventsUI Module init"')
+        self.log.debug('status=success, action=prepare, msg="EventsAPI Module init"')
 
     def get_events_group_by_api_json(self, params: dict, group_ids=None) -> dict:
         """Получить группировки в формате JSON по фильтру запроса.
@@ -257,3 +260,76 @@ class EventsAPI(ModuleInterface, LoggingHandler):
                            'hostname="{}"'.format(self.__core_hostname))
             raise Exception('Core data request return None or has wrong response structure')
         return response.get('events')
+
+    def __get_events_by_filter_v3(self, query_filter: str, time_from: int, time_to: int, offset: int, limit: int,
+                                  token: str = None) -> dict:
+        """
+        Получить события по фильтру
+        Args:
+            query_filter (str): фильтр на языке PDQL в виде одной строки ""
+            time_from (int): начало диапазона поиска (Unix timestamp в секундах)
+            time_to (int): конец диапазона поиска (Unix timestamp в секундах)
+            offset: (int) позиция, начиная с которой возвращать требуемое число событий, соответсвующих фильтру
+            limit: (int) число запрашиваемых событий, соответсвующих фильтру
+            token: (str) токен запроса (ускоряет ответ при запросе новой пачки событий по предыдущему фильтру)
+        Returns:
+            [dict]: массив событий
+        """
+        null = None
+        params = {
+            'filter': query_filter,
+            'groupValues': ['1'],
+            'timeFrom': time_from,
+            'timeTo': time_to
+        }
+        api_url = self.__api_events_v3.format(limit, offset)
+        url = 'https://{}{}'.format(self.__core_hostname, api_url)
+        if token is not None:
+            url += '&token={}'.format(token)
+
+        rq = exec_request(self.__core_session, url, method='POST', json=params)
+        response = rq.json()
+
+        if response is None or 'events' not in response:
+            self.log.error('status=failed, action=get_events_by_filter, msg="Core data request return None or '
+                           'has wrong response structure", '
+                           'hostname="{}"'.format(self.__core_hostname))
+            raise Exception("Core data request return None or has wrong response structure")
+        return response  # .get("events")
+
+    def get_events_by_filter_v3(self, query_filter: str, time_from: int, time_to: int) -> Iterator[dict]:
+        """Получить события по фильтру
+        Args:
+            query_filter (str): фильтр на языке PDQL в виде одной строки
+            time_from (int): начало диапазона поиска (Unix timestamp в секундах)
+            time_to (int): конец диапазона поиска (Unix timestamp в секундах)
+        Yields:
+            Iterator[dict]: Итератор
+        """
+        self.log.debug('status=prepare, action=get_events_by_filter_v3, msg="Try to get events", '
+                       'hostname="{}", filter="{}", begin={}, end={}'.format(self.__core_hostname,
+                                                                             query_filter,
+                                                                             time_from,
+                                                                             time_to))
+        # Пачками выгружаем содержимое
+        is_end = False
+        offset = 0
+        limit = self.settings.events_batch_size
+        token = None
+        line_counter = 0
+        start_time = get_metrics_start_time()
+        while not is_end:
+            ret = self.__get_events_by_filter_v3(query_filter, time_from, time_to, offset, limit, token)
+            events = ret.get('events')
+            token = ret.get('token')  # последующие запросы с токеном должны быстрее, чем без него
+            if len(events) < limit:
+                is_end = True
+            offset += limit
+            for i in events:
+                line_counter += 1
+                yield i
+        took_time = get_metrics_took_time(start_time)
+        self.log.info(
+            'hostname="{}", metric=get_events_by_filter_v3, took={}ms, objects={}'.format(self.__core_hostname,
+                                                                                          took_time,
+                                                                                          line_counter))
