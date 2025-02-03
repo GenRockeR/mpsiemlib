@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Iterator, List, Optional
+from typing import Iterator, List, Optional, Any
 
 from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, MPComponents, Settings
 from mpsiemlib.common import exec_request, get_metrics_start_time, get_metrics_took_time
@@ -15,6 +15,10 @@ class Tables(ModuleInterface, LoggingHandler):
     __api_table_list = '/api/events/v2/table_lists?siem_id={}'
     __api_table_import = '/api/events/v1/table_lists/{}/import?siem_id={}'
     __api_table_add_row = '/api/events/v2/table_lists/{}/content?siem_id={}'
+    __api_whitelist_row_exists = '/api/whitelists/{}/exists'
+    __api_whitelist_insert = '/api/whitelists/{}/insert'
+    __api_whitelist_remove = '/api/whitelists/{}/remove'
+    __api_whitelist_can_edit = '/api/whitelists/{}/canedit'
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
@@ -246,13 +250,27 @@ class Tables(ModuleInterface, LoggingHandler):
         :param siem_id: UUID конвейера
         :return: UUID
         """
-
         if len(self.__tables_cache) == 0:
             self.get_tables_list(siem_id)
         table_id = self.__tables_cache.get(table_name)
         if table_id is None:
             raise Exception(f'Table list {table_name} not found in cache')
         return table_id.get('id')
+
+    def get_table_name_by_id(self, table_id: str, siem_id=None):
+        """Получение имени таблицы по её ID.
+
+        :param table_id: Имя таблицы
+        :param siem_id: UUID конвейера
+        :return: str
+        """
+        if len(self.__tables_cache) == 0:
+            self.get_tables_list(siem_id)
+        for table in self.__tables_cache.items():
+            if str(table[1].get('id')) == table_id:
+                return table[0]
+            else:
+                raise Exception(f'Table with ID="{table_id}" not found in cache')
 
     def set_table_row(self, table_name: str, add_rows: Optional[List[dict]] = None,
                       remove_rows: Optional[List[dict]] = None, siem_id=None):
@@ -366,6 +384,77 @@ class Tables(ModuleInterface, LoggingHandler):
                 tpl[pos] = converted
             ret.append(tpl)
         return ret
+
+    def whitelist_rows_exists(self, table_name: str, rows: List[list]) -> List[bool]:
+        """Проверка нахождения строк в белых списках.
+
+        :param table_name: Имя таблицы
+        :param rows: [["Subrule_Unix_PortForwarding", "445", "alert_context"]]
+        :return:
+        """
+        if int(self.__core_version.split('.')[0]) < 27:
+            raise Exception(f'SIEM version {self.__core_version} not supported whitelist API')
+
+        self.log.debug('status=prepare, action=whitelist_rows_exists, msg="Check data available in whitelist {}", '
+                       'hostname="{}"'.format(table_name, self.__core_hostname))
+
+        table_info = self.get_table_info(table_name)
+        table_id = table_info.get('id')
+        api_url = self.__api_whitelist_row_exists.format(table_id)
+        url = f'https://{self.__core_hostname}{api_url}'
+        response = exec_request(self.__core_session,
+                                url, method='POST',
+                                timeout=self.settings.connection_timeout,
+                                json=rows).json()
+        return response
+
+    def insert_whitelist_rows(self, table_name: str, rows: List[list], siem_id=None):
+        """Вставка данных в белый список.
+
+        :param table_name: Имя таблицы
+        :param rows: [["Subrule_Unix_PortForwarding", "445", "alert_context"]]
+        :param siem_id: str
+        :return:
+        """
+        if int(self.__core_version.split('.')[0]) < 27:
+            raise Exception(f'SIEM version {self.__core_version} not supported whitelist API')
+
+        self.log.debug('status=prepare, action=insert_whitelist_rows, msg="Insert data to whitelist {}", '
+                       'hostname="{}"'.format(table_name, self.__core_hostname))
+
+        table_info = self.get_table_info(table_name)
+        table_id = table_info.get('id')
+        api_url = self.__api_whitelist_insert.format(table_id)
+        url = f'https://{self.__core_hostname}{api_url}'
+        response = exec_request(self.__core_session,
+                                url, method='POST',
+                                timeout=self.settings.connection_timeout,
+                                json=rows)
+        return response.text
+
+    def remove_whitelist_rows(self, table_name: str, rows: List[list], siem_id=None):
+        """Удаление данных из белого списка.
+
+        :param table_name: Имя таблицы
+        :param rows: [["Subrule_Unix_PortForwarding", "445", "alert_context"]]
+        :param siem_id: str
+        :return:
+        """
+        if int(self.__core_version.split('.')[0]) < 27:
+            raise Exception(f'SIEM version {self.__core_version} not supported whitelist API')
+
+        self.log.debug('status=prepare, action=remove_whitelist_rows, msg="Remove data from whitelist {}", '
+                       'hostname="{}"'.format(table_name, self.__core_hostname))
+
+        table_info = self.get_table_info(table_name)
+        table_id = table_info.get('id')
+        api_url = self.__api_whitelist_remove.format(table_id)
+        url = f'https://{self.__core_hostname}{api_url}'
+        response = exec_request(self.__core_session,
+                                url, method='POST',
+                                timeout=self.settings.connection_timeout,
+                                json=rows)
+        return response.text
 
     def close(self):
         if self.__core_session is not None:
