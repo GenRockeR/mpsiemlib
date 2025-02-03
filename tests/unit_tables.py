@@ -116,6 +116,26 @@ class TablesTestCase(unittest.TestCase):
 
         self.assertTrue(is_added and is_removed)
 
+    def test_whitelist_rows_exists(self):
+        table = 'Common_blacklist_value'
+        rows = [
+            [
+                "Subrule_Unix_PortForwarding",
+                "10.3.132.29",
+                "root",
+                "*",
+                "*"
+            ],
+            [
+                "*",
+                "10.3.132.29",
+                "root",
+                "*",
+                "*"
+            ]]
+        ret = self.__module.whitelist_rows_exists(table_name=table, rows=rows)
+        self.assertGreater(len(ret), 0)
+
 
 if __name__ == '__main__':
     unittest.main()
