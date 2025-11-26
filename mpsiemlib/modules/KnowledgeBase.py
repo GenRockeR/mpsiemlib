@@ -34,6 +34,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     __api_import = f'{__api_siem}/import'
     __api_mass_operations = f'{__api_siem}/mass-operations'
     __api_siem_objgroups_values = f'{__api_mass_operations}/SiemObjectGroup/values'
+    __api_kb_db_revisions = f'{__api_root}/databases/revisions'
 
     # обрабатывается в Core
     __api_rule_running_info = '/api/siem/v2/rules/{}/{}'
@@ -1742,6 +1743,121 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             content_items.extend(content_objects)
 
         return content_items
+
+    def get_revisions_list(self, db_name: str) -> list:
+        """
+        Получить список ревизий из заданной БД
+        
+        :param db_name: Имя БД
+        :return: [{'param1': 'value1'}, {'param2': 'value2'}]
+        """
+        headers = {'Content-Database': db_name,
+                   'Content-Locale': 'RUS'}
+        url = "https://{}:{}{}".format(self.__kb_hostname,
+                                       self.__kb_port,
+                                       self.__api_kb_db_revisions)
+        r = exec_request(self.__kb_session,
+                         url,
+                         method='GET',
+                         timeout=self.settings.connection_timeout,
+                         headers=headers)
+        revisions = r.json()
+        return revisions
+
+    def __scan_changes(self, property_list: dict) -> list:
+        """
+        Рекурсивно получить список изменений свойств и подсвойств ресурса
+        
+        :param property_list: Перечень свойств ресурса
+        :return: [{'type': '', 'action': '', 'old_value': '', 'new_value': ''}]
+        """
+        diff_result = []
+        for edit_property in property_list:
+            if edit_property['Action'] != 'Nothing':
+                if edit_property['DiffInfo']['OldValue'] != edit_property['DiffInfo']['NewValue']:
+                    diff_result.append({'name': edit_property['Name']['Name'], 
+                                        'action': edit_property['Action'],
+                                        'old_value': edit_property['DiffInfo']['OldValue'],
+                                        'new_value': edit_property['DiffInfo']['NewValue']})
+                if edit_property['Children']:
+                    scan_result_list = self.__scan_changes(edit_property['Children'])
+                else:
+                    scan_result_list = []
+                for scan_result in scan_result_list:
+                    diff_result.append(scan_result)
+        return diff_result
+
+    def get_revisions_diff(self, db_name: str, first_revision: int, second_revision: int, query_limit: int = 10_000) -> dict:
+        """
+        Получить разницу ревизий из заданной БД по номерам ревизий (лимит 10_000 изменений на группу)
+        Учитывает (и удаляет из перечня измененных) те ресурсы (правила, папки, списки), значения которых были изменены,
+            но вернулись обратно в рамках заданных ревизий. В веб-интерфейсе такие ресурсы отмечаются как измененные
+            с пустым списком изменений
+        
+        :param db_name: Имя БД
+        :param first_revision: Первая для сравнения ревизия
+        :param second_revision: Вторая для сравнения ревизия
+        :return: {'resource_group': [{'resource_name': [{'type': '', 'action': '', 'old_value': '', 'new_value': ''}]}]}
+        """
+        early_revision = str(min(int(first_revision), int(second_revision)))
+        late_revision = str(max(int(first_revision), int(second_revision)))
+        headers = {'Content-Database': db_name,
+                   'Content-Locale': 'RUS'}
+        url = "https://{}:{}{}/v2/{}/diff/{}/statistics".format(self.__kb_hostname,
+                                       self.__kb_port, 
+                                       self.__api_kb_db_revisions,
+                                       late_revision,
+                                       early_revision)
+        r = exec_request(self.__kb_session,
+                         url,
+                         method='GET',
+                         timeout=self.settings.connection_timeout,
+                         headers=headers)
+        revisions_diff_ids = {}
+        revisions_diff = {}
+        for edited_group in r.json():
+            revisions_diff_ids[edited_group['Identifier']] = []
+            revisions_diff[edited_group['Identifier']] = []
+        for edited_group in revisions_diff_ids:
+            url = "https://{}:{}{}/v2/{}/diff/{}/{}?take={}".format(self.__kb_hostname,
+                                           self.__kb_port, 
+                                           self.__api_kb_db_revisions,
+                                           late_revision,
+                                           early_revision,
+                                           edited_group,
+                                           str(query_limit))
+            r = exec_request(self.__kb_session,
+                             url,
+                             method='GET',
+                             timeout=self.settings.connection_timeout,
+                             headers=headers)
+            for edited_resource in r.json():
+                revisions_diff_ids[edited_group].append({'resource_id': edited_resource['Id'], 
+                                                        'recource_name': edited_resource['Name']})
+        for edited_group in revisions_diff_ids:
+            for edited_resource in revisions_diff_ids[edited_group]:
+                url = "https://{}:{}{}/v2/{}/diff/{}/{}/{}".format(self.__kb_hostname,
+                                           self.__kb_port, 
+                                           self.__api_kb_db_revisions,
+                                           late_revision,
+                                           early_revision,
+                                           edited_group,
+                                           edited_resource['resource_id'])
+                r = exec_request(self.__kb_session,
+                             url,
+                             method='GET',
+                             timeout=self.settings.connection_timeout,
+                             headers=headers)
+                diff_result = self.__scan_changes(r.json()['Properties'])
+                if diff_result:
+                    revisions_diff[edited_group].append({edited_resource['recource_name']: diff_result})
+        to_delete = []
+        for revisions_diff_category in revisions_diff:
+            if not revisions_diff[revisions_diff_category]:
+                to_delete.append(revisions_diff_category)
+        for revisions_diff_category in to_delete:
+            revisions_diff.pop(revisions_diff_category)
+        return revisions_diff
 
     def close(self):
         if self.__kb_session is not None:
