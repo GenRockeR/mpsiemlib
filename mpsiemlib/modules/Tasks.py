@@ -1,6 +1,6 @@
 from typing import Optional
 
-from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, MPComponents, Settings
+from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, Settings
 from mpsiemlib.common import exec_request
 
 
@@ -25,7 +25,7 @@ class Tasks(ModuleInterface, LoggingHandler):
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        self.__core_session = auth.sessions['core']
+        self.__core_session = auth.sessions["core"]
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
         self.__agents = {}
@@ -35,7 +35,7 @@ class Tasks(ModuleInterface, LoggingHandler):
         self.__credentials = {}
         self.__tasks = {}
 
-        if int(self.__core_version.split('.')[0]) == 23:
+        if int(self.__core_version.split(".")[0]) == 23:
             self.__api_profiles_list = self.__api_profiles_list_old
         else:
             self.__api_profiles_list = self.__api_profiles_list_new
@@ -43,40 +43,41 @@ class Tasks(ModuleInterface, LoggingHandler):
         self.log.debug('status=success, action=prepare, msg="Tasks Module init"')
 
     def start_task(self, task_id):
-        if self.get_task_status(task_id) == 'finished':
-            self.__manipulate_task(task_id, 'start')
+        if self.get_task_status(task_id) == "finished":
+            self.__manipulate_task(task_id, "start")
         else:
-            self.log.warning('status=failed, action=manipulate_task, msg="Task {} already started or pending", '
-                             'hostname="{}"'.format(task_id, self.__core_hostname))
+            self.log.warning(f'status=failed, action=manipulate_task, '
+                             f'msg="Task {task_id!r} already started or pending", hostname={self.__core_hostname!r}')
 
     def stop_task(self, task_id):
-        if self.get_task_status(task_id) == 'running':
-            self.__manipulate_task(task_id, 'stop')
+        if self.get_task_status(task_id) == "running":
+            self.__manipulate_task(task_id, "stop")
         else:
-            self.log.warning('status=failed, action=manipulate_task, msg="Task {} already stopped or pending", '
-                             'hostname="{}"'.format(task_id, self.__core_hostname))
+            self.log.warning(f'status=failed, action=manipulate_task, '
+                             f'msg="Task {task_id!r} already stopped or pending", hostname={self.__core_hostname!r}')
 
     def get_task_status(self, task_id):
         self.get_tasks_list(do_refresh=True)
-        return self.__tasks[task_id]['status']
+        return self.__tasks[task_id]["status"]
 
     def __manipulate_task(self, task_id, control="stop"):
-        api_url = (self.__api_task_start if control == "start" else self.__api_task_stop).format(task_id)
-        url = f'https://{self.__core_hostname}{api_url}'
-        r = exec_request(self.__core_session,
-                         url,
-                         method='POST',
-                         timeout=self.settings.connection_timeout)
+        api_url = (
+            self.__api_task_start if control == "start" else self.__api_task_stop
+        ).format(task_id)
+        url = f"https://{self.__core_hostname}{api_url}"
+        response = exec_request(
+            self.__core_session,
+            url,
+            method="POST",
+            timeout=self.settings.connection_timeout).json()
         run_id = None
-        if control == 'start':
-            response = r.json()
-            run_id = response.get('id')
+        if control == "start":
+            run_id = response.get("id")
             if run_id is None:
-                raise Exception('Task manipulation error')
+                raise Exception("Task manipulation error")
 
-        self.log.info('status=success, action=manipulate_task, msg="{} task {}", '
-                      'hostname="{}"'.format(control, task_id, self.__core_hostname))
-
+        self.log.info(f'status=success, action=manipulate_task, msg="{control} task {task_id!r}", '
+                      f'hostname={self.__core_hostname!r}')
         return run_id
 
     def get_agents_list(self, do_refresh=False) -> dict:
@@ -89,23 +90,24 @@ class Tasks(ModuleInterface, LoggingHandler):
 
         self.__agents.clear()
 
-        url = f'https://{self.__core_hostname}{self.__api_agents_list}'
-        r = exec_request(self.__core_session,
-                         url,
-                         method='GET',
-                         timeout=self.settings.connection_timeout)
-        response = r.json()
+        url = f"https://{self.__core_hostname}{self.__api_agents_list}"
+        response = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout).json()
 
         for i in response:
-            self.__agents[i.get('id')] = {'name': i.get('name'),
-                                          'hostname': i.get('address'),
-                                          'version': i.get('version'),
-                                          'status': i.get('status'),
-                                          'modules': i.get('modules')
-                                          }
+            self.__agents[i.get("id")] = {
+                "name": i.get("name"),
+                "hostname": i.get("address"),
+                "version": i.get("version"),
+                "status": i.get("status"),
+                "modules": i.get("modules"),
+            }
 
-        self.log.info('status=success, action=get_agents_list, msg="Got agents list", '
-                      'hostname="{}", count={}'.format(self.__core_hostname, len(self.__agents)))
+        self.log.info(f'status=success, action=get_agents_list, msg="Got agents list", '
+                      f'hostname={self.__core_hostname!r}, count={self.__agents!r}')
 
         return self.__agents
 
@@ -119,20 +121,21 @@ class Tasks(ModuleInterface, LoggingHandler):
 
         self.__modules.clear()
 
-        url = f'https://{self.__core_hostname}{self.__api_modules_list}'
-        r = exec_request(self.__core_session,
-                         url,
-                         method='GET',
-                         timeout=self.settings.connection_timeout)
-        response = r.json()
+        url = f"https://{self.__core_hostname}{self.__api_modules_list}"
+        response = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout).json()
 
         for i in response:
-            self.__modules[i.get('id')] = {'name': i.get('name'),
-                                           'type': i.get('outputType').lower(),
-                                           }
+            self.__modules[i.get("id")] = {
+                "name": i.get("name"),
+                "type": i.get("outputType").lower(),
+            }
 
-        self.log.info('status=success, action=get_modules_list, msg="Got credentials list", '
-                      'hostname="{}", count={}'.format(self.__core_hostname, len(self.__modules)))
+        self.log.info(f'status=success, action=get_modules_list, msg="Got credentials list", '
+                      f'hostname={self.__core_hostname!r}, count={len(self.__modules)!r}')
 
         return self.__modules
 
@@ -146,26 +149,28 @@ class Tasks(ModuleInterface, LoggingHandler):
 
         self.__profiles.clear()
 
-        url = f'https://{self.__core_hostname}{self.__api_profiles_list}'
-        r = exec_request(self.__core_session,
-                         url,
-                         method='GET',
-                         timeout=self.settings.connection_timeout)
-        response = r.json()
+        url = f"https://{self.__core_hostname}{self.__api_profiles_list}"
+        response = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout).json()
 
         for i in response:
-            # почему-то ID выглядит как "{2341234-1234-234-2388}" - исправлено в R24
-            base_profile = i.get('baseProfileName')
-            profile_id = i.get('id', '').replace('{', '').replace('}', '')  # исправлено в R24
-            self.__profiles[profile_id] = {'name': i.get('name'),
-                                           'system': i.get('isSystem'),
-                                           'base_profile': base_profile.replace('"', '') if base_profile else None,
-                                           'module_id': i.get('moduleId'),
-                                           'output': i.get('output')
-                                           }
+            base_profile = i.get("baseProfileName")
+            profile_id = (
+                i.get("id", "").replace("{", "").replace("}", "")
+            )  # исправлено в R24
+            self.__profiles[profile_id] = {
+                "name": i.get("name"),
+                "system": i.get("isSystem"),
+                "base_profile": base_profile.replace('"', "") if base_profile else None,
+                "module_id": i.get("moduleId"),
+                "output": i.get("output"),
+            }
 
-        self.log.info('status=success, action=get_profiles_list, msg="Got profiles list", '
-                      'hostname="{}", count={}'.format(self.__core_hostname, len(self.__profiles)))
+        self.log.info(f'status=success, action=get_profiles_list, msg="Got profiles list", '
+                      f'hostname={self.__core_hostname!r}, count={len(self.__profiles)!r}')
 
         return self.__profiles
 
@@ -176,25 +181,27 @@ class Tasks(ModuleInterface, LoggingHandler):
         """
 
         if "23." not in self.__core_version:
-            raise NotImplementedError(f'Transports list API deprecated on {self.__core_version}')
+            raise NotImplementedError(
+                f"Transports list API deprecated on {self.__core_version}"
+            )
 
         if len(self.__transports) != 0 and not do_refresh:
             return self.__transports
 
         self.__transports.clear()
 
-        url = f'https://{self.__core_hostname}{self.__api_transports_list}'
-        r = exec_request(self.__core_session,
-                         url,
-                         method='GET',
-                         timeout=self.settings.connection_timeout)
-        response = r.json()
+        url = f"https://{self.__core_hostname}{self.__api_transports_list}"
+        response = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout).json()
 
         for i in response:
-            self.__transports[i.get('id')] = {'name': i.get('name')}
+            self.__transports[i.get("id")] = {"name": i.get("name")}
 
-        self.log.info('status=success, action=get_transports_list, msg="Got transports list", '
-                      'hostname="{}", count={}'.format(self.__core_hostname, len(self.__transports)))
+        self.log.info(f'status=success, action=get_transports_list, msg="Got transports list", '
+                      f'hostname={self.__core_hostname!r}, count={len(self.__transports)!r}')
 
         return self.__transports
 
@@ -209,22 +216,23 @@ class Tasks(ModuleInterface, LoggingHandler):
 
         self.__transports.clear()
 
-        url = f'https://{self.__core_hostname}{self.__api_credentials_list}'
-        r = exec_request(self.__core_session,
-                         url,
-                         method='GET',
-                         timeout=self.settings.connection_timeout)
-        response = r.json()
+        url = f"https://{self.__core_hostname}{self.__api_credentials_list}"
+        response = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout).json()
 
         for i in response:
-            self.__credentials[i.get('id')] = {'name': i.get('name'),
-                                               'type': i.get('id'),
-                                               'description': i.get('description'),
-                                               'transports': i.get('metatransports'),
-                                               }
+            self.__credentials[i.get("id")] = {
+                "name": i.get("name"),
+                "type": i.get("id"),
+                "description": i.get("description"),
+                "transports": i.get("metatransports"),
+            }
 
-        self.log.info('status=success, action=get_credentials_list, msg="Got credentials list", '
-                      'hostname="{}", count={}'.format(self.__core_hostname, len(self.__credentials)))
+        self.log.info(f'status=success, action=get_credentials_list, msg="Got credentials list", '
+                      f'hostname={self.__core_hostname!r}, count={len(self.__credentials)!r}')
 
         return self.__credentials
 
@@ -236,38 +244,41 @@ class Tasks(ModuleInterface, LoggingHandler):
         if len(self.__tasks) != 0 and not do_refresh:
             return self.__tasks
 
-        url = f'https://{self.__core_hostname}{self.__api_tasks_list}'
-        r = exec_request(self.__core_session,
-                         url,
-                         method='GET',
-                         timeout=self.settings.connection_timeout)
-        response = r.json()
+        url = f"https://{self.__core_hostname}{self.__api_tasks_list}"
+        response = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout).json()
 
         for i in response:
-            profile = {'id': i.get('profile', {}).get('id').replace('{', '').replace('}', ''),
-                       'name': i.get('name')}
-            self.__tasks[i.get('id')] = {'name': i.get('name'),
-                                         'agent': i.get('agent'),
-                                         'scope': i.get('scope'),
-                                         'profile': profile,
-                                         'module': i.get('module'),
-                                         'transports': i.get('metatransports'),
-                                         'status': i.get('status'),
-                                         'created': i.get('created'),
-                                         'run_last': i.get('lastRun'),
-                                         'run_last_error_level': i.get('lastRunErrorLevel'),
-                                         'run_last_error': i.get('lastRunError'),
-                                         'target_include': i.get('include'),
-                                         'target_exclude': i.get('exclude'),
-                                         'status_validation': i.get('validationState'),
-                                         'host_discovery': i.get('hostDiscovery'),
-                                         'bookmarks': i.get('hasBookmarks'),
-                                         'credentials': i.get('credentials'),
-                                         'trigger_parameters': i.get('triggerParameters')
-                                         }
+            profile = {
+                "id": i.get("profile", {}).get("id").replace("{", "").replace("}", ""),
+                "name": i.get("name"),
+            }
+            self.__tasks[i.get("id")] = {
+                "name": i.get("name"),
+                "agent": i.get("agent"),
+                "scope": i.get("scope"),
+                "profile": profile,
+                "module": i.get("module"),
+                "transports": i.get("metatransports"),
+                "status": i.get("status"),
+                "created": i.get("created"),
+                "run_last": i.get("lastRun"),
+                "run_last_error_level": i.get("lastRunErrorLevel"),
+                "run_last_error": i.get("lastRunError"),
+                "target_include": i.get("include"),
+                "target_exclude": i.get("exclude"),
+                "status_validation": i.get("validationState"),
+                "host_discovery": i.get("hostDiscovery"),
+                "bookmarks": i.get("hasBookmarks"),
+                "credentials": i.get("credentials"),
+                "trigger_parameters": i.get("triggerParameters"),
+            }
 
-        self.log.info('status=success, action=get_tasks_list, msg="Got task list", '
-                      'hostname="{}", count={}'.format(self.__core_hostname, len(self.__tasks)))
+        self.log.info(f'status=success, action=get_tasks_list, msg="Got task list", '
+                      f'hostname={self.__core_hostname!r}, count={len(self.__tasks)!r}')
 
         return self.__tasks
 
@@ -280,56 +291,105 @@ class Tasks(ModuleInterface, LoggingHandler):
             self.get_tasks_list()
 
         api_url = self.__api_task_info.format(task_id)
-        url = f'https://{self.__core_hostname}{api_url}'
-        r = exec_request(self.__core_session,
-                         url,
-                         method='GET',
-                         timeout=self.settings.connection_timeout)
-        r = r.json()
+        url = f"https://{self.__core_hostname}{api_url}"
+        response = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout).json()
 
         task = self.__tasks.get(task_id)
         if task is None:
-            raise Exception(f'Task {task_id} not found')
+            raise Exception(f"Task {task_id} not found")
 
-        task['parameters'] = r.get('parameters')
+        task["parameters"] = response.get("parameters")
 
-        self.log.info('status=success, action=get_task_info, msg="Got info for task {}", '
-                      'hostname="{}"'.format(task_id, self.__core_hostname))
+        self.log.info(f'status=success, action=get_task_info, msg="Got info for task {task_id!r}", '
+                      f'hostname={self.__core_hostname!r}')
 
         return task
 
-    def get_default_audit_task_params(self) -> dict:
-        params = {"name": "task_name",
-                  "scope": "00000000-0000-0000-0000-000000000005",
-                  "profile": "use get_profiles_list() to get profile UUID",
-                  "agent": "use get_agents_list() to get agent UUID",
-                  "overrides": {"transports": {"terminal": {"ssh": {"connection": {
-                      "auth": {"ref_value": "use get_credentials_list() to get credentials UUID",
-                               "ref_type": "credential"}, "privilege_elevation": {"sudo": {
-                          "auth": {"ref_value": "use get_credentials_list() to get credentials UUID",
-                                   "ref_type": "credential"}}}}}}}},
-                  "hostDiscovery": {"enabled": "false", "profile": "null"},
-                  "include": {"targets": ["list", "of", "ip", "addresses", "to", "scan"], "assets": [],
-                              "assetsGroups": []}, "exclude": {"targets": [], "assets": [], "assetsGroups": []},
-                  "triggerParameters": {"isEnabled": "false", "fromDate": "2023-01-18T14:46:02.717Z",
-                                        "timeZone": "+03:00", "type": "Daily", "atTime": "09:00:00",
-                                        "daysOfWeek": ["monday", "tuesday", "wednesday", "thursday", "friday",
-                                                       "saturday", "sunday"]}}
+    def get_default_audit_task_params(self) -> dict:  # noqa
+        params = {
+            "name": "task_name",
+            "scope": "00000000-0000-0000-0000-000000000005",
+            "profile": "use get_profiles_list() to get profile UUID",
+            "agent": "use get_agents_list() to get agent UUID",
+            "overrides": {
+                "transports": {
+                    "terminal": {
+                        "ssh": {
+                            "connection": {
+                                "auth": {
+                                    "ref_value": "use get_credentials_list() to get credentials UUID",
+                                    "ref_type": "credential",
+                                },
+                                "privilege_elevation": {
+                                    "sudo": {
+                                        "auth": {
+                                            "ref_value": "use get_credentials_list() to get credentials UUID",
+                                            "ref_type": "credential",
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    }
+                }
+            },
+            "hostDiscovery": {"enabled": "false", "profile": "null"},
+            "include": {
+                "targets": ["list", "of", "ip", "addresses", "to", "scan"],
+                "assets": [],
+                "assetsGroups": [],
+            },
+            "exclude": {"targets": [], "assets": [], "assetsGroups": []},
+            "triggerParameters": {
+                "isEnabled": "false",
+                "fromDate": "2023-01-18T14:46:02.717Z",
+                "timeZone": "+03:00",
+                "type": "Daily",
+                "atTime": "09:00:00",
+                "daysOfWeek": [
+                    "monday",
+                    "tuesday",
+                    "wednesday",
+                    "thursday",
+                    "friday",
+                    "saturday",
+                    "sunday",
+                ],
+            },
+        }
         return params
 
-    def get_default_syslog_task_params(self) -> dict:
-        params = {"name": "task_name",
-                  "scope": "00000000-0000-0000-0000-000000000005",
-                  "profile": "use get_profiles_list() to get profile UUID",
-                  "agent": "use get_agents_list() to get agent UUID",
-                  "overrides": {},
-                  "hostDiscovery": {"enabled": "false", "profile": "null"},
-                  "include": {"targets": [], "assets": [], "assetsGroups": []},
-                  "exclude": {"targets": [], "assets": [], "assetsGroups": []},
-                  "triggerParameters": {"isEnabled": "false", "fromDate": "2023-02-04T12:36:01.663Z",
-                                        "timeZone": "+03:00", "type": "Daily", "atTime": "09:00:00",
-                                        "daysOfWeek": ["monday", "tuesday", "wednesday", "thursday", "friday",
-                                                       "saturday", "sunday"]}}
+    def get_default_syslog_task_params(self) -> dict:  # noqa
+        params = {
+            "name": "task_name",
+            "scope": "00000000-0000-0000-0000-000000000005",
+            "profile": "use get_profiles_list() to get profile UUID",
+            "agent": "use get_agents_list() to get agent UUID",
+            "overrides": {},
+            "hostDiscovery": {"enabled": "false", "profile": "null"},
+            "include": {"targets": [], "assets": [], "assetsGroups": []},
+            "exclude": {"targets": [], "assets": [], "assetsGroups": []},
+            "triggerParameters": {
+                "isEnabled": "false",
+                "fromDate": "2023-02-04T12:36:01.663Z",
+                "timeZone": "+03:00",
+                "type": "Daily",
+                "atTime": "09:00:00",
+                "daysOfWeek": [
+                    "monday",
+                    "tuesday",
+                    "wednesday",
+                    "thursday",
+                    "friday",
+                    "saturday",
+                    "sunday",
+                ],
+            },
+        }
         return params
 
     def create_task(self, params: dict) -> dict:
@@ -339,13 +399,15 @@ class Tasks(ModuleInterface, LoggingHandler):
         """
 
         api_url = self.__api_create_task
-        url = "https://{}{}".format(self.__core_hostname, api_url)
+        url = f"https://{self.__core_hostname}{api_url}"
 
-        r = exec_request(self.__core_session,
-                         url,
-                         method='POST',
-                         timeout=self.settings.connection_timeout,
-                         json=params)
+        r = exec_request(
+            self.__core_session,
+            url,
+            method="POST",
+            timeout=self.settings.connection_timeout,
+            json=params,
+        )
         r = r.json()
 
         task_id = r.get("id")
@@ -358,28 +420,32 @@ class Tasks(ModuleInterface, LoggingHandler):
         """
 
         api_url = self.__api_task_info.format(task_id)
-        url = "https://{}{}".format(self.__core_hostname, api_url)
-        
-        r = exec_request(self.__core_session,
-                         url,
-                         method='PUT',
-                         timeout=self.settings.connection_timeout,
-                         json=params)
+        url = f"https://{self.__core_hostname}{api_url}"
+
+        r = exec_request(
+            self.__core_session,
+            url,
+            method="PUT",
+            timeout=self.settings.connection_timeout,
+            json=params,
+        )
         r = r.json()
         task_id = r.get("id")
         return task_id
 
     def delete_task(self, task_id) -> int:
         """Удалить задачу :param task_id: ID задачи :return: status_code: если
-        вернулось 204, знаичт задача удалена."""
+        вернулось 204, значит задача удалена."""
 
         api_url = self.__api_task_info.format(task_id)
-        url = "https://{}{}".format(self.__core_hostname, api_url)
+        url = f"https://{self.__core_hostname}{api_url}"
 
-        r = exec_request(self.__core_session,
-                         url,
-                         method='DELETE',
-                         timeout=self.settings.connection_timeout)
+        r = exec_request(
+            self.__core_session,
+            url,
+            method="DELETE",
+            timeout=self.settings.connection_timeout,
+        )
         return r.status_code
 
     def get_jobs_list(self, task_id: str, limit: Optional[int] = 1000) -> dict:
@@ -392,52 +458,55 @@ class Tasks(ModuleInterface, LoggingHandler):
 
         # сначала надо получить историю запусков, а потом ID истории получить job-ы
         api_url = self.__api_task_run_history.format(task_id, limit)
-        url = f'https://{self.__core_hostname}{api_url}'
-        r = exec_request(self.__core_session,
-                         url,
-                         method='GET',
-                         timeout=self.settings.connection_timeout)
+        url = f"https://{self.__core_hostname}{api_url}"
+        r = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout,
+        )
         response = r.json()
 
-        if response.get('items') is None:
-            raise Exception('No items in response')
+        if response.get("items") is None:
+            raise Exception("No items in response")
 
         # ищем запущенный экземпляр задачи в истории
         run_id = None
-        for i in response.get('items'):
-            if i.get('finishedAt') is None:
-                run_id = i.get('id')
+        for i in response.get("items"):
+            if i.get("finishedAt") is None:
+                run_id = i.get("id")
                 break
 
         if run_id is None:
-            self.log.info('status=success, action=get_jobs_list, msg="Running tasks not found", '
-                          'hostname="{}"'.format(self.__core_hostname))
+            self.log.info(f'status=success, action=get_jobs_list, msg="Running tasks not found", '
+                          f'hostname={self.__core_hostname!r}')
 
             return {}
 
         api_url = self.__api_jobs_list.format(run_id, limit)
-        url = f'https://{self.__core_hostname}{api_url}'
-        r = exec_request(self.__core_session,
-                         url,
-                         method='GET',
-                         timeout=self.settings.connection_timeout)
-        response = r.json()
+        url = f"https://{self.__core_hostname}{api_url}"
+        response = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout).json()
 
-        if response.get('items') is None:
-            raise Exception('No items in response')
+        if response.get("items") is None:
+            raise Exception("No items in response")
 
         jobs = {}
-        for i in response.get('items'):
-            jobs[i.get('id')] = {'status': i.get('status'),
-                                 'status_error': i.get('errorStatus'),
-                                 'started': i.get('startedAt'),
-                                 'finished': i.get('finishedAt'),
-                                 'agent': i.get('agent'),
-                                 'targets': i.get('targets')
-                                 }
+        for i in response.get("items"):
+            jobs[i.get("id")] = {
+                "status": i.get("status"),
+                "status_error": i.get("errorStatus"),
+                "started": i.get("startedAt"),
+                "finished": i.get("finishedAt"),
+                "agent": i.get("agent"),
+                "targets": i.get("targets"),
+            }
 
-        self.log.info('status=success, action=get_jobs_list, msg="Got {} jobs for task {}", '
-                      'hostname="{}"'.format(len(jobs), task_id, self.__core_hostname))
+        self.log.info(f'status=success, action=get_jobs_list, msg="Got {len(jobs)!r} jobs for task {task_id!r}"'
+                      f'hostname={self.__core_hostname!r}')
 
         return jobs
 

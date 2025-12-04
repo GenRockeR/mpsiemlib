@@ -3,19 +3,19 @@ import unittest
 
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-from tests.settings import creds, settings
+from settings import settings, creds_pat
 
 
 class TasksTestCase(unittest.TestCase):
     __mpsiemworker = None
     __module = None
-    __creds_ldap = creds
+    __creds = creds_pat
     __settings = settings
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.__mpsiemworker = MPSIEMWorker(cls.__creds_ldap, cls.__settings)
-        cls.__module = cls.__mpsiemworker.get_module(ModuleNames.TASKS)
+        cls.__mpsiemworker = MPSIEMWorker(cls.__creds, cls.__settings)
+        cls.__module = cls.__mpsiemworker.get_module(ModuleNames.TASKS) # noqa
 
     @classmethod
     def tearDownClass(cls) -> None:
