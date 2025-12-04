@@ -5,21 +5,21 @@ import pytz
 
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-from tests.settings import creds_local, settings
+from settings import settings, creds_pat
 
 
 class EventsTestCase(unittest.TestCase):
     __mpsiemworker = None
     __module = None
-    __creds_local = creds_local
+    __creds = creds_pat
     __settings = settings
     __begin = 0
     __end = 0
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.__mpsiemworker = MPSIEMWorker(cls.__creds_local, cls.__settings)
-        cls.__module = cls.__mpsiemworker.get_module(ModuleNames.EVENTS)
+        cls.__mpsiemworker = MPSIEMWorker(cls.__creds, cls.__settings)
+        cls.__module = cls.__mpsiemworker.get_module(ModuleNames.EVENTS)    # noqa
         cls.__end = round(datetime.now(tz=pytz.timezone(settings.local_timezone)).timestamp())
         cls.__begin = cls.__end - 86400
 
