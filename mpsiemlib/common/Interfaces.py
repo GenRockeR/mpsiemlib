@@ -8,7 +8,9 @@ class Settings:
     connection_timeout_x = 6  # Коэффициент увеличения timeout при генерации отчета.
     storage_events_timezone = "UTC"  # в ES все события приведены к UTC
     local_timezone = "Europe/Moscow"  # в какой временной зоне работает MP
-    storage_bucket_size = 33000  # размер бакета агрегации в Elastic (по умолчанию в конфиге 50000)
+    storage_bucket_size = (
+        33000  # размер бакета агрегации в Elastic (по умолчанию в конфиге 50000)
+    )
     storage_batch_size = 10000  # размер выгружаемой пачки событий без агрегации
     tables_batch_size = 1000  # размер выгружаемой пачки записей из табличек
     kb_objects_batch_size = 1000  # размер выгружаемой пачки правил из KB
@@ -21,6 +23,8 @@ class Settings:
 class AuthType:
     LOCAL = 0
     LDAP = 1
+    SECRET = 2
+    PAT_TOKEN = 3
 
 
 class ModuleNames:
@@ -42,10 +46,23 @@ class ModuleNames:
 
     @staticmethod
     def get_modules_list():
-        return [ModuleNames.AUTH, ModuleNames.ASSETS, ModuleNames.EVENTS, ModuleNames.EVENTSAPI, ModuleNames.TABLES,
-                ModuleNames.FILTERS, ModuleNames.TASKS, ModuleNames.HEALTH,
-                ModuleNames.URM, ModuleNames.KB, ModuleNames.INCIDENTS, ModuleNames.SOURCE_MONITOR, ModuleNames.MACROS,
-                ModuleNames.CONVEYOR, ModuleNames.EDR]
+        return [
+            ModuleNames.AUTH,
+            ModuleNames.ASSETS,
+            ModuleNames.EVENTS,
+            ModuleNames.EVENTSAPI,
+            ModuleNames.TABLES,
+            ModuleNames.FILTERS,
+            ModuleNames.TASKS,
+            ModuleNames.HEALTH,
+            ModuleNames.URM,
+            ModuleNames.KB,
+            ModuleNames.INCIDENTS,
+            ModuleNames.SOURCE_MONITOR,
+            ModuleNames.MACROS,
+            ModuleNames.CONVEYOR,
+            ModuleNames.EDR,
+        ]
 
 
 class MPComponents:
@@ -53,31 +70,30 @@ class MPComponents:
     Именование компонент. Должны совпадать с названиями в IAM
     """
 
-    CORE = 'mpx'
-    SIEM = 'siem'
-    STORAGE = 'storage'
-    MS = 'idmgr'
-    KB = 'ptkb'
+    CORE = "mpx"
+    SIEM = "siem"
+    STORAGE = "storage"
+    MS = "idmgr"
+    KB = "ptkb"
 
 
 class MPContentTypes:
-    NORMALIZATION = 'Normalization'
-    AGGREGATION = 'Aggregation'
-    ENRICHMENT = 'Enrichment'
-    CORRELATION = 'Correlation'
-    TABLE = 'TabularList'
+    NORMALIZATION = "Normalization"
+    AGGREGATION = "Aggregation"
+    ENRICHMENT = "Enrichment"
+    CORRELATION = "Correlation"
+    TABLE = "TabularList"
 
 
 class StorageVersion:
-    ES7_17 = '7.17'
-    ES7 = '7'
-    ES17 = '1.7'
-    ALL = 'ALL'
-    LS = '1'
+    ES7_17 = "7.17"
+    ES7 = "7"
+    ES17 = "1.7"
+    ALL = "ALL"
+    LS = "1"
 
 
 class Creds:
-
     def __init__(self, params=None):
         self.__core_hostname = None
         self.__core_login = None
@@ -85,15 +101,17 @@ class Creds:
         self.__siem_hostname = None
         self.__storage_hostname = None
         self.__client_secret = None
+        self.__pat_token = None
 
         if params is not None:
-            self.__core_hostname = params.get('core', {}).get('hostname', None)
-            self.__core_login = params.get('core', {}).get('login', None)
-            self.__core_pass = params.get('core', {}).get('pass', None)
-            self.__core_auth_type = params.get('core', {}).get('auth_type', None)
-            self.__siem_hostname = params.get('siem', {}).get('hostname', None)
-            self.__storage_hostname = params.get('storage', {}).get('hostname', None)
-            self.__client_secret = params.get('client_secret')
+            self.__core_hostname = params.get("core", {}).get("hostname", None)
+            self.__core_login = params.get("core", {}).get("login", None)
+            self.__core_pass = params.get("core", {}).get("pass", None)
+            self.__core_auth_type = params.get("core", {}).get("auth_type", None)
+            self.__siem_hostname = params.get("siem", {}).get("hostname", None)
+            self.__storage_hostname = params.get("storage", {}).get("hostname", None)
+            self.__client_secret = params.get("client_secret", None)
+            self.__pat_token = params.get("pat_token", None)
 
     @property
     def core_hostname(self):
@@ -125,8 +143,8 @@ class Creds:
 
     @core_auth_type.setter
     def core_auth_type(self, p):
-        if p not in [0, 1]:
-            raise Exception('Auth Type must be 0 - Local or 1 - LDAP')
+        if p not in [0, 1, 2, 3]:
+            raise Exception("Auth Type must be 0 - Local, 1 - LDAP, 2 - SECRET, 3 - PAT_TOKEN")
         self.__core_auth_type = p
 
     @property
@@ -153,6 +171,14 @@ class Creds:
     def client_secret(self, p):
         self.__client_secret = p
 
+    @property
+    def pat_token(self):
+        return self.__pat_token
+
+    @pat_token.setter
+    def pat_token(self, p):
+        self.__pat_token = p
+
 
 class WorkerInterface:
     """
@@ -173,7 +199,6 @@ class WorkerInterface:
 
 
 class ModuleInterface:
-
     def __init__(self, auth: MPSIEMAuth, settings: Settings):
         self.auth = auth
         self.settings = settings
@@ -183,7 +208,6 @@ class ModuleInterface:
 
 
 class AuthInterface:
-
     def __init__(self, creds: Creds, settings: Settings):
         self.creds = creds
         self.settings = settings
