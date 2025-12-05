@@ -4,19 +4,20 @@ from string import ascii_uppercase
 
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-from tests.settings import creds, settings
+from settings import settings, creds_pat
 
 
 class AssetsTestCase(unittest.TestCase):
     __mpsiemworker = None
     __module = None
-    __creds_ldap = creds
+    __creds = creds_pat
     __settings = settings
+    __test_group = group_name = 'sdk-test-' + (''.join(choice(ascii_uppercase) for i in range(12)))  # случайное имя
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.__mpsiemworker = MPSIEMWorker(cls.__creds_ldap, cls.__settings)
-        cls.__module = cls.__mpsiemworker.get_module(ModuleNames.ASSETS)
+        cls.__mpsiemworker = MPSIEMWorker(cls.__creds, cls.__settings)
+        cls.__module = cls.__mpsiemworker.get_module(ModuleNames.ASSETS)    # noqa
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -124,10 +125,10 @@ class AssetsTestCase(unittest.TestCase):
 
         self.assertGreater(len(hosts), 0) and (status is not None) and (status['succeedCount'] == len(hosts))
 
-    def test_delete_assets_by_id_v27_2(self):
+    def test_delete_assets_by_id_v27_x(self):
         group_id = self.__module.get_group_id_by_name("Root")
         token = self.__module. \
-            create_assets_request(pdql='qsearch("xxxxxxxxxx.test.local") | select(Host. @ id as id)',
+            create_assets_request(pdql='qsearch("xxxxxxxxxx.test.local") | select(Host.@id as id)',
                                   group_ids=[group_id],
                                   include_nested=True)
 
@@ -135,6 +136,39 @@ class AssetsTestCase(unittest.TestCase):
         hosts.pop(0)
 
         status = self.__module.delete_assets_by_ids(asset_ids=hosts)
+
+        self.assertGreater(len(hosts), 0) and (status is not None) and (status['succeedCount'] == len(hosts))
+
+    def test_update_group_entries_by_ids_add(self):
+        # TODO - pre and post checks?
+        parent_id = self.__module.get_group_id_by_name("Root")
+        group_id = self.__module.create_group_static(parent_id=parent_id, group_name=self.__test_group)
+        group_id2 = self.__module.get_group_id_by_name(self.__test_group, do_refresh=True)
+
+        token = self.__module. \
+            create_assets_request(pdql='qsearch("xxxxxxxxxx.test.local") | select(Host.@id as id)',
+                                  group_ids=[],
+                                  include_nested=True)
+
+        hosts = [x.strip('"') for x in self.__module.get_assets_list_stream(token=token)]
+        hosts.pop(0)
+
+        status = self.__module.update_group_entries_by_ids(asset_ids=hosts, include=[group_id])
+
+        self.assertGreater(len(hosts), 0) and (status is not None) and (status['succeedCount'] == len(hosts))
+
+    def test_update_group_entries_by_ids_remove(self):
+        # TODO - dependencies?
+        group_id = self.__module.get_group_id_by_name(self.__test_group, do_refresh=True)
+        token = self.__module. \
+            create_assets_request(pdql='qsearch("xxxxxxxxxx.test.local") | select(Host.@id as id)',
+                                  group_ids=[],
+                                  include_nested=True)
+
+        hosts = [x.strip('"') for x in self.__module.get_assets_list_stream(token=token)]
+        hosts.pop(0)
+
+        status = self.__module.update_group_entries_by_ids(asset_ids=hosts, exclude=[group_id])
 
         self.assertGreater(len(hosts), 0) and (status is not None) and (status['succeedCount'] == len(hosts))
 
