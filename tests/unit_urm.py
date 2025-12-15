@@ -1,16 +1,17 @@
+import json
 import unittest
+
 from faker import Faker
 
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-
-from tests.settings import creds, settings
+from settings import settings, creds_pat
 
 
 class URMTestCase(unittest.TestCase):
     __mpsiemworker = None
     __module = None
-    __creds = creds
+    __creds = creds_pat
     __settings = settings
     __user = Faker('ru_RU')
     __username = __user.profile(fields=['username']).get('username')
@@ -29,12 +30,17 @@ class URMTestCase(unittest.TestCase):
 
     def test_get_applications_list(self):
         ret = self.__module.get_applications_list()
+
+        print(json.dumps(ret, indent=4, ensure_ascii=False))
+
         self.assertTrue(len(ret) != 0)
 
     def test_get_users_list_simple(self):
         ret = self.__module.get_users_list()
         key = next(iter(ret))
         user = ret.get(key)
+
+        print(json.dumps(ret, indent=4, ensure_ascii=False))
 
         self.assertTrue((len(ret) != 0) and
                         (user.get("id") is not None) and
@@ -47,6 +53,9 @@ class URMTestCase(unittest.TestCase):
                    "withoutRoles": False}
 
         ret = self.__module.get_users_list(filters)
+
+        print(json.dumps(ret, indent=4, ensure_ascii=False))
+
         self.assertTrue(len(ret) != 0)
 
     def test_get_user_info(self):
@@ -54,6 +63,9 @@ class URMTestCase(unittest.TestCase):
         key = next(iter(ret))
 
         ret = self.__module.get_user_info(key)
+
+        print(json.dumps(ret, indent=4, ensure_ascii=False))
+
         self.assertGreater(len(ret), 0)
 
     def test_get_roles_list(self):
@@ -61,6 +73,8 @@ class URMTestCase(unittest.TestCase):
         app_name = next(iter(ret))
         role_name = next(iter(ret.get(app_name)))
         role = ret[app_name][role_name]
+
+        print(json.dumps(ret, indent=4, ensure_ascii=False))
 
         self.assertTrue((len(ret) != 0) and
                         (role.get("id") is not None) and
@@ -73,12 +87,16 @@ class URMTestCase(unittest.TestCase):
 
         role = self.__module.get_role_info(role_name, MPComponents.MS)
 
+        print(json.dumps(ret, indent=4, ensure_ascii=False))
+
         self.assertGreater(len(ret), 0) and role.get("id") is not None and role.get("privileges") is not None
 
     def test_get_privileges_list(self):
         ret = self.__module.get_privileges_list()
         app_name = next(iter(ret))
         priv_name = next(iter(ret.get(app_name)))
+
+        print(json.dumps(ret, indent=4, ensure_ascii=False))
 
         self.assertTrue((len(ret) != 0) and (priv_name is not None))
 
@@ -93,6 +111,8 @@ class URMTestCase(unittest.TestCase):
                    'firstName': self.__firstname,
                    'lastName': self.__lastname}
         user = self.__module.create_user(data=payload, password_generation=True)
+
+        print(json.dumps(user, indent=4, ensure_ascii=False))
 
         self.assertGreater(len(user), 0)
 
