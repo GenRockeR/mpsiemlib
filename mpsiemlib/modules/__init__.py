@@ -23,9 +23,17 @@ class MPSIEMWorker(WorkerInterface, LoggingHandler):
         self.__auth = MPSIEMAuth(self.creds, self.settings)
         sessions = {}
         if self.creds.core_hostname:
-            sessions['core'] = self.__auth.connect(MPComponents.CORE)
-            sessions['ms'] = self.__auth.connect(MPComponents.MS)
-            sessions['kb'] = self.__auth.connect(MPComponents.KB)
+            target_components = [('core', MPComponents.CORE), ('ms', MPComponents.MS), ('kb', MPComponents.KB)]
+            for name, component in target_components:
+                try:
+                    session = self.__auth.connect(component)
+                    if session:
+                        sessions[name] = session
+                    else:
+                        self.log.warning(f"Connection to {name} returned empty session. Skipping...")
+                except Exception as e:
+                    # In case of a 500 error or access denied from the kb (or any other) component
+                    self.log.error(f"Failed to connect to component {name}: {e}. Skipping this component.")
         # if self.creds.siem_hostname:
         #     sessions['siem'] = self.__auth.connect(MPComponents.SIEM)
         # if self.creds.storage_hostname:
