@@ -32,8 +32,7 @@ class MPSIEMWorker(WorkerInterface, LoggingHandler):
                     else:
                         self.log.warning(f"Connection to {name} returned empty session. Skipping...")
                 except Exception as e:
-                    # In case of a 500 error or access denied from the kb (or any other) component
-                    self.log.error(f"Failed to connect to component {name}: {e}. Skipping this component.")
+                    self.log.warning(f"Failed to connect to component {name}: {e}. Skipping this component.")
         # if self.creds.siem_hostname:
         #     sessions['siem'] = self.__auth.connect(MPComponents.SIEM)
         # if self.creds.storage_hostname:
@@ -47,6 +46,32 @@ class MPSIEMWorker(WorkerInterface, LoggingHandler):
         if creds is not None:
             self.creds = creds
             auth = MPSIEMAuth(self.creds, self.settings)
+
+        dependencies = {
+            ModuleNames.URM: ['core'],
+            ModuleNames.ASSETS: ['core'],
+            ModuleNames.EVENTSAPI: ['core'],
+            ModuleNames.TABLES: ['core'],
+            ModuleNames.INCIDENTS: ['core'],
+            ModuleNames.FILTERS: ['core'],
+            ModuleNames.TASKS: ['core'],
+            ModuleNames.SOURCE_MONITOR: ['core'],
+            ModuleNames.CONVEYOR: ['core'],
+            ModuleNames.KB: ['kb'],
+            ModuleNames.HEALTH: ['core', 'kb'],
+            ModuleNames.MACROS: ['core', 'kb'],
+        }
+
+        # EVENTS (MP Storage (Elasticsearch))
+        if self.__module_name == ModuleNames.EVENTS:
+            if not self.creds.storage_hostname:
+                self.log.error("Module EVENTS requires 'storage_hostname' in credentials, but it is empty.")
+                return None
+
+        required_components = dependencies.get(module_name, [])
+        for component in required_components:
+            if component not in self.__auth.sessions:
+                self.log.warning(f"Module {module_name} required '{component}' component, which is unavailable. Check permissions or component availability.")
 
         if self.__module_name == ModuleNames.AUTH:
             return auth

@@ -21,7 +21,11 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
         self.__core_session = auth.sessions['core']
         self.__core_hostname = auth.creds.core_hostname
         self.__core_version = auth.get_core_version()
-        self.__kb_session = auth.connect(MPComponents.KB)
+        try:
+            self.__kb_session = auth.connect(MPComponents.KB)
+        except:
+            self.__kb_session = None
+            self.log.warning(f"Module HEALTH required 'Knowledge Base' component, which is unavailable. Check permissions or component availability.")
 
     def get_health_status(self) -> str:
         """Получить общее состояние системы.
