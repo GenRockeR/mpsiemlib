@@ -48,30 +48,37 @@ class MPSIEMWorker(WorkerInterface, LoggingHandler):
             auth = MPSIEMAuth(self.creds, self.settings)
 
         dependencies = {
-            ModuleNames.URM: ['core'],
             ModuleNames.ASSETS: ['core'],
-            ModuleNames.EVENTSAPI: ['core'],
-            ModuleNames.TABLES: ['core'],
-            ModuleNames.INCIDENTS: ['core'],
-            ModuleNames.FILTERS: ['core'],
-            ModuleNames.TASKS: ['core'],
-            ModuleNames.SOURCE_MONITOR: ['core'],
             ModuleNames.CONVEYOR: ['core'],
-            ModuleNames.KB: ['kb'],
+            ModuleNames.EVENTSAPI: ['core'],
+            ModuleNames.FILTERS: ['core'],
             ModuleNames.HEALTH: ['core', 'kb'],
+            ModuleNames.INCIDENTS: ['core'],
+            ModuleNames.KB: ['kb'],
             ModuleNames.MACROS: ['core', 'kb'],
+            ModuleNames.SOURCE_MONITOR: ['core'],
+            ModuleNames.TABLES: ['core'],
+            ModuleNames.TASKS: ['core'],
+            ModuleNames.URM: ['core'],
         }
 
-        # EVENTS (MP Storage (Elasticsearch))
         if self.__module_name == ModuleNames.EVENTS:
             if not self.creds.storage_hostname:
-                self.log.error("Module EVENTS requires 'storage_hostname' in credentials, but it is empty.")
-                return None
+                error_msg = f"Module {self.__module_name} requires 'storage_hostname' in credentials, but it is empty."
+                self.log.error(error_msg)
+                raise ValueError(error_msg)
 
-        required_components = dependencies.get(module_name, [])
-        for component in required_components:
-            if component not in self.__auth.sessions:
-                self.log.warning(f"Module {module_name} required '{component}' component, which is unavailable. Check permissions or component availability.")
+        required_components = dependencies.get(self.__module_name, [])
+        if required_components:
+            missing_components = [comp for comp in required_components if comp not in self.__auth.sessions]
+
+            if len(missing_components) == len(required_components):
+                error_msg = f"Module [{self.__module_name}] cannot be initialized. All required components {missing_components} are unavailable. Check permissions or component availability."
+                self.log.error(error_msg)
+                raise RuntimeError(error_msg)
+
+            elif len(missing_components) > 0:
+                self.log.warning(f"Module [{self.__module_name}] initialized with limited functionality. Missing components: {missing_components}. Some features may not work.")
 
         if self.__module_name == ModuleNames.AUTH:
             return auth

@@ -25,7 +25,7 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
             self.__kb_session = auth.connect(MPComponents.KB)
         except:
             self.__kb_session = None
-            self.log.warning(f"Module HEALTH required 'Knowledge Base' component, which is unavailable. Check permissions or component availability.")
+            self.log.warning(f"Module [Health] required 'Knowledge Base' component, which is unavailable. Check permissions or component availability.")
 
     def get_health_status(self) -> str:
         """Получить общее состояние системы.
