@@ -32,8 +32,7 @@ class MPSIEMWorker(WorkerInterface, LoggingHandler):
                     else:
                         self.log.warning(f"Connection to {name} returned empty session. Skipping...")
                 except Exception as e:
-                    # In case of a 500 error or access denied from the kb (or any other) component
-                    self.log.error(f"Failed to connect to component {name}: {e}. Skipping this component.")
+                    self.log.warning(f"Failed to connect to component {name}: {e}. Skipping this component.")
         # if self.creds.siem_hostname:
         #     sessions['siem'] = self.__auth.connect(MPComponents.SIEM)
         # if self.creds.storage_hostname:
