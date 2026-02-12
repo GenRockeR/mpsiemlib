@@ -23,9 +23,16 @@ class MPSIEMWorker(WorkerInterface, LoggingHandler):
         self.__auth = MPSIEMAuth(self.creds, self.settings)
         sessions = {}
         if self.creds.core_hostname:
-            sessions['core'] = self.__auth.connect(MPComponents.CORE)
-            sessions['ms'] = self.__auth.connect(MPComponents.MS)
-            sessions['kb'] = self.__auth.connect(MPComponents.KB)
+            target_components = [('core', MPComponents.CORE), ('ms', MPComponents.MS), ('kb', MPComponents.KB)]
+            for name, component in target_components:
+                try:
+                    session = self.__auth.connect(component)
+                    if session:
+                        sessions[name] = session
+                    else:
+                        self.log.warning(f"Connection to {name} returned empty session. Skipping...")
+                except Exception as e:
+                    self.log.warning(f"Failed to connect to component {name}: {e}. Skipping this component.")
         # if self.creds.siem_hostname:
         #     sessions['siem'] = self.__auth.connect(MPComponents.SIEM)
         # if self.creds.storage_hostname:
@@ -39,6 +46,39 @@ class MPSIEMWorker(WorkerInterface, LoggingHandler):
         if creds is not None:
             self.creds = creds
             auth = MPSIEMAuth(self.creds, self.settings)
+
+        dependencies = {
+            ModuleNames.ASSETS: ['core'],
+            ModuleNames.CONVEYOR: ['core'],
+            ModuleNames.EVENTSAPI: ['core'],
+            ModuleNames.FILTERS: ['core'],
+            ModuleNames.HEALTH: ['core', 'kb'],
+            ModuleNames.INCIDENTS: ['core'],
+            ModuleNames.KB: ['kb'],
+            ModuleNames.MACROS: ['core', 'kb'],
+            ModuleNames.SOURCE_MONITOR: ['core'],
+            ModuleNames.TABLES: ['core'],
+            ModuleNames.TASKS: ['core'],
+            ModuleNames.URM: ['core'],
+        }
+
+        if self.__module_name == ModuleNames.EVENTS:
+            if not self.creds.storage_hostname:
+                error_msg = f"Module {self.__module_name} requires 'storage_hostname' in credentials, but it is empty."
+                self.log.error(error_msg)
+                raise ValueError(error_msg)
+
+        required_components = dependencies.get(self.__module_name, [])
+        if required_components:
+            missing_components = [comp for comp in required_components if comp not in self.__auth.sessions]
+
+            if len(missing_components) == len(required_components):
+                error_msg = f"Module [{self.__module_name}] cannot be initialized. All required components {missing_components} are unavailable. Check permissions or component availability."
+                self.log.error(error_msg)
+                raise RuntimeError(error_msg)
+
+            elif len(missing_components) > 0:
+                self.log.warning(f"Module [{self.__module_name}] initialized with limited functionality. Missing components: {missing_components}. Some features may not work.")
 
         if self.__module_name == ModuleNames.AUTH:
             return auth
