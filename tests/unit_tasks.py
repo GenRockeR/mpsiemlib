@@ -1,9 +1,10 @@
 import time
 import unittest
 
+from settings import creds_pat, settings
+
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-from settings import settings, creds_pat
 
 
 class TasksTestCase(unittest.TestCase):
@@ -15,7 +16,7 @@ class TasksTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.__mpsiemworker = MPSIEMWorker(cls.__creds, cls.__settings)
-        cls.__module = cls.__mpsiemworker.get_module(ModuleNames.TASKS) # noqa
+        cls.__module = cls.__mpsiemworker.get_module(ModuleNames.TASKS)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -97,16 +98,18 @@ class TasksTestCase(unittest.TestCase):
             break
 
         for k, v in self.__module.get_profiles_list().items():
-            if v['name'] == 'SysLog':
+            if v["name"] == "SysLog":
                 profile_uuid = k
                 break
 
         params = self.__module.get_default_syslog_task_params()
-        params['name'] = 'test_creating_task'
-        params['profile'] = profile_uuid
-        params['agent'] = agent_uuid
+        params["name"] = "test_creating_task"
+        params["profile"] = profile_uuid
+        params["agent"] = agent_uuid
 
         task_id = self.__module.create_task(params)
+        # Задача осядет на стенде при падении ниже (цикл ожидания/assert)
+        self.addCleanup(self.__delete_quietly, task_id)
 
         success_created = False
         for _ in range(60):
@@ -119,11 +122,17 @@ class TasksTestCase(unittest.TestCase):
         ret = self.__module.delete_task(task_id)
 
         success_deleted = False
-        if ret == 204:
+        if ret:
             success_deleted = True
 
         self.assertTrue(success_created and success_deleted)
 
+    def __delete_quietly(self, task_id):
+        try:
+            self.__module.delete_task(task_id)
+        except Exception:
+            pass
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

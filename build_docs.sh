@@ -1,14 +1,19 @@
-pip install sphinx
-pip install sphinx-rtd-theme
+#!/usr/bin/env bash
+# Сборка документации mpsiemlib (MkDocs + mkdocstrings из docstring'ов).
+# Установка зависимостей: poetry install --with docs
+set -euo pipefail
 
-cd sphinx
-call .\make.bat clean
+cd "$(dirname "$0")"
 
-rm ../docs/*
-rm ./mpsiemlib*.rst
-rm ./modules.rst
+if [[ -x ".venv/bin/mkdocs" ]]; then
+  MKDOCS=".venv/bin/mkdocs"
+elif command -v poetry >/dev/null 2>&1; then
+  MKDOCS="poetry run mkdocs"
+else
+  MKDOCS="mkdocs"
+fi
 
-sphinx-apidoc -e -M -o ./ ../mpsiemlib/
-call .\make.bat html
+# --strict: предупреждения docstring'ов считаются ошибкой сборки
+$MKDOCS build --strict "$@"
 
-cp ./_build/html/* ../docs/
+echo "Готово: site/"

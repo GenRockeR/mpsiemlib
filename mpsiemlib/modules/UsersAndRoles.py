@@ -1,100 +1,144 @@
 from typing import Any
 
 from mpsiemlib.common import (
-    ModuleInterface,
-    MPSIEMAuth,
+    AuthError,
     LoggingHandler,
+    ModuleInterface,
     MPComponents,
+    MPSIEMAuth,
     Settings,
+    exec_request,
 )
-from mpsiemlib.common import exec_request
 
 
 class UsersAndRoles(ModuleInterface, LoggingHandler):
-    """Users and Roles management."""
+    """Модуль управления пользователями и ролями (SSO/IAM).
+
+    Контракты (``docs/api/api_contracts_documentation.md``):
+
+    - ``ClientRoles.yaml``   - ``/ptms/api/sso/v2`` (applications, roles,
+      privileges, sites, tenants)
+    - ``ClientInfo.yaml``    - ``/ptms/api/sso/v1`` (applications - для 26.x)
+    - ``UserManagement``     - ``/ptms/api/sso/v1/users`` (query/create/update,
+      block/unblock, roles, password)
+
+    MP SIEM 26.x отдаёт список приложений через ``GET /ptms/api/sso/v1/
+    applications``; с 27.x - через ``/ptms/api/sso/v2/applications`` (в v2
+    добавлены ``tenantIds``/``roleManagementEnabled``).
+    """
 
     __ms_port = 3334
-    __headers = {"Content-Type": "application/json"}
 
-    __api_applications_list = "/ptms/api/sso/v1/applications"
-    __api_applications_v2_list = "/ptms/api/sso/v2/applications"
-    __api_roles_list = "/ptms/api/sso/v2/applications/{}/roles"
-    __api_roles_delete = "/ptms/api/sso/v2/applications/{}/roles/delete"
-    __api_privileges_list = "/ptms/api/sso/v2/applications/{}/privileges"
-    __api_users_list = "/ptms/api/sso/v1/users/query"
+    __api_applications_v1 = "/ptms/api/sso/v1/applications"
+    __api_applications_v2 = "/ptms/api/sso/v2/applications"
+    __api_users_query = "/ptms/api/sso/v1/users/query"
     __api_users = "/ptms/api/sso/v1/users"
     __api_users_password = "/ptms/api/sso/v1/users/password"
     __api_users_block = "/ptms/api/sso/v1/users/block"
     __api_users_unblock = "/ptms/api/sso/v1/users/unblock"
     __api_users_roles = "/ptms/api/sso/v1/users/roles"
 
-    def __init__(self, auth: MPSIEMAuth, settings: Settings):
+    def __init__(self, auth: MPSIEMAuth, settings: Settings) -> None:
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
+        if auth.sessions is None or "core" not in auth.sessions:
+            raise AuthError("Core session is not initialized")
+        creds = auth.get_creds()
+        if creds is None or creds.core_hostname is None:
+            raise AuthError("Core hostname is not set")
         self.__ms_session = auth.sessions["core"]
-        self.__ms_hostname = auth.creds.core_hostname
+        self.__ms_hostname = creds.core_hostname
         self.__core_version = auth.get_core_version()
-        self.__applications = {}
-        self.__roles = {}
-        self.__privileges = {}
-        self.__users = {}
-        self.__role_id = []
-        self.__code_privileges = {}
+        # Релиз ядра (MAJOR, MINOR): "27.6.40521" -> (27, 6).
+        version_parts = self.__core_version.split(".")
+        self.__core_release: tuple[int, int] = (
+            int(version_parts[0]),
+            int(version_parts[1]),
+        )
+        self.__applications: dict[str, dict[str, Any]] = {}
+        self.__roles: dict[str, dict[str, dict[str, Any]]] = {}
+        self.__privileges: dict[str, dict[str, str]] = {}
+        self.__users: dict[str, dict[str, Any]] = {}
+        self.__users_page_size = 1000
+        self.log.debug(
+            'status=success, action=prepare, msg="UsersAndRoles Module init"'
+        )
 
-    def get_applications_list(self) -> dict:
-        """Получить информацию по приложениям, включая тенанты.
+    # ------------------------------------------------------------------ #
+    # Приложения
+    # ------------------------------------------------------------------ #
 
-        :return: {'app_id': {'name': 'value', 'tenants': ['', '']}}
+    def get_applications_list(self) -> dict[str, dict[str, Any]]:
+        """Список зарегистрированных приложений (GetClients).
+
+        27.x: ``GET /ptms/api/sso/v2/applications``; 26.x:
+        ``GET /ptms/api/sso/v1/applications``.
+
+        :return: {app_id: {"name", "type", "tenants_ids", "role_management_enabled"}}
         """
+        self.log.debug(
+            "status=prepare, action=get_applications, "
+            'msg="Try to get applications", '
+            f"hostname={self.__ms_hostname!r}"
+        )
 
-        self.__applications.clear()
-        self.log.debug(f'status=prepare, action=get_applications, msg="Try to get applications '
-                       f'as {self.auth.creds.core_login}", hostname={self.__ms_hostname!r}')
-
-        if int(self.__core_version.split(".")[0]) < 27:
-            url = f'https://{self.__ms_hostname}:{self.__ms_port}{self.__api_applications_list}'
+        if self.__core_release >= (27, 0):
+            api_path = self.__api_applications_v2
         else:
-            self.log.debug(f'version={self.__core_version}')
-            self.log.debug(f'session={self.__ms_session}')
-            url = f'https://{self.__ms_hostname}:{self.__ms_port}{self.__api_applications_v2_list}'
+            api_path = self.__api_applications_v1
 
-        response = exec_request(
+        url = f"https://{self.__ms_hostname}:{self.__ms_port}{api_path}"
+        response: list[dict[str, Any]] = exec_request(
             self.__ms_session,
             url,
             method="GET",
-            timeout=self.settings.connection_timeout).json()
+            timeout=self.settings.connection_timeout,
+        ).json()
 
-        for i in response:
-            app_id = i.get("id")
-            app_name = i.get("name")
-            app_tenants = i.get("tenantIds")
-            if self.__applications.get(app_id) is None:
-                self.__applications[app_id] = {}
-            self.__applications[app_id] = {"name": app_name, "tenants_ids": app_tenants}
+        self.__applications = {
+            item["id"]: {
+                "name": item.get("name"),
+                "type": item.get("type"),
+                "tenants_ids": item.get("tenantIds"),
+                "role_management_enabled": item.get("roleManagementEnabled"),
+            }
+            for item in response
+        }
 
-        self.log.info(f'status=success, action=get_applications, msg="Got {len(self.__applications)} apps", '
-                      f'hostname={self.__ms_hostname!r}')
+        self.log.info(
+            "status=success, action=get_applications, "
+            f'msg="Got {len(self.__applications)} apps", '
+            f"hostname={self.__ms_hostname!r}"
+        )
+        return {k: dict(v) for k, v in self.__applications.items()}
 
-        return self.__applications
+    # ------------------------------------------------------------------ #
+    # Пользователи
+    # ------------------------------------------------------------------ #
 
-    def get_users_list(self, filters=None) -> dict:
-        """Получить список всех пользователей.
+    def get_users_list(
+        self, filters: dict[str, Any] | None = None
+    ) -> dict[str, dict[str, Any]]:
+        """Список пользователей (QueryUsers, ``POST /ptms/api/sso/v1/users/query``).
 
-        :param filters: {"rolesIds": ["id", "id"], "authTypes": [1, 0],
-            "ldapPoolNames": ["ldap_pool_name"], "statuses": ["active",
-            "blocked"], "withoutRoles": True}
-        :return: {"user_name": {"param1": "value"}}
+        Ответ кэшируется полностью (контракт может меняться); ключ результата -
+        логин пользователя. Пользователи с одинаковым логином на разных сайтах
+        схлопываются в одну запись (site не учитывается).
+
+        :param filters: ``GetUsersFilter`` - {"rolesIds", "authTypes",
+            "statuses", "withoutRoles", "siteId", "applicationId"}; None -
+            взять активных и заблокированных локальных/LDAP без ролей
+        :return: {user_name: {"id", "status", "email", "first_name",
+            "last_name", "readonly", "site_id", "auth_type", "ldap_aliases",
+            "roles", "system"}}
         """
+        self.log.debug(
+            "status=prepare, action=get_users_list, "
+            'msg="Try to get users list (high privileged)", '
+            f"hostname={self.__ms_hostname!r}"
+        )
 
-        # TODO Пользователи могут дублироваться в рамках разных сайтов. Сейчас не учитывается.
-
-        self.__users.clear()
-        self.log.debug(f'status=prepare, action=get_users_list, msg="Try to get users list as '
-                       f'{self.auth.creds.core_login!r}", hostname={self.__ms_hostname!r}')
-        self.log.warning(f'status=prepare, action=get_users_list, msg="Call high privileged operation with '
-                         f'{self.auth.creds.core_login!r}", hostname={self.__ms_hostname!r}')
-
-        params = {
+        params: dict[str, Any] = {
             "authTypes": [1, 0],
             "statuses": ["active", "blocked"],
             "withoutRoles": True,
@@ -102,626 +146,671 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         if filters is not None:
             params = filters
 
-        url = f"https://{self.__ms_hostname}:{self.__ms_port}{self.__api_users_list}"
-        response = exec_request(
-            self.__ms_session,
-            url,
-            method="POST",
-            timeout=self.settings.connection_timeout,
-            json=params).json()
+        url = f"https://{self.__ms_hostname}:{self.__ms_port}{self.__api_users_query}"
 
-        # Маршалинг, т.к. Контракт может меняться
-        for i in response.get("items"):
-            user_id = i.get("id")
-            user_name = i.get("userName")
-            user_status = i.get("status")
-            user_readonly = i.get("isReadOnly")
-            user_site_id = i.get("siteId")
-            user_auth_type = i.get("authType")
-            user_ldap_aliases = i.get("ldapAliases")
-            user_roles = i.get("roles")
-            user_is_system = i.get("system")
-            if len(user_ldap_aliases) == 1 and user_ldap_aliases[0] == "":
-                user_ldap_aliases = []
-            if user_roles is not None:
-                reformatted_roles = {}
-                for r in user_roles:
-                    reformatted_roles = {
-                        "id": r.get("roleId"),
-                        "application_id": r.get("applicationId"),
-                        "tenant_id": r.get("tenantId"),
-                    }
-                user_roles = reformatted_roles
-
-            if self.__users.get(user_name) is None:
-                self.__users[user_name] = {}
-
-            self.__users[user_name] = {
-                "id": user_id,
-                "status": user_status,
-                "readonly": user_readonly,
-                "site_id": user_site_id,
-                "auth_type": user_auth_type,
-                "ldap_aliases": user_ldap_aliases,
-                "roles": user_roles,
-                "system": user_is_system,
-            }
-        self.log.info(f'status=success, action=get_applications, msg="Got {len(self.__users)!r} users", '
-                      f'hostname="{self.__ms_hostname!r}"')
-
-        return self.__users
-
-    def get_user_info(self, user_name: str) -> dict:
-        """Получить информацию по пользователю.
-
-        :param user_name:
-        :return: {"param1": "value", "param2": "value"}
-        """
-
-        if len(self.__users) == 0:
-            self.get_users_list()
-
-        return self.__users.get(user_name)
-
-    def create_user(self, data: dict, password_generation=True) -> None:
-        """Создать пользователя
-        :param data: {"userName": str,
-        "email": str or None,
-        "authType": 0, # 0 - локальный, 1 - LDAP
-        "ldapSyncEnabled": False,
-        "status": "active" or "blocked",
-        "passwordChange": False,
-        "firstName": str or None,
-        "lastName": str or None,
-        "middleName": str or None,
-        "phone": str or None,
-        "position": str or None,
-        "manager": str or None,
-        "department": str or None,
-        "password": str}
-        :param password_generation # Генерация пароля для пользователя
-
-        :return: None"""
-
-        params = data
-
-        if len(self.__users) == 0:
-            self.get_users_list()
-
-        if self.__users.get(params.get("userName")):
-            self.log.error(f'status=failed, action=create_user, msg="Such a user already exists", '
-                           f'hostname="{self.__ms_hostname}"')
-            return None
-
-        if password_generation:
-            url = f"https://{self.__ms_hostname}:{self.__ms_port}{self.__api_users_password}"
-            password = exec_request(
+        self.__users = {}
+        offset = 0
+        while True:
+            # offset/limit - query-параметры (QueryUsers), фильтр - в теле
+            response: dict[str, Any] = exec_request(
                 self.__ms_session,
                 url,
                 method="POST",
                 timeout=self.settings.connection_timeout,
-                headers=self.__headers).json()
-            params["password"] = password["password"]
+                params={"offset": offset, "limit": self.__users_page_size},
+                json=params,
+            ).json()
+
+            items = response.get("items") or []
+            for item in items:
+                ldap_aliases = item.get("ldapAliases") or []
+                if ldap_aliases == [""]:
+                    ldap_aliases = []
+                roles = [
+                    {
+                        "id": r.get("roleId"),
+                        "application_id": r.get("applicationId"),
+                        "tenant_id": r.get("tenantId"),
+                    }
+                    for r in (item.get("roles") or [])
+                ]
+
+                self.__users[item.get("userName")] = {
+                    "id": item.get("id"),
+                    "status": item.get("status"),
+                    "email": item.get("email"),
+                    "first_name": item.get("firstName"),
+                    "last_name": item.get("lastName"),
+                    "readonly": item.get("isReadOnly"),
+                    "site_id": item.get("siteId"),
+                    "auth_type": item.get("authType"),
+                    "ldap_aliases": ldap_aliases,
+                    "roles": roles,
+                    "system": item.get("system"),
+                }
+
+            if len(items) < self.__users_page_size:
+                break
+            offset += len(items)
+
+        self.log.info(
+            "status=success, action=get_users_list, "
+            f'msg="Got {len(self.__users)} users", '
+            f"hostname={self.__ms_hostname!r}"
+        )
+        return {k: dict(v) for k, v in self.__users.items()}
+
+    def get_user_info(self, user_name: str) -> dict[str, Any] | None:
+        """Информация о пользователе по логину (из кэша ``get_users_list``).
+
+        :param user_name: Логин пользователя
+        :return: описание пользователя либо None, если он не найден
+        """
+        if not self.__users:
+            self.get_users_list()
+        info = self.__users.get(user_name)
+        return dict(info) if info is not None else None
+
+    def create_user(
+        self, data: dict[str, Any], password_generation: bool = True
+    ) -> str | None:
+        """Создать пользователя (CreateUser, ``POST /ptms/api/sso/v1/users``).
+
+        :param data: ``CreateUserModel`` - {"userName", "email", "authType",
+            "ldapSyncEnabled", "status", "passwordChange", "firstName",
+            "lastName", "middleName", "phone", "position", "manager",
+            "department", "password"}
+        :param password_generation: сгенерировать пароль (GeneratePassword) и
+            подставить в ``data["password"]`` вместо переданного
+        :return: id созданного пользователя либо None, если пользователь с
+            таким логином уже существует
+        """
+        if not self.__users:
+            self.get_users_list()
+
+        user_name = data.get("userName")
+        if not user_name:
+            raise ValueError("data must contain 'userName'")
+        user_name = str(user_name)
+        if self.__users.get(user_name):
+            self.log.error(
+                "status=failed, action=create_user, "
+                f'msg="User {user_name!r} already exists", '
+                f"hostname={self.__ms_hostname!r}"
+            )
+            return None
+
+        params = dict(data)
+        if password_generation:
+            password = self.__generate_password()
+            params["password"] = password
 
         url = f"https://{self.__ms_hostname}:{self.__ms_port}{self.__api_users}"
-
-        response = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__ms_session,
             url,
             method="POST",
             timeout=self.settings.connection_timeout,
-            headers=self.__headers,
-            json=params).json()
+            json=params,
+        ).json()
 
-        self.log.info(f'status=success, action=create_user, msg="User {params.get("userName")!r} '
-                      f'(ID: {response["id"]}) created", hostname={self.__ms_hostname!r}')
-        return params
+        user_id = response.get("id")
+        # прогреваем кэш, чтобы последующий create_user того же логина
+        # отбился локальной проверкой (сервер на дубль отвечает 400)
+        self.__users[user_name] = {
+            "id": user_id,
+            "status": data.get("status", "active"),
+            "email": data.get("email"),
+            "first_name": data.get("firstName"),
+            "last_name": data.get("lastName"),
+        }
+        self.log.info(
+            "status=success, action=create_user, "
+            f'msg="User {user_name!r} (ID: {user_id}) created", '
+            f"hostname={self.__ms_hostname!r}"
+        )
+        return user_id
 
-    def update_user(self, data: dict) -> None:
-        """Изменить пользователя :param data: {"userName": str,
+    def update_user(self, data: dict[str, Any]) -> None:
+        """Изменить пользователя (UpdateUser, ``PUT /ptms/api/sso/v1/users/{id}``).
 
-            "email": str or None,
-            "authType": 0, # 0 - локальный, 1 - LDAP
-            "ldapSyncEnabled": False,
-            "status": "active" or "blocked",
-            "passwordChange": False,
-            "firstName": str or None,
-            "lastName": str or None,
-            "middleName": str or None,
-            "phone": str or None,
-            "position": str or None,
-            "manager": str or None,
-            "department": str or None,
-            "newPassword": str or None}
-
-        :return: None
+        :param data: ``UpdateUserModel`` (обязателен ``userName`` для поиска
+            id); поддерживаются те же поля, что и в ``create_user``, плюс
+            ``newPassword``
         """
-
-        params = data
-
-        if len(self.__users) == 0:
+        if not self.__users:
             self.get_users_list()
 
-        if not self.__users.get(params.get("userName")):
-            self.log.error(f'status=failed, action=create_user, msg="Such a user already exists", '
-                           f'hostname={self.__ms_hostname!r}')
+        user_name = data.get("userName")
+        if not user_name:
+            raise ValueError("data must contain 'userName'")
+        user_name = str(user_name)
+        info = self.__users.get(user_name)
+        if info is None:
+            self.log.error(
+                "status=failed, action=update_user, "
+                f'msg="User {user_name!r} does not exist", '
+                f"hostname={self.__ms_hostname!r}"
+            )
             return
 
+        user_id = info["id"]
         url = (
-            f'https://{self.__ms_hostname}:{self.__ms_port}{self.__api_users}/'
-            f'{self.__users.get(params.get('userName'))['id']}'
+            f"https://{self.__ms_hostname}:{self.__ms_port}{self.__api_users}/{user_id}"
         )
-
         exec_request(
             self.__ms_session,
             url,
             method="PUT",
             timeout=self.settings.connection_timeout,
-            headers=self.__headers,
-            json=params,
+            json=data,
         )
 
-        self.log.info(f'status=success, action=create_user, msg="User {params.get("userName")} '
-                      f'(ID: {self.__users.get(params.get('userName'))['id']}) '
-                      f'update", hostname={self.__ms_hostname!r}')
+        self.log.info(
+            "status=success, action=update_user, "
+            f'msg="User {user_name!r} (ID: {user_id}) updated", '
+            f"hostname={self.__ms_hostname!r}"
+        )
 
-    def lock_user(self, user_name: str) -> None:
-        """Заблокировать пользователя.
-        :param user_name:
+    def lock_user(self, user_name: str) -> bool:
+        """Заблокировать пользователя (BlockUsers).
 
-        :return: None
+        :param user_name: Логин пользователя
+        :return: True при успехе, False если пользователь не найден или уже
+            заблокирован
         """
-        if len(self.__users) == 0:
+        return self.__change_block_state(
+            user_name, blocked=True, api_path=self.__api_users_block
+        )
+
+    def unlock_user(self, user_name: str) -> bool:
+        """Разблокировать пользователя (UnblockUsers).
+
+        :param user_name: Логин пользователя
+        :return: True при успехе, False если пользователь не найден или не
+            заблокирован
+        """
+        return self.__change_block_state(
+            user_name, blocked=False, api_path=self.__api_users_unblock
+        )
+
+    def user_roles_update(self, user_name: str, roles: dict[str, list[str]]) -> bool:
+        """Назначить роли пользователя (UpdateUsersRoles).
+
+        Полностью заменяет набор ролей пользователя ролями из ``roles``.
+
+        :param user_name: Логин пользователя
+        :param roles: {application_id: [role_name, ...]}, ключи - значения
+            ``MPComponents`` (``idmgr``/``ptkb``/``mpx``)
+        :return: True при успехе; False если пользователь или роль не найдены
+        """
+        if not self.__users:
             self.get_users_list()
 
-        if not self.__users.get(user_name):
-            self.log.error(f'status=failed, action=delete_user, msg="This user does not exist", '
-                           f'hostname={self.__ms_hostname!r}'
-                           )
-            return None
-        else:
-            if self.__users.get(user_name).get("status") == "blocked":
-                self.log.error(f'status=failed, action=delete_user, msg="The user has already been blocked", '
-                               f'hostname={self.__ms_hostname}')
-                return None
+        info = self.__users.get(user_name)
+        if info is None:
+            self.log.error(
+                "status=failed, action=user_roles_update, "
+                f'msg="User {user_name!r} does not exist", '
+                f"hostname={self.__ms_hostname!r}"
+            )
+            return False
 
-        url = f'https://{self.__ms_hostname}:{self.__ms_port}{self.__api_users_block}'
-
-        params = [self.__users.get(user_name).get("id")]
-
-        response = exec_request(
-            self.__ms_session,
-            url,
-            method="POST",
-            timeout=self.settings.connection_timeout,
-            headers=self.__headers,
-            json=params).json()
-
-        self.log.debug(f'status=success, action=delete_user, msg="User {user_name}'
-                       f'blocked", hostname={self.__ms_hostname!r}')
-        return response
-
-    def unlock_user(self, user_name: str) -> None:
-        """Разблокировать пользователя.
-        :param user_name:
-
-        :return: None
-        """
-        if len(self.__users) == 0:
-            self.get_users_list()
-
-        if not self.__users.get(user_name):
-            self.log.error(f'status=failed, action=recover_user, msg="This user does not exist", '
-                           f'hostname={self.__ms_hostname!r}')
-            return None
-        else:
-            if self.__users.get(user_name).get("status") == "active":
-                self.log.error(f'status=failed, action=recover_user, msg="The user is not blocked", '
-                               f'hostname={self.__ms_hostname!r}')
-                return None
-
-        url = f'https://{self.__ms_hostname}:{self.__ms_port}{self.__api_users_unblock}'
-
-        params = [self.__users.get(user_name).get("id")]
-
-        response = exec_request(
-            self.__ms_session,
-            url,
-            method="POST",
-            timeout=self.settings.connection_timeout,
-            headers=self.__headers,
-            json=params).json()
-
-        self.log.debug(f'status=success, action=recover_user, msg="User {user_name!r}'
-                       f'unlocked", hostname={self.__ms_hostname!r}')
-
-        return response
-
-    def user_roles_update(self, user_name: str, roles: dict) -> None:
-        """Назначение/изменение ролей пользователя.
-
-        :param user_name:
-        :param roles: {'idmgr': [role_name], 'mpx': [role_name], 'ptkb':
-            [role_name]}
-
-        :return: None
-        """
-
-        self.__role_id.clear()
-
-        if len(self.__users) == 0:
-            self.get_users_list()
-
-        if not self.__users.get(user_name):
-            self.log.error(f'status=failed, action=user_roles_update, msg="This user does not exist", '
-                           f'hostname={self.__ms_hostname!r}')
-            return None
-
-        if len(self.__roles) == 0:
+        if not self.__roles:
             self.get_roles_list()
 
-        for key, value in roles.items():
-            for elem in value:
-                if self.__roles.get(key).get(elem):
-                    self.__role_id.append(self.__roles.get(key).get(elem).get("id"))
-                else:
-                    self.log.error(f'status=failed, action=user_roles_update, msg="The role {elem!r} does not exist", '
-                                   f'hostname={self.__ms_hostname!r}')
-                    return None
+        role_ids: list[str] = []
+        for application_id, role_names in roles.items():
+            app_roles = self.__roles.get(application_id)
+            if app_roles is None:
+                self.log.error(
+                    "status=failed, action=user_roles_update, "
+                    f'msg="Application {application_id!r} does not exist", '
+                    f"hostname={self.__ms_hostname!r}"
+                )
+                return False
+            for role_name in role_names:
+                role = app_roles.get(role_name)
+                if role is None:
+                    self.log.error(
+                        "status=failed, action=user_roles_update, "
+                        f'msg="Role {role_name!r} does not exist", '
+                        f"hostname={self.__ms_hostname!r}"
+                    )
+                    return False
+                role_ids.append(role["id"])
 
-        params = [
-            {
-                "userId": self.__users.get(user_name).get("id"),
-                "rolesIds": self.__role_id,
-            }
-        ]
-
-        url = f'https://{self.__ms_hostname}:{self.__ms_port}{self.__api_users_roles}'
-
-        response = exec_request(
+        params = [{"userId": info["id"], "rolesIds": role_ids}]
+        url = f"https://{self.__ms_hostname}:{self.__ms_port}{self.__api_users_roles}"
+        exec_request(
             self.__ms_session,
             url,
             method="PUT",
             timeout=self.settings.connection_timeout,
-            headers=self.__headers,
-            json=params).json()
+            json=params,
+        )
 
-        self.log.debug(f'status=success, action=user_roles_update, msg="User {user_name!r}'
-                       f'update roles", hostname={self.__ms_hostname!r}')
-        return response
+        self.log.info(
+            "status=success, action=user_roles_update, "
+            f'msg="User {user_name!r} roles updated", '
+            f"hostname={self.__ms_hostname!r}"
+        )
+        return True
 
-    def get_roles_list(self) -> dict:
-        """Получить полный список ролей.
+    # ------------------------------------------------------------------ #
+    # Роли
+    # ------------------------------------------------------------------ #
 
-        :return: {'component': {'role_name': {'param1': 'value1'}}}
+    def get_roles_list(self) -> dict[str, dict[str, dict[str, Any]]]:
+        """Полный список ролей по компонентам (GetClientRoles, v2).
+
+        :return: {application_id: {role_name: {"id", "description", "type",
+            "privileges"}}} для MS/KB/CORE
         """
-
-        self.__roles.clear()
-        self.log.debug(f'status=prepare, action=get_groups, msg="Try to get roles as {self.auth.creds.core_login!r}", '
-                       f'hostname={self.__ms_hostname!r}')
+        self.log.debug(
+            "status=prepare, action=get_roles, "
+            'msg="Try to get roles", '
+            f"hostname={self.__ms_hostname!r}"
+        )
+        self.__roles = {}
         count = 0
-        self.__get_roles(MPComponents.MS)
-        count += len(self.__roles.get(MPComponents.MS))
-        self.__get_roles(MPComponents.KB)
-        count += len(self.__roles.get(MPComponents.KB))
-        self.__get_roles(MPComponents.CORE)
-        count += len(self.__roles.get(MPComponents.CORE))
+        for application in (MPComponents.MS, MPComponents.KB, MPComponents.CORE):
+            roles = self.__get_roles(application)
+            count += len(roles)
 
-        self.log.info(f'status=success, action=get_roles, msg="Got {count!r} roles", '
-                      f'hostname={self.__ms_hostname!r}')
-
+        self.log.info(
+            "status=success, action=get_roles, "
+            f'msg="Got {count} roles", '
+            f"hostname={self.__ms_hostname!r}"
+        )
         return self.__roles
 
-    def __get_roles(self, app_type: str):
-        api_url = self.__api_roles_list.format(app_type)
-        url = f'https://{self.__ms_hostname}:{self.__ms_port}{api_url}'
-        response = exec_request(
-            self.__ms_session,
-            url,
-            method="GET",
-            timeout=self.settings.connection_timeout).json()
+    def get_role_info(self, role_name: str, component: str) -> dict[str, Any] | None:
+        """Информация о роли по имени и компоненту (из кэша ``get_roles_list``).
 
-        self.__roles[app_type] = {}
-        for i in response:
-            role_id = i.get("id")
-            role_name = i.get("name")
-            role_privileges = i.get("privileges")
-            if self.__roles[app_type].get(role_name) is None:
-                self.__roles[app_type][role_name] = {}
-            self.__roles[app_type][role_name] = {
-                "id": role_id,
-                "privileges": role_privileges,
-            }
-
-        self.log.debug(f'status=success, action=get_roles, msg="Got roles from {app_type!r}", '
-                       f'hostname={self.__ms_hostname!r} roles={self.__roles!r}')
-
-    def get_role_info(self, role_name: str, component: str) -> dict:
-        """Получить информацию по конкретной роле
-        :param role_name: Имя роли
-        :param component: MPComponents
-
-        :return: dict."""
-
-        if len(self.__roles) == 0:
-            self.get_roles_list()
-
-        return self.__roles[component][role_name]
-
-    def get_privileges_list(self) -> dict:
-        """Получить полный список всех доступных в системе привилегий.
-
-        :return: {'component': {'priv': 'name'}}
+        :param role_name: имя роли
+        :param component: приложение (``MPComponents``)
+        :return: описание роли либо None, если компонент/роль не найдены
         """
-
-        self.__privileges.clear()
-        self.log.debug(f'status=prepare, action=get_groups, msg="Try to get privileges as '
-                       f'{self.auth.creds.core_login!r}", hostname={self.__ms_hostname!r}')
-        count = 0
-        self.__get_privileges(MPComponents.MS)
-        count += len(self.__privileges.get(MPComponents.MS))
-        self.__get_privileges(MPComponents.KB)
-        count += len(self.__privileges.get(MPComponents.KB))
-        self.__get_privileges(MPComponents.CORE)
-        count += len(self.__privileges.get(MPComponents.CORE))
-
-        self.log.info(f'status=success, action=get_roles, msg="Got {count!r} privileges", '
-                      f'hostname={self.__ms_hostname!r}')
-
-        return self.__privileges
-
-    def __get_privileges(self, app_type: str) -> dict[Any, Any]:
-        """Парсинг ответа от сервера и заполнение привилегий."""
-        api_url = self.__api_privileges_list.format(app_type)
-        url = f'https://{self.__ms_hostname}:{self.__ms_port}{api_url}'
-        response = exec_request(self.__ms_session, url, method='GET', timeout=self.settings.connection_timeout).json()
-
-        privileges_map = {}  # Локальное хранилище привилегий
-
-        def process_group(group):
-            # Обработка привилегий в группе
-            for privilege in group.get('privileges', []):
-                priv_id = privilege.get('code')
-                priv_name = privilege.get('name')
-                privileges_map[priv_id] = priv_name
-            # Обработка вложенных групп
-            for sub_group in group.get('groups', []):
-                process_group(sub_group)
-
-        # Собираем все привилегии из групп
-        for item in response:
-            for group in item.get('groups', []):
-                process_group(group)
-            # Обработка привилегий внутри элемента
-            for privilege in item.get('privileges', []):
-                privileges_map[privilege.get('code')] = privilege.get('name')
-
-        # Обновление основного словаря один раз
-        self.__privileges[app_type] = privileges_map
-
-        self.log.debug(f'status=success, action=get_roles, msg="Got privileges from {app_type!r}", '
-                       f'hostname={self.__ms_hostname!r} privileges={self.__privileges!r}')
-
-        return self.__privileges
+        if not self.__roles:
+            self.get_roles_list()
+        role = self.__roles.get(component, {}).get(role_name)
+        return dict(role) if role is not None else None
 
     def create_role(
-            self,
-            role_name: str,
-            role_description: str,
-            role_component: str,
-            role_privileges: list,
-    ) -> None:
-        """Создание роли
-        :param role_name: Имя роли
-        :param role_component: MPComponents
-        :param role_description: Описание роли
-        :param role_privileges: привилегии роли
+        self,
+        role_name: str,
+        role_description: str,
+        role_component: str,
+        role_privileges: list[str],
+    ) -> str | None:
+        """Создать роль приложения (CreateRole).
 
-        :return: None."""
-
-        if len(self.__roles) == 0:
+        :param role_name: имя роли
+        :param role_description: описание роли
+        :param role_component: приложение (``MPComponents``)
+        :param role_privileges: имена привилегий (резолвятся в коды через
+            ``get_privileges_list``)
+        :return: id созданной роли либо None (роль/привилегии не валидны)
+        """
+        if not self.__roles:
             self.get_roles_list()
 
         if role_component not in self.__roles:
-            self.log.error(f'status=failed, action=create_role, msg="The component {role_component!r} does not '
-                           f'exist", hostname={self.__ms_hostname!r}')
-            return
+            self.log.error(
+                "status=failed, action=create_role, "
+                f'msg="Component {role_component!r} does not exist", '
+                f"hostname={self.__ms_hostname!r}"
+            )
+            return None
 
-        if role_name in self.__roles.get(role_component):
-            self.log.error(f'status=failed, action=create_role, msg="The role {role_name!r} already exists"'
-                           f', hostname={self.__ms_hostname}')
-            return
+        if role_name in self.__roles.get(role_component, {}):
+            self.log.error(
+                "status=failed, action=create_role, "
+                f'msg="Role {role_name!r} already exists", '
+                f"hostname={self.__ms_hostname!r}"
+            )
+            return None
 
-        self.__code_privileges.clear()
-        self.__get_code_privileges(role_component)
+        privileges = self.__resolve_privilege_codes(role_component, role_privileges)
+        if privileges is None:
+            self.log.error(
+                "status=failed, action=create_role, "
+                'msg="Some privileges are invalid", '
+                f"hostname={self.__ms_hostname!r}"
+            )
+            return None
 
-        privileges = []
-
-        for elem in role_privileges:
-            if self.__code_privileges.get(elem):
-                privileges.append(self.__code_privileges.get(elem))
-            else:
-                self.log.error(
-                    f'status=failed, action=create_role, msg="The privilege {elem} does not exist", '
-                    f'hostname="{self.__ms_hostname}"'
-                )
-                return
-
-        api_url = self.__api_roles_list.format(role_component)
-        url = f"https://{self.__ms_hostname}:{self.__ms_port}{api_url}"
-
+        url = (
+            f"https://{self.__ms_hostname}:{self.__ms_port}"
+            f"{self.__api_applications_v2}/{role_component}/roles"
+        )
         params = {
-            "description": role_description,
             "name": role_name,
+            "description": role_description,
             "privileges": privileges,
         }
-
-        response = exec_request(
+        role_id = exec_request(
             self.__ms_session,
             url,
             method="POST",
             timeout=self.settings.connection_timeout,
-            headers=self.__headers,
             json=params,
         ).json()
 
         self.log.info(
-            f'status=success, action=create_role, msg="Role {role_name} (ID: {response}) '
-            f'created", hostname="{self.__ms_hostname}"'
+            "status=success, action=create_role, "
+            f'msg="Role {role_name!r} created", '
+            f"hostname={self.__ms_hostname!r}"
         )
-
-    def __get_code_privileges(self, app_type: str) -> dict:
-        api_url = self.__api_privileges_list.format(app_type)
-        url = f"https://{self.__ms_hostname}:{self.__ms_port}{api_url}"
-        response = exec_request(
-            self.__ms_session,
-            url,
-            method="GET",
-            timeout=self.settings.connection_timeout,
-        ).json()
-
-        if app_type == MPComponents.MS:
-            for elem in response:
-                for i in elem.get("privileges"):
-                    self.__code_privileges[i.get("name")] = i.get("code")
-
-        elif app_type == MPComponents.KB:
-            for elem in response:
-                for i in elem.get("groups"):
-                    for e in i.get("privileges"):
-                        self.__code_privileges[e.get("name")] = e.get("code")
-                for j in elem.get("privileges"):
-                    if j.get("code") not in ["kb.access.allow"]:
-                        self.__code_privileges[j.get("name")] = j.get("code")
-
-        elif app_type == MPComponents.CORE:
-            for elem in response:
-                for i in elem.get("privileges"):
-                    if i.get("code") not in ["access.allow", "dashboards"]:
-                        self.__code_privileges[i.get("name")] = i.get("code")
-
-        return self.__code_privileges
+        return str(role_id)
 
     def update_role(
-            self,
-            role_name: str,
-            role_new_name: None,
-            role_description: str,
-            role_component: str,
-            role_privileges: list,
-    ) -> None:
-        """Редактирование роли
-        :param role_name: Имя роли
-        :param role_new_name: Новое имя роли
-        :param role_component: MPComponents
-        :param role_description: Описание роли
-        :param role_privileges: Присваемые привилегии (имена)
+        self,
+        role_name: str,
+        role_new_name: str | None,
+        role_description: str,
+        role_component: str,
+        role_privileges: list[str],
+    ) -> bool:
+        """Редактировать роль приложения (EditRoles).
 
-         :return: None."""
-
-        if len(self.__roles) == 0:
+        :param role_name: Текущее имя роли
+        :param role_new_name: новое имя роли (None - оставить текущее)
+        :param role_description: описание роли
+        :param role_component: приложение (``MPComponents``)
+        :param role_privileges: имена привилегий (резолвятся в коды через
+            ``get_privileges_list``)
+        :return: True при успехе; False если компонент/роль/привилегии не валидны
+        """
+        if not self.__roles:
             self.get_roles_list()
 
-        if role_component not in self.__roles:
+        app_roles = self.__roles.get(role_component)
+        if app_roles is None:
             self.log.error(
-                f'status=failed, action=update_role, msg="The component {role_component} does not '
-                f'exist", hostname="{self.__ms_hostname}"'
+                "status=failed, action=update_role, "
+                f'msg="Component {role_component!r} does not exist", '
+                f"hostname={self.__ms_hostname!r}"
             )
-            return
+            return False
 
-        if role_name not in self.__roles.get(role_component):
+        role = app_roles.get(role_name)
+        if role is None:
             self.log.error(
-                f'status=failed, action=update_role, msg="The role {role_name} does not exist"'
-                f', hostname="{self.__ms_hostname}"'
+                "status=failed, action=update_role, "
+                f'msg="Role {role_name!r} does not exist", '
+                f"hostname={self.__ms_hostname!r}"
             )
-            return
+            return False
 
-        self.__code_privileges.clear()
-        self.__get_code_privileges(role_component)
+        privileges = self.__resolve_privilege_codes(role_component, role_privileges)
+        if privileges is None:
+            self.log.error(
+                "status=failed, action=update_role, "
+                'msg="Some privileges are invalid", '
+                f"hostname={self.__ms_hostname!r}"
+            )
+            return False
 
-        privileges = []
-
-        for elem in role_privileges:
-            if self.__code_privileges.get(elem):
-                privileges.append(self.__code_privileges.get(elem))
-            else:
-                self.log.error(
-                    f'status=failed, action=update_role, msg="The privilege {elem} does not exist", '
-                    f'hostname="{self.__ms_hostname}"'
-                )
-                return
-
-        api_url = self.__api_roles_list.format(role_component)
-        url = f"https://{self.__ms_hostname}:{self.__ms_port}{api_url}"
-
+        url = (
+            f"https://{self.__ms_hostname}:{self.__ms_port}"
+            f"{self.__api_applications_v2}/{role_component}/roles"
+        )
         params = [
             {
-                "description": role_description,
+                "id": role["id"],
                 "name": role_new_name if role_new_name else role_name,
+                "description": role_description,
                 "privileges": privileges,
-                "type": "Custom",
-                "id": self.__roles[role_component][role_name]["id"],
             }
         ]
-
         exec_request(
             self.__ms_session,
             url,
             method="PUT",
             timeout=self.settings.connection_timeout,
-            headers=self.__headers,
             json=params,
         )
 
         self.log.info(
-            f'status=success, action=update_role, msg="Role {role_name} '
-            f'(ID: {self.__roles[role_component][role_name]["id"]}) update"'
-            f', hostname="{self.__ms_hostname}"'
+            "status=success, action=update_role, "
+            f'msg="Role {role_name!r} updated", '
+            f"hostname={self.__ms_hostname!r}"
         )
+        return True
 
-    def delete_role(self, role_name: str, role_component: str) -> None:
-        """Удаление роли
-        :param role_name: Имя роли
-        :param role_component: MPComponents
+    def delete_role(self, role_name: str, role_component: str) -> bool:
+        """Удалить роль приложения (DeleteClientRoles).
 
-        :return: None."""
-        if len(self.__roles) == 0:
+        :param role_name: имя роли
+        :param role_component: приложение (``MPComponents``)
+        :return: True при успехе; False если компонент/роль не найдены
+        """
+        if not self.__roles:
             self.get_roles_list()
 
-        if role_component not in self.__roles:
+        app_roles = self.__roles.get(role_component)
+        if app_roles is None:
             self.log.error(
-                f'status=failed, action=delete_role, msg="The component {role_component} does not '
-                f'exist", hostname="{self.__ms_hostname}"'
+                "status=failed, action=delete_role, "
+                f'msg="Component {role_component!r} does not exist", '
+                f"hostname={self.__ms_hostname!r}"
             )
-            return
+            return False
 
-        if role_name not in self.__roles.get(role_component):
+        role = app_roles.get(role_name)
+        if role is None:
             self.log.error(
-                f'status=failed, action=delete_role, msg="The role {role_name} does not exist"'
-                f', hostname="{self.__ms_hostname}"'
+                "status=failed, action=delete_role, "
+                f'msg="Role {role_name!r} does not exist", '
+                f"hostname={self.__ms_hostname!r}"
             )
-            return
+            return False
 
-        api_url = self.__api_roles_delete.format(role_component)
-        url = f"https://{self.__ms_hostname}:{self.__ms_port}{api_url}"
-
-        params = [self.__roles[role_component][role_name]["id"]]
-
+        url = (
+            f"https://{self.__ms_hostname}:{self.__ms_port}"
+            f"{self.__api_applications_v2}/{role_component}/roles/delete"
+        )
         exec_request(
             self.__ms_session,
             url,
             method="DELETE",
             timeout=self.settings.connection_timeout,
-            headers=self.__headers,
-            json=params,
+            json=[role["id"]],
         )
 
         self.log.info(
-            f'status=success, action=delete_role, msg="Role {role_name} '
-            f'(ID: {self.__roles[role_component][role_name]["id"]}) deleted"'
-            f', hostname="{self.__ms_hostname}"'
+            "status=success, action=delete_role, "
+            f'msg="Role {role_name!r} deleted", '
+            f"hostname={self.__ms_hostname!r}"
+        )
+        return True
+
+    # ------------------------------------------------------------------ #
+    # Привилегии
+    # ------------------------------------------------------------------ #
+
+    def get_privileges_list(self) -> dict[str, dict[str, str]]:
+        """Полный список доступных привилегий (GetClientPrivileges, v2).
+
+        Дерево ``PrivilegeGroupInfo`` (группы + привилегии, рекурсивно)
+        разворачивается в плоский словарь {код: имя}.
+
+        :return: {application_id: {privilege_code: privilege_name}} для
+            MS/KB/CORE
+        """
+        self.log.debug(
+            "status=prepare, action=get_privileges, "
+            'msg="Try to get privileges", '
+            f"hostname={self.__ms_hostname!r}"
+        )
+        self.__privileges = {}
+        count = 0
+        for application in (MPComponents.MS, MPComponents.KB, MPComponents.CORE):
+            privileges = self.__get_privileges(application)
+            count += len(privileges)
+
+        self.log.info(
+            "status=success, action=get_privileges, "
+            f'msg="Got {count} privileges", '
+            f"hostname={self.__ms_hostname!r}"
+        )
+        return self.__privileges
+
+    # ------------------------------------------------------------------ #
+    # Вспомогательное
+    # ------------------------------------------------------------------ #
+
+    def __get_roles(self, application_id: str) -> dict[str, dict[str, Any]]:
+        """Запросить и закэшировать роли одного приложения (GetClientRoles)."""
+        url = (
+            f"https://{self.__ms_hostname}:{self.__ms_port}"
+            f"{self.__api_applications_v2}/{application_id}/roles"
+        )
+        response: list[dict[str, Any]] = exec_request(
+            self.__ms_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout,
+        ).json()
+
+        app_roles: dict[str, dict[str, Any]] = {}
+        for item in response:
+            app_roles[item["name"]] = {
+                "id": item.get("id"),
+                "description": item.get("description"),
+                "type": item.get("type"),
+                "privileges": item.get("privileges"),
+            }
+        self.__roles[application_id] = app_roles
+
+        self.log.debug(
+            "status=success, action=get_roles, "
+            f'msg="Got {len(app_roles)} roles from {application_id!r}", '
+            f"hostname={self.__ms_hostname!r}"
+        )
+        return app_roles
+
+    def __get_privileges(self, application_id: str) -> dict[str, str]:
+        """Запросить и закэшировать привилегии одного приложения (GetClientPrivileges).
+
+        Обходит дерево групп рекурсивно; скрытые (``hidden``) привилегии не
+        отфильтровываются - фильтрует только вызывающий код при подборе кодов.
+        """
+        url = (
+            f"https://{self.__ms_hostname}:{self.__ms_port}"
+            f"{self.__api_applications_v2}/{application_id}/privileges"
+        )
+        response: list[dict[str, Any]] = exec_request(
+            self.__ms_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout,
+        ).json()
+
+        privileges_map: dict[str, str] = {}
+        for item in response:
+            self.__collect_privileges(item, privileges_map)
+
+        self.__privileges[application_id] = privileges_map
+
+        self.log.debug(
+            "status=success, action=get_privileges, "
+            f'msg="Got {len(privileges_map)} privileges from {application_id!r}", '
+            f"hostname={self.__ms_hostname!r}"
+        )
+        return privileges_map
+
+    @staticmethod
+    def __collect_privileges(group: dict[str, Any], into: dict[str, str]) -> None:
+        """Собрать {code: name} из группы привилегий рекурсивно."""
+        for privilege in group.get("privileges") or []:
+            code = privilege.get("code")
+            if code is not None:
+                into[code] = privilege.get("name")
+        for sub_group in group.get("groups") or []:
+            UsersAndRoles.__collect_privileges(sub_group, into)
+
+    def __resolve_privilege_codes(
+        self, application_id: str, privilege_names: list[str]
+    ) -> list[str] | None:
+        """Имена привилегий -> их коды по кэшу ``get_privileges_list``.
+
+        :return: Список кодов либо None, если хотя бы одна привилегия не
+            найдена в приложении
+        """
+        name_to_code = {
+            name: code for code, name in self.__get_privileges(application_id).items()
+        }
+        codes: list[str] = []
+        for name in privilege_names:
+            code = name_to_code.get(name)
+            if code is None:
+                self.log.error(
+                    "status=failed, action=resolve_privileges, "
+                    f'msg="Privilege {name!r} not found in {application_id!r}", '
+                    f"hostname={self.__ms_hostname!r}"
+                )
+                return None
+            codes.append(code)
+        return codes
+
+    def __change_block_state(
+        self, user_name: str, blocked: bool, api_path: str
+    ) -> bool:
+        """Блокировка/разблокировка пользователя (BlockUsers/UnblockUsers)."""
+        action = "lock_user" if blocked else "unlock_user"
+        if not self.__users:
+            self.get_users_list()
+
+        info = self.__users.get(user_name)
+        if info is None:
+            self.log.error(
+                f"status=failed, action={action}, "
+                f'msg="User {user_name!r} does not exist", '
+                f"hostname={self.__ms_hostname!r}"
+            )
+            return False
+
+        target_status = "blocked" if blocked else "active"
+        if info.get("status") == target_status:
+            self.log.error(
+                f"status=failed, action={action}, "
+                f'msg="User {user_name!r} already {target_status}", '
+                f"hostname={self.__ms_hostname!r}"
+            )
+            return False
+
+        url = f"https://{self.__ms_hostname}:{self.__ms_port}{api_path}"
+        exec_request(
+            self.__ms_session,
+            url,
+            method="POST",
+            timeout=self.settings.connection_timeout,
+            json=[info["id"]],
         )
 
-    def close(self):
+        self.log.info(
+            f"status=success, action={action}, "
+            f'msg="User {user_name!r} {target_status}", '
+            f"hostname={self.__ms_hostname!r}"
+        )
+        return True
+
+    def __generate_password(self) -> str:
+        """Сгенерировать пароль (GeneratePassword, ``POST /users/password``)."""
+        url = (
+            f"https://{self.__ms_hostname}:{self.__ms_port}{self.__api_users_password}"
+        )
+        response: dict[str, Any] = exec_request(
+            self.__ms_session,
+            url,
+            method="POST",
+            timeout=self.settings.connection_timeout,
+        ).json()
+        return str(response.get("password"))
+
+    def close(self) -> None:
         if self.__ms_session is not None:
             self.__ms_session.close()

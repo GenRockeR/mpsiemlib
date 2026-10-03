@@ -1,19 +1,20 @@
 import json
 from datetime import datetime, timedelta
-from typing import Iterator
+from typing import Any, Iterator
 
 import pytz
 from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import NotFoundError
 
 from mpsiemlib.common import (
+    LoggingHandler,
     ModuleInterface,
     MPSIEMAuth,
-    LoggingHandler,
     Settings,
     StorageVersion,
+    get_metrics_start_time,
+    get_metrics_took_time,
 )
-from mpsiemlib.common import get_metrics_start_time, get_metrics_took_time
 
 
 class Events(ModuleInterface, LoggingHandler):
@@ -21,7 +22,7 @@ class Events(ModuleInterface, LoggingHandler):
 
     __storage_port = 9200
 
-    def __init__(self, auth: MPSIEMAuth, settings: Settings):
+    def __init__(self, auth: MPSIEMAuth, settings: Settings) -> None:
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
 
@@ -43,7 +44,7 @@ class Events(ModuleInterface, LoggingHandler):
         self.log.debug('status=success, action=prepare, msg="Events Module init"')
 
     def get_events_group_by(
-            self, filters: dict, begin: int, end: int
+        self, filters: dict, begin: int, end: int
     ) -> Iterator[dict]:
         """Отфильтровать события и сгруппировать за выбранный интервал по
         указанным полям.
@@ -54,20 +55,25 @@ class Events(ModuleInterface, LoggingHandler):
         :return: Iterator dicts {"field1_alias": "field1",
             "field2_alias": "field2", "count": 42}
         """
-        self.log.debug(f'status=prepare, action=get_groups, '
-                       f'msg="Try to exec query with filter", hostname={self.__storage_hostname!r}, '
-                       f'filter={filters!r}, begin={begin!r}, end={end!r}')
-        fields = filters.get("fields")
-        if filters is None or fields is None:
-            raise Exception(f'Unsupported filters format {filters!r}')
+        self.log.debug(
+            f"status=prepare, action=get_groups, "
+            f'msg="Try to exec query with filter", hostname={self.__storage_hostname!r}, '
+            f"filter={filters!r}, begin={begin!r}, end={end!r}"
+        )
+        if filters is None or filters.get("fields") is None:
+            raise Exception(f"Unsupported filters format {filters!r}")
+
+        fields: str = filters["fields"]
 
         es_query = self.QueryBuilder.build_agg_query(filters, fields, begin, end)
-        self.log.debug(f'status=prepare, action=build_query, msg="Generate ES query", '
-                       f'hostname={self.__storage_hostname!r} query={es_query!r}')
+        self.log.debug(
+            f'status=prepare, action=build_query, msg="Generate ES query", '
+            f"hostname={self.__storage_hostname!r} query={es_query!r}"
+        )
 
         indexes = ",".join(self.__get_indexes_list(begin, end))
         timeout_report_gen = (
-                self.settings.connection_timeout * self.settings.connection_timeout_x
+            self.settings.connection_timeout * self.settings.connection_timeout_x
         )
 
         start_time = get_metrics_start_time()
@@ -86,8 +92,10 @@ class Events(ModuleInterface, LoggingHandler):
         self.__check_storage_response(es_response)
 
         if self.__is_empty_response(es_response):
-            self.log.debug(f'status=success, action=get_groups, '
-                           f'msg="Empty report", hostname={self.__storage_hostname!r}, lines=0')
+            self.log.debug(
+                f"status=success, action=get_groups, "
+                f'msg="Empty report", hostname={self.__storage_hostname!r}, lines=0'
+            )
             yield {}
 
         # конвертируем ответ от ES
@@ -102,12 +110,16 @@ class Events(ModuleInterface, LoggingHandler):
             yield schema
 
         line_counter = len(converted_response)
-        self.log.info(f'status=success, action=get_groups, msg="Query executed, response have been read", '
-                      f'hostname={self.__storage_hostname!r}, lines={line_counter!r}')
-        self.log.info(f'hostname={self.__storage_hostname!r}, metric=get_groups, took={took_time:.4f} ms,'
-                      f'objects={line_counter!r}')
+        self.log.info(
+            f'status=success, action=get_groups, msg="Query executed, response have been read", '
+            f"hostname={self.__storage_hostname!r}, lines={line_counter!r}"
+        )
+        self.log.info(
+            f"hostname={self.__storage_hostname!r}, metric=get_groups, took={took_time:.4f} ms,"
+            f"objects={line_counter!r}"
+        )
 
-    def get_events(self, filters: dict, begin: int, end: int):
+    def get_events(self, filters: dict, begin: int, end: int) -> Iterator[dict]:
         """Итеративно получить все события по фильтру за указанный временной интервал.
         :param filters: filter dict смотри в ElasticQueryBuilder
         :param begin: begin timestamp
@@ -115,19 +127,21 @@ class Events(ModuleInterface, LoggingHandler):
 
         :return: Iterator dicts"""
 
-        self.log.debug(f'status=prepare, action=get_events, msg="Try to exec query with filter", '
-                       f'hostname={self.__storage_hostname!r}, filter={filters!r} begin={begin!r}, end={end!r}')
+        self.log.debug(
+            f'status=prepare, action=get_events, msg="Try to exec query with filter", '
+            f"hostname={self.__storage_hostname!r}, filter={filters!r} begin={begin!r}, end={end!r}"
+        )
         line_counter = 0
         es_query = self.QueryBuilder.build_filter_query(filters, begin, end)
         self.log.debug(
             'status=prepare, action=build_query, msg="Generate ES query", '
-            'hostname="{}" query="{}"'.format(self.__storage_hostname, es_query)
+            f'hostname="{self.__storage_hostname}" query="{es_query}"'
         )
 
         indexes = ",".join(self.__get_indexes_list(begin, end))
 
         timeout_report_gen = (
-                self.settings.connection_timeout * self.settings.connection_timeout_x
+            self.settings.connection_timeout * self.settings.connection_timeout_x
         )
 
         start_time = get_metrics_start_time()
@@ -138,24 +152,31 @@ class Events(ModuleInterface, LoggingHandler):
                 request_timeout=timeout_report_gen,
             )
 
-            for hit in resp.get("hits").get("hits"):
+            for hit in resp.get("hits", {}).get("hits", []):
                 line_counter += 1
                 yield hit
         except NotFoundError as nf_ex:
             if nf_ex.error == "index_not_found_exception":
-                self.log.error(f'status=failed, action=get_events, msg={nf_ex.error!r}, '
-                               f'hostname={self.__storage_hostname!r}')
+                self.log.error(
+                    f"status=failed, action=get_events, msg={nf_ex.error!r}, "
+                    f"hostname={self.__storage_hostname!r}"
+                )
                 yield {}
             else:
                 raise Exception(nf_ex.error)
 
         took_time = get_metrics_took_time(start_time)
-        self.log.info(f'status=success, action=get_events, msg="Query executed, response have been read", '
-                      f'hostname={self.__storage_hostname!r}, lines={line_counter!r}')
-        self.log.info(f'hostname={self.__storage_hostname!r}, metric=get_events, took={took_time:.4f} ms, '
-                      f'objects={line_counter!r}')
+        self.log.info(
+            f'status=success, action=get_events, msg="Query executed, response have been read", '
+            f"hostname={self.__storage_hostname!r}, lines={line_counter!r}"
+        )
+        self.log.info(
+            f"hostname={self.__storage_hostname!r}, metric=get_events, took={took_time:.4f} ms, "
+            f"objects={line_counter!r}"
+        )
 
-    def __make_return_schema(self, filters):  # noqa
+    @staticmethod
+    def __make_return_schema(filters: dict) -> dict:
         """При группировке ES не возвращает поля если они null, надо их явно
         восстановить в респонсе.
 
@@ -192,9 +213,9 @@ class Events(ModuleInterface, LoggingHandler):
         for n in range(int((end_date - begin_date).days) + 1):
             check_date = (begin_date + timedelta(n)).strftime("%Y.%m.%d")
             ds_format = f".ds-siem_events-{check_date}"
-            for ds in streams.get("data_streams"):
+            for ds in streams.get("data_streams", []):
                 if ds.get("name") == "siem_events":
-                    for ds_indices in ds.get("indices"):
+                    for ds_indices in ds.get("indices", []):
                         if ds_indices.get("index_name").startswith(ds_format):
                             ret.append(ds_indices.get("index_name"))
 
@@ -273,16 +294,18 @@ class Events(ModuleInterface, LoggingHandler):
         if storage_response is None or len(storage_response) == 0:
             self.log.error(
                 'status=failed, action=report_read, msg="Storage return empty response", '
-                'hostname="{}"'.format(self.__storage_hostname)
+                f'hostname="{self.__storage_hostname}"'
             )
             return True
 
+        hits = storage_response.get("hits", {})
+
         if self.__storage_version == StorageVersion.ES7:
-            if storage_response.get("hits").get("total").get("value") == 0:
+            if hits.get("total", {}).get("value") == 0:
                 return True
 
         if self.__storage_version == StorageVersion.ES17:
-            if storage_response.get("hits").get("total") == 0:
+            if hits.get("total") == 0:
                 return True
 
         return False
@@ -294,38 +317,45 @@ class Events(ModuleInterface, LoggingHandler):
         :param storage_response: Ответ от Elastic
         :return: None
         """
-        if (
-                storage_response.get("error") is not None
-                and storage_response.get("error").get("root_cause") is not None
-        ):
+        error = storage_response.get("error")
+        root_cause = error.get("root_cause") if isinstance(error, dict) else None
+        if isinstance(root_cause, list):
             error_msg = []
-            for i in storage_response.get("error").get("root_cause"):
+            for i in root_cause:
                 error_msg.append(i.get("type"))
-            self.log.error(f'hostname={self.__storage_hostname!r}, status=failed, action=exec_query, '
-                           f'msg="Storage return errors: {",".join(error_msg)!r}"')
+            self.log.error(
+                f"hostname={self.__storage_hostname!r}, status=failed, action=exec_query, "
+                f'msg="Storage return errors: {",".join(error_msg)!r}"'
+            )
             storage_response.clear()  # надо остановить дальнейшую обработку, но чекер умеет только отписать ошибку
             return
 
         if storage_response.get("timed_out"):
-            self.log.warning(f'hostname={self.__storage_hostname!r}, status=failed, action=exec_query, '
-                             'msg="Storage return timed out for some shards. '
-                             'Some data have been lost"')
-        elif storage_response.get("_shards").get("failed") != 0:
-            self.log.warning(f'hostname={self.__storage_hostname!r}, status=failed, action=exec_query, '
-                             f'msg="Storage return failed shards. '
-                             f'Some data have been lost"')
+            self.log.warning(
+                f"hostname={self.__storage_hostname!r}, status=failed, action=exec_query, "
+                'msg="Storage return timed out for some shards. '
+                'Some data have been lost"'
+            )
+        elif storage_response.get("_shards", {}).get("failed") != 0:
+            self.log.warning(
+                f"hostname={self.__storage_hostname!r}, status=failed, action=exec_query, "
+                f'msg="Storage return failed shards. '
+                f'Some data have been lost"'
+            )
 
         # При агрегации выводится сколько документов было пропущено в каждом шарде
         for k, v in storage_response.get("aggregations", {}).items():
             if (
-                    v.get("doc_count_error_upper_bound") != 0
-                    or v.get("sum_other_doc_count") != 0
+                v.get("doc_count_error_upper_bound") != 0
+                or v.get("sum_other_doc_count") != 0
             ):
-                self.log.warning(f'hostname={self.__storage_hostname!r}, status=failed, action=exec_query, '
-                                 'msg="Elastic return doc count error. '
-                                 'Some data have been lost"')
+                self.log.warning(
+                    f"hostname={self.__storage_hostname!r}, status=failed, action=exec_query, "
+                    'msg="Elastic return doc count error. '
+                    'Some data have been lost"'
+                )
 
-    def close(self):
+    def close(self) -> None:
         if self.__storage_session is not None:
             self.__storage_session.close()
 
@@ -344,13 +374,20 @@ class ElasticQueryBuilder(LoggingHandler):
     ]
     fields: 'dst/ip as object,src/ip as subject'"""
 
-    def __init__(self, current_version: str, timezone: str, bucket_size: int):
+    def __init__(self, current_version: str, timezone: str, bucket_size: int) -> None:
         LoggingHandler.__init__(self)
         self.__es_current_version = current_version
         self.__timezone = timezone
         self.__es_bucket_size = bucket_size
 
-    def build_filter_query(self, es_filter, begin, end):
+    def build_filter_query(self, es_filter: dict, begin: int, end: int) -> dict:
+        """Построить query выборки событий.
+
+        :param es_filter: Описание фильтра (секции es_filter/es_filter_not)
+        :param begin: Begin timestamp
+        :param end: End timestamp
+        :return: Тело запроса `{"query": ...}`
+        """
         filter_expression = self.__build_es_filter_expression(es_filter, begin, end)
         query = {}
         if self.__es_current_version == StorageVersion.ES17:
@@ -362,14 +399,16 @@ class ElasticQueryBuilder(LoggingHandler):
 
         return query
 
-    def build_agg_query(self, es_filter, agg_field, begin, end):
-        """Build query for Elastic :param es_filter:
+    def build_agg_query(
+        self, es_filter: dict, agg_field: str, begin: int, end: int
+    ) -> dict:
+        """Построить query агрегации событий.
 
-        :param es_filter:
-        :param agg_field:
-        :param begin:
-        :param end:
-        :return:
+        :param es_filter: Описание фильтра (секции es_filter/es_filter_not)
+        :param agg_field: Поля группировки через запятую, возможно с алиасами
+        :param begin: Begin timestamp
+        :param end: End timestamp
+        :return: Тело запроса `{"query": ..., "aggs": ..., "size": 0}`
         """
         filter_expression = self.__build_es_filter_expression(es_filter, begin, end)
         agg_expression = self.__build_es_agg_expression(agg_field)
@@ -392,7 +431,7 @@ class ElasticQueryBuilder(LoggingHandler):
 
         return query
 
-    def __build_es_filter_expression(self, filters, begin, end):
+    def __build_es_filter_expression(self, filters: dict, begin: int, end: int) -> dict:
         """Make filter part of query :param filters:
 
         :param begin:
@@ -411,8 +450,8 @@ class ElasticQueryBuilder(LoggingHandler):
         must_alias = (
             "filter"
             if (
-                    self.__es_current_version == StorageVersion.ES7
-                    or self.__es_current_version == StorageVersion.ES7_17
+                self.__es_current_version == StorageVersion.ES7
+                or self.__es_current_version == StorageVersion.ES7_17
             )
             else "must"
         )
@@ -423,15 +462,14 @@ class ElasticQueryBuilder(LoggingHandler):
         }
 
         # разбираем секцию es_filter
-        es_filter = filters.get("es_filter")
-        if es_filter is not None and len(es_filter) != 0:
-            for flt in es_filter:
-                if not self.__make_atomic_filter(filter_dict, flt, must_alias):
-                    continue
+        es_filter: list = filters.get("es_filter") or []
+        for flt in es_filter:
+            if not self.__make_atomic_filter(filter_dict, flt, must_alias):
+                continue
 
         # разбираем секцию es_filter_not
-        es_filter_not = filters.get("es_filter_not")
-        if es_filter_not is not None and len(es_filter_not) != 0:
+        es_filter_not: list = filters.get("es_filter_not") or []
+        if es_filter_not:
             filter_dict["must_not"] = []
             for flt in es_filter_not:
                 if not self.__make_atomic_filter(filter_dict, flt, "must_not"):
@@ -439,13 +477,17 @@ class ElasticQueryBuilder(LoggingHandler):
 
         return filter_dict
 
-    def __make_atomic_filter(self, filter_dict, flt, filter_key):
+    def __make_atomic_filter(
+        self, filter_dict: dict, flt: Any, filter_key: str
+    ) -> bool:
         has_marker = type(flt) is dict  # Check if we have 'term': 'ALL|1.7|7' in filter
         if has_marker:
             k, v = dict(flt).popitem()
             if v not in [self.__es_current_version, StorageVersion.ALL]:
-                self.log.debug(f'status=failed, action=build_query, msg="Drop unsupported expression", '
-                               f'expression={k!r}')
+                self.log.debug(
+                    f'status=failed, action=build_query, msg="Drop unsupported expression", '
+                    f"expression={k!r}"
+                )
                 return False
             flt = k
         if self.__es_current_version == StorageVersion.ES17:
@@ -454,16 +496,14 @@ class ElasticQueryBuilder(LoggingHandler):
 
         return True
 
-    def __build_es_agg_expression(self, field):
-        agg_dict = {}
+    def __build_es_agg_expression(self, field: str) -> dict:
+        agg_dict: dict = {}
         field_list = field.split(",")
         current_node = agg_dict
         for fld in field_list:
             # могут быть поля A as ALIAS1, B as ALIAS2 или A as ALIAS1 или A, B или A
             fld_list = fld.strip().split(" as ")
 
-            fld_name = None  # noqa
-            fld_alias = None  # noqa
             if len(fld_list) == 1:
                 fld_name = fld_alias = fld.strip()
             else:

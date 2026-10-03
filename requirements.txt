@@ -1,7 +1,0 @@
-requests~=2.32.3
-setuptools~=75.6.0
-PyYAML~=6.0.2
-pytz~=2024.2
-elasticsearch~=7.17.12
-urllib3~=1.26.20
-Faker~=33.1.0

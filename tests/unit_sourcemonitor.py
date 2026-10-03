@@ -1,12 +1,10 @@
-import json
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 
-import pytz
+from settings import creds_pat, settings
 
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-from settings import creds, settings, creds_pat
 
 
 class SourceMonitorTestCase(unittest.TestCase):
@@ -20,8 +18,8 @@ class SourceMonitorTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.__mpsiemworker = MPSIEMWorker(cls.__creds, cls.__settings)
-        cls.__module = cls.__mpsiemworker.get_module(ModuleNames.SOURCE_MONITOR) # noqa
-        cls.__end = round(datetime.now(tz=pytz.timezone(settings.local_timezone)).timestamp())
+        cls.__module = cls.__mpsiemworker.get_module(ModuleNames.SOURCE_MONITOR)
+        cls.__end = round(datetime.now(tz=timezone.utc).timestamp())
         cls.__begin = cls.__end - 86400
 
     @classmethod
@@ -29,32 +27,34 @@ class SourceMonitorTestCase(unittest.TestCase):
         cls.__module.close()
 
     def test_get_sources_list(self):
-        ret = []
-        for i in self.__module.get_sources_list(self.__begin, self.__end):
-            ret.append(i)
-
-        print(json.dumps(ret, indent=4, ensure_ascii=False))
-
-        self.assertTrue(len(ret) != 0)
+        ret = list(self.__module.get_sources_list(self.__begin, self.__end))
+        self.assertNotEqual(len(ret), 0)
 
     @unittest.skip("Skip test, if no forwarders")
     def test_get_forwarders_list(self):
-        ret = []
-        for i in self.__module.get_forwarders_list(self.__begin, self.__end):
-            ret.append(i)
-
-        print(json.dumps(ret, indent=4, ensure_ascii=False))
-
-        self.assertTrue(len(ret) != 0)
+        ret = list(self.__module.get_forwarders_list(self.__begin, self.__end))
+        self.assertNotEqual(len(ret), 0)
 
     @unittest.skip("Skip test, if no forwarders")
     def test_get_sources_by_forwarder(self):
+        # 27.x: форвардер - актив, его id (asset_id) подаётся в forwarderIds
         forwarder = next(self.__module.get_forwarders_list(self.__begin, self.__end))
-        ret = []
-        for i in self.__module.get_sources_by_forwarder(forwarder.get("id"), self.__begin, self.__end):
-            ret.append(i)
-        self.assertTrue(len(ret) != 0)
+        forwarder_id = forwarder.get("asset_id") or forwarder.get("id")
+        ret = list(
+            self.__module.get_sources_by_forwarder(
+                forwarder_id, self.__begin, self.__end
+            )
+        )
+        self.assertNotEqual(len(ret), 0)
+
+    def test_get_forwarders_list_invalid_state_filter(self):
+        with self.assertRaises(ValueError):
+            list(
+                self.__module.get_forwarders_list(
+                    self.__begin, self.__end, state_filter="no_such_filter"
+                )
+            )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -1,19 +1,20 @@
 import unittest
 
+from settings import creds_pat, settings
+
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-from tests.settings import creds, settings
 
 
 class TablesTestCase(unittest.TestCase):
     __mpsiemworker = None
     __module = None
-    __creds_ldap = creds
+    __creds = creds_pat
     __settings = settings
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.__mpsiemworker = MPSIEMWorker(cls.__creds_ldap, cls.__settings)
+        cls.__mpsiemworker = MPSIEMWorker(cls.__creds, cls.__settings)
         cls.__module = cls.__mpsiemworker.get_module(ModuleNames.TABLES)
 
     @classmethod
@@ -27,17 +28,17 @@ class TablesTestCase(unittest.TestCase):
     def test_get_table_data_simple(self):
         tables = list(self.__module.get_tables_list())
         key = tables[0]
-        ret = []
-        for i in self.__module.get_table_data(key):
-            ret.append(i)
-        self.assertGreater(len(ret), 0) and ('_id' in ret[0])
+        ret = list(self.__module.get_table_data(key))
+        self.assertGreater(len(ret), 0)
+        self.assertIn("_id", ret[0])
 
     def test_get_table_data_filtered(self):
-        filters = {'select': ['_last_changed'],
-                   'where': '_id>2',
-                   'orderBy': [{'field': '_last_changed',
-                                'sortOrder': 'descending'}],
-                   'timeZone': 0}
+        filters = {
+            "select": ["_last_changed"],
+            "where": "_id>2",
+            "orderBy": [{"field": "_last_changed", "sortOrder": "descending"}],
+            "timeZone": 0,
+        }
         is_id_less = True
         is_valid_struct = True
         tables = list(self.__module.get_tables_list())
@@ -45,37 +46,57 @@ class TablesTestCase(unittest.TestCase):
         ret = []
         for i in self.__module.get_table_data(key, filters):
             ret.append(i)
-            if int(i.get('_id')) <= 5:
+            if int(i.get("_id")) <= 2:
                 is_id_less = False
                 break
-            if len(i) != 2 or '_last_changed' not in i:  # должно быть только поле _id и _last_changed
+            if len(i) != 2 or "_last_changed" not in i:  # только _id и _last_changed
                 is_valid_struct = False
                 break
 
-        self.assertGreater(len(ret), 0) and is_valid_struct and is_id_less
+        self.assertGreater(len(ret), 0)
+        self.assertTrue(is_valid_struct)
+        self.assertTrue(is_id_less)
 
     def test_get_table_info(self):
         tables = list(self.__module.get_tables_list())
         key = tables[0]
         table_info = self.__module.get_table_info(key)
 
-        lookup_fields = ['id', 'type', 'editable', 'size_max', 'size_typical', 'size_current',
-                         'ttl', 'ttl_enabled', 'description', 'created', 'updated', 'fields',
-                         'notifications']
-        has_all_fields = len(set(table_info).intersection(lookup_fields)) == len(lookup_fields)
+        lookup_fields = [
+            "id",
+            "type",
+            "editable",
+            "size_max",
+            "size_typical",
+            "size_current",
+            "ttl",
+            "ttl_enabled",
+            "description",
+            "created",
+            "updated",
+            "fields",
+            "notifications",
+        ]
+        has_all_fields = len(set(table_info).intersection(lookup_fields)) == len(
+            lookup_fields
+        )
 
         is_valid_struct = True
         is_asset_table = False
         for k, v in table_info.items():
-            if k == 'type' and v in ['assetgrid', 'registry']:
+            if k == "type" and v in ["assetgrid", "registry"]:
                 is_asset_table = True
-            if k in ['notifications', 'size_max', 'size_typical', 'ttl', 'ttl_enabled'] and is_asset_table:
+            if (
+                k in ["notifications", "size_max", "size_typical", "ttl", "ttl_enabled"]
+                and is_asset_table
+            ):
                 continue
-            if v is None and k != 'notifications':
+            if v is None and k != "notifications":
                 is_valid_struct = False
                 break
 
-        self.assertTrue(has_all_fields and is_valid_struct)
+        self.assertTrue(has_all_fields)
+        self.assertTrue(is_valid_struct)
 
     def test_set_table_data_r27_2(self):
         self.__module.truncate_table("test_tl_r272")
@@ -84,29 +105,25 @@ class TablesTestCase(unittest.TestCase):
 
         self.__module.set_table_data("test_tl_r272", example)
 
-        ret = []
-        for i in self.__module.get_table_data("test_tl_r272"):
-            ret.append(i)
-        self.assertGreater(len(ret), 0) and ('_id' in ret[0])
+        ret = list(self.__module.get_table_data("test_tl_r272"))
+        self.assertGreater(len(ret), 0)
+        self.assertIn("_id", ret[0])
 
     @unittest.skip("Dangerous")
     def test_truncate(self):
-
         self.assertTrue(self.__module.truncate_table("test_tl_r272"))
 
     def test_set_table_row(self):
-        add = [{'cust': 'test1',
-                'user': 'user1',
-                "session_stat": '12.12.2020 15:23:23'},
-               {'cust': 'test2',
-                'user': 'user2',
-                'session_stat': '12.12.2020 15:23:23'}
-               ]
+        add = [
+            {"cust": "test1", "user": "user1", "session_stat": "12.12.2020 15:23:23"},
+            {"cust": "test2", "user": "user2", "session_stat": "12.12.2020 15:23:23"},
+        ]
         self.__module.set_table_row("test_tl_r272", add_rows=add, remove_rows=None)
         is_added = False
         for i in self.__module.get_table_data("test_tl_r272"):
             if i.get("cust") == "test1" and i.get("user") == "user1":
                 is_added = True
+        self.assertTrue(is_added)
 
         self.__module.set_table_row("test_tl_r272", add_rows=None, remove_rows=add)
         is_removed = True
@@ -114,28 +131,17 @@ class TablesTestCase(unittest.TestCase):
             if i.get("cust") == "test1" and i.get("user") == "user1":
                 is_removed = False
 
-        self.assertTrue(is_added and is_removed)
+        self.assertTrue(is_removed)
 
     def test_whitelist_rows_exists(self):
-        table = 'Common_blacklist_value'
+        table = "Common_blacklist_value"
         rows = [
-            [
-                "Subrule_Unix_PortForwarding",
-                "10.3.132.29",
-                "root",
-                "*",
-                "*"
-            ],
-            [
-                "*",
-                "10.3.132.29",
-                "root",
-                "*",
-                "*"
-            ]]
+            ["Subrule_Unix_PortForwarding", "10.3.132.29", "root", "*", "*"],
+            ["*", "10.3.132.29", "root", "*", "*"],
+        ]
         ret = self.__module.whitelist_rows_exists(table_name=table, rows=rows)
         self.assertGreater(len(ret), 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

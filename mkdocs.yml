@@ -1,0 +1,60 @@
+site_name: mpsiemlib
+site_description: MaxPatrol SIEM API SDK
+site_author: nikolaiav
+repo_url: https://github.com/GenRockeR/mpsiemlib
+docs_dir: docs
+site_dir: site
+
+exclude_docs: |
+  api/*
+  api/**
+
+theme:
+  name: material
+  language: ru
+  features:
+    - navigation.sections
+    - navigation.footer
+    - content.code.copy
+
+nav:
+  - Обзор: index.md
+  - Быстрый старт: quickstart.md
+  - Справочник:
+      - MPSIEMWorker: reference/worker.md
+      - Аутентификация и настройки: reference/common.md
+      - Модули:
+          - Assets: reference/modules/assets.md
+          - Conveyor: reference/modules/conveyor.md
+          - Events: reference/modules/events.md
+          - EventsAPI: reference/modules/eventsapi.md
+          - Filters: reference/modules/filters.md
+          - HealthMonitor: reference/modules/healthmonitor.md
+          - Incidents: reference/modules/incidents.md
+          - KnowledgeBase: reference/modules/knowledgebase.md
+          - Macros: reference/modules/macros.md
+          - SourceMonitor: reference/modules/sourcemonitor.md
+          - Tables: reference/modules/tables.md
+          - Tasks: reference/modules/tasks.md
+          - UsersAndRoles: reference/modules/usersandroles.md
+      - Helpers: reference/helpers.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - tables
+  - admonition
+  - pymdownx.superfences
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: sphinx
+            show_root_heading: true
+            show_submodules: false
+
+watch:
+  - mpsiemlib

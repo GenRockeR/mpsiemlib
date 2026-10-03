@@ -4,7 +4,7 @@
 Пример использования можно посмотреть в tests и examples.
 
 # Поддерживаемые версии
-R24.1.x - R27.2.x
+R26.0.x - R27.2.x
 
 # Основные функции
 1. Unit-тесты для проверки совместимости с новыми версиями MP SIEM.
@@ -40,6 +40,8 @@ SDK аутентифицируется в Core, PT KB, PT MC
 - MP_PASSWORD: пароль
 - USE_LOCAL_AUTH: true
 - CLIENT_SECRET: токен из MP SIEM
+
+Для версии 1.7.0 можно указывать PAT-token из MC
 
 ```bash
   sudo grep ClientSecret /var/lib/deployer/role_instances/core*/params.yaml
