@@ -9,7 +9,7 @@ __pycache__
 /build/
 /*.egg-info/
 /tests/tests_results/
-/sphinx/_build/
+/site/
 .DS_Store
 ._.DS_Store
 **/.DS_Store
@@ -17,3 +17,4 @@ __pycache__
 /dist/
 .env
 .vscode
+/docs/api/

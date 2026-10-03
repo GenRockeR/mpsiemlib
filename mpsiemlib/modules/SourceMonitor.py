@@ -1,245 +1,467 @@
-from datetime import datetime
-from typing import Optional, Iterator
+from collections.abc import Iterator
+from datetime import datetime, timezone
+from typing import Any
 
-import pytz
-
-from mpsiemlib.common import ModuleInterface, MPSIEMAuth, LoggingHandler, Settings
-from mpsiemlib.common import exec_request, get_metrics_start_time, get_metrics_took_time
+from mpsiemlib.common import (
+    AuthError,
+    LoggingHandler,
+    ModuleInterface,
+    MPSIEMAuth,
+    Settings,
+    exec_request,
+    get_metrics_start_time,
+    get_metrics_took_time,
+)
 
 
 class SourceMonitor(ModuleInterface, LoggingHandler):
-    """Source monitor module."""
+    """Source monitor module.
 
-    __time_format = '%Y-%m-%dT%H:%M:%S.%fZ'
-    __time_27_format = '%Y-%m-%dT%H:%M:%S.000Z'
+    MP SIEM 27.x: контракт ``Monitoring.yaml`` (``/api/events_monitoring/v3``)
+    - ``POST /assets`` и ``POST /forwarders``: фильтр (время, группы, активы,
+    форвардеры) передаётся в теле запроса, ``stateFilter``/``limit``/``offset``
+    - в query; ответ - ``{totalItems, items}``.
 
-    __api_sources_list = '/api/events_monitoring/v2/sources'
-    __api_forwarders_list = '/api/events_monitoring/v2/forwarders'
-    __api_sources_v3_list = '/api/events_monitoring/v3/assets'
-    __api_forwarders_v3_list = '/api/events_monitoring/v3/forwarders'
-    'https://mow03-mpsiem-dev.soc.bi.zone/api/events_monitoring/v3/assets?stateFilter=all&limit=50&offset=0'
+    MP SIEM 26.x: ``GET /api/events_monitoring/v2/{sources,forwarders}`` с
+    ``timeFrom``/``timeTo``/``controlState`` в query и плоским списком в ответе
+    (в контрактах 27.x v2 отсутствует).
+    """
 
-    def __init__(self, auth: MPSIEMAuth, settings: Settings):
+    __api_sources_v2 = "/api/events_monitoring/v2/sources"
+    __api_forwarders_v2 = "/api/events_monitoring/v2/forwarders"
+    __api_assets_v3 = "/api/events_monitoring/v3/assets"
+    __api_forwarders_v3 = "/api/events_monitoring/v3/forwarders"
+
+    # stateFilter для /assets (Monitoring.yaml AssetsStateFilter)
+    ASSET_STATE_FILTERS = (
+        "all",
+        "withoutRules",
+        "withRules",
+        "activityAlerted",
+        "flowAlerted",
+        "delayAlerted",
+    )
+    # stateFilter для /forwarders (Monitoring.yaml ForwardersStateFilter)
+    FORWARDER_STATE_FILTERS = (
+        "all",
+        "withoutRules",
+        "withRules",
+        "noEventsAlerted",
+        "delayAlerted",
+    )
+
+    def __init__(self, auth: MPSIEMAuth, settings: Settings) -> None:
         ModuleInterface.__init__(self, auth, settings)
         LoggingHandler.__init__(self)
-        self.__core_session = auth.sessions['core']
-        self.__core_hostname = auth.creds.core_hostname
+        if auth.sessions is None or "core" not in auth.sessions:
+            raise AuthError("Core session is not initialized")
+        creds = auth.get_creds()
+        if creds is None or creds.core_hostname is None:
+            raise AuthError("Core hostname is not set")
+        self.__core_session = auth.sessions["core"]
+        self.__core_hostname = creds.core_hostname
         self.__core_version = auth.get_core_version()
-        self.log.debug('status=success, action=prepare, msg="SourceMonitor Module init"')
+        # Релиз ядра (MAJOR, MINOR): "27.6.40521" -> (27, 6). Сравнение
+        # кортежем, а не float: "26.10" превращается в 26.1.
+        version_parts = self.__core_version.split(".")
+        self.__core_release: tuple[int, int] = (
+            int(version_parts[0]),
+            int(version_parts[1]),
+        )
+        self.log.debug(
+            'status=success, action=prepare, msg="SourceMonitor Module init"'
+        )
 
-    def get_sources_list(self,
-                         begin: int,
-                         end: Optional[int] = None,
-                         forwarder_id: Optional[str] = None) -> Iterator[dict]:
-        """Получить список источников из мониторинга.
+    # ------------------------------------------------------------------ #
+    # Публичное API
+    # ------------------------------------------------------------------ #
 
-        :param begin: Timestamp начала диапазона
-        :param end: timestamp. Если задан, то (end-begin)>=24h, иначе
-            API вернет пусто результат
-        :param forwarder_id: ID форвардера для которого надо вывести
-            источники
-        :return:
+    def get_sources_list(
+        self,
+        begin: int,
+        end: int | None = None,
+        forwarder_id: str | None = None,
+        group_ids: list[str] | None = None,
+        state_filter: str = "all",
+    ) -> Iterator[dict[str, Any]]:
+        """Получить источники из мониторинга событий.
+
+        27.x: ``POST /api/events_monitoring/v3/assets`` - выгружает активы с
+        источниками на них; на выходе по строке на источник актива (поля
+        актива и контроля идут вместе с ним).
+
+        26.x: ``GET /api/events_monitoring/v2/sources``.
+
+        :param begin: Timestamp начала диапазона (UTC)
+        :param end: timestamp конца диапазона; если задан, то (end-begin)>=24h,
+            иначе API вернет пустой результат
+        :param forwarder_id: ID форвардера, источники которого надо вывести
+        :param group_ids: фильтр по группам активов (UUID); None - без фильтра
+        :param state_filter: фильтр по состоянию, см. ``ASSET_STATE_FILTERS``
+        :return: Итератор по источникам
         """
-        if int(self.__core_version.split('.')[0]) < 27:
-            url = f'https://{self.__core_hostname}{self.__api_sources_list}'
+        self.__check_state_filter(state_filter, self.ASSET_STATE_FILTERS)
+
+        if self.__core_release >= (27, 0):
+            yield from self.__iterate_assets_v3(
+                begin, end, forwarder_id, group_ids, state_filter
+            )
         else:
-            url = f'https://{self.__core_hostname}{self.__api_sources_v3_list}'
-        params = self.__prepare_params(begin, end)
+            yield from self.__iterate_sources_v2(begin, end, forwarder_id)
 
-        if forwarder_id is not None:
-            params['forwarderId'] = forwarder_id
+    def get_forwarders_list(
+        self,
+        begin: int,
+        end: int | None = None,
+        group_ids: list[str] | None = None,
+        state_filter: str = "all",
+    ) -> Iterator[dict[str, Any]]:
+        """Получить форвардеры из мониторинга событий.
 
-        # Пачками выгружаем содержимое
-        is_end = False
-        offset = 0
-        limit = self.settings.source_monitor_batch_size
-        line_counter = 0
-        start_time = get_metrics_start_time()
-        while not is_end:
-            if int(self.__core_version.split('.')[0]) < 27:
-                payload = {}
-                ret = self.__iterate_items(url, params, payload, offset, limit)
-            else:
-                payload = self.__prepare_payloads(begin, end)
-                ret = self.__iterate_items(url, params, payload, offset, limit)
-            if len(ret) < limit:
-                is_end = True
-            offset += limit
-            if int(self.__core_version.split('.')[0]) < 27:
-                for i in ret:
-                    line_counter += 1
-                    yield {'id': i.get('source').get('id'),
-                           'control_status': i.get('source').get('controlStatus'),
-                           'control_time_status': i.get('source').get('timeControlStatus'),
-                           'control_delay_status': i.get('source').get('delayControlStatus'),
-                           'control_eps_status': i.get('source').get('epsControlStatus'),
-                           'asset_id': i.get('source').get('assetId'),
-                           'name': i.get('source').get('name'),
-                           'hostname': i.get('source').get('host'),
-                           'ip': i.get('source').get('ip'),
-                           'service_vendor': i.get('service').get('vendor'),
-                           'service_title': i.get('service').get('title'),
-                           'service_subsystem': i.get('service').get('subsystem'),
-                           'discovered': i.get('discoveredTime'),
-                           'seen': i.get('lastSeenTime'),
-                           'eps': i.get('eps'),
-                           'eps_diff': i.get('epsDiff'),
-                           'time_shift': i.get('timeShift'),  # minutes (+/-)
-                           'events_count': i.get('eventsCount')
-                           }
-            else:
-                for i in ret.get('items'):
-                    line_counter += 1
-                    yield {'asset_id': i.get('asset').get('assetId'),
-                           'asset_name': i.get('asset').get('name'),
-                           'asset_type': i.get('asset').get('assetType'),
-                           'asset_importance': i.get('asset').get('importance'),
-                           'activity_control': i.get('activityControl'),
-                           'delay_control': i.get('delayControl')}
+        27.x: ``POST /api/events_monitoring/v3/forwarders``.
+        26.x: ``GET /api/events_monitoring/v2/forwarders``.
 
-        took_time = get_metrics_took_time(start_time)
-
-        self.log.info('status=success, action=get_sources_list, msg="Query executed, response have been read", '
-                      'hostname="{}", lines={}'.format(self.__core_hostname, line_counter))
-        self.log.info('hostname="{}", metric=get_sources_list, took={}ms, objects={}'.format(self.__core_hostname,
-                                                                                             took_time,
-                                                                                             line_counter))
-
-    def get_forwarders_list(self, begin: int, end: Optional[int] = None) -> Iterator[dict]:
-        """Получить список форвардеров из мониторинга.
-
-        :param begin: timestamp начала диапазона
-        :param end: timestamp. если задан, то (end-begin)>=24h, иначе
-            API вернет пусто результат
-        :return:
+        :param begin: timestamp начала диапазона (UTC)
+        :param end: timestamp конца диапазона; если задан, то (end-begin)>=24h,
+            иначе API вернет пустой результат
+        :param group_ids: фильтр по группам активов (UUID); None - без фильтра
+        :param state_filter: фильтр по состоянию, см.
+            ``FORWARDER_STATE_FILTERS``
+        :return: Итератор по форвардерам
         """
+        self.__check_state_filter(state_filter, self.FORWARDER_STATE_FILTERS)
 
-        if int(self.__core_version.split('.')[0]) < 27:
-            url = f'https://{self.__core_hostname}{self.__api_forwarders_list}'
+        if self.__core_release >= (27, 0):
+            yield from self.__iterate_forwarders_v3(begin, end, group_ids, state_filter)
         else:
-            url = f'https://{self.__core_hostname}{self.__api_forwarders_v3_list}'
-        params = self.__prepare_params(begin, end)
+            yield from self.__iterate_forwarders_v2(begin, end)
 
-        # Пачками выгружаем содержимое
-        is_end = False
-        offset = 0
-        limit = self.settings.source_monitor_batch_size
-        line_counter = 0
+    def get_sources_by_forwarder(
+        self,
+        forwarder_id: str,
+        begin: int,
+        end: int | None = None,
+        group_ids: list[str] | None = None,
+        state_filter: str = "all",
+    ) -> Iterator[dict[str, Any]]:
+        """Получить все источники для форвардера.
+
+        Обертка над :meth:`get_sources_list`.
+
+        :param forwarder_id: ID форвардера
+        :param begin: timestamp начала диапазона (UTC)
+        :param end: timestamp конца диапазона
+        :param group_ids: фильтр по группам активов (UUID)
+        :param state_filter: фильтр по состоянию
+        :return: Итератор по источникам
+        """
+        return self.get_sources_list(begin, end, forwarder_id, group_ids, state_filter)
+
+    # ------------------------------------------------------------------ #
+    # v3 (MP SIEM 27.x, Monitoring.yaml)
+    # ------------------------------------------------------------------ #
+
+    def __iterate_assets_v3(
+        self,
+        begin: int,
+        end: int | None,
+        forwarder_id: str | None,
+        group_ids: list[str] | None,
+        state_filter: str,
+    ) -> Iterator[dict[str, Any]]:
+        url = f"https://{self.__core_hostname}{self.__api_assets_v3}"
+        body = self.__prepare_filter(begin, end, forwarder_id, group_ids)
         start_time = get_metrics_start_time()
-        while not is_end:
-            if int(self.__core_version.split('.')[0]) < 27:
-                payload = {}
-                ret = self.__iterate_items(url, params, payload, offset, limit)
-            else:
-                payload = self.__prepare_payloads(begin, end)
-                ret = self.__iterate_items(url, params, payload, offset, limit)
-            if len(ret) < limit:
-                is_end = True
-            offset += limit
-            if int(self.__core_version.split('.')[0]) < 27:
-                for i in ret:
-                    line_counter += 1
-                    yield {'id': i.get('source').get('id'),
-                           'control_status': i.get('source').get('controlStatus'),
-                           'control_time_status': i.get('source').get('timeControlStatus'),
-                           'control_delay_status': i.get('source').get('delayControlStatus'),
-                           'control_eps_status': i.get('source').get('epsControlStatus'),
-                           'asset_id': i.get('source').get('assetId'),
-                           'name': i.get('source').get('name'),
-                           'hostname': i.get('source').get('host'),
-                           'ip': i.get('source').get('ip'),
-                           'service_vendor': i.get('service').get('vendor'),
-                           'service_title': i.get('service').get('title'),
-                           'service_subsystem': i.get('service').get('subsystem'),
-                           'discovered': i.get('discoveredTime'),
-                           'seen': i.get('lastSeenTime'),
-                           'eps': i.get('eps'),
-                           'eps_diff': i.get('epsDiff'),
-                           'time_shift': i.get('timeShift'),  # minutes (+/-)
-                           'events_count': i.get('eventsCount')}
-            else:
-                for i in ret.get('items'):
-                    yield {'asset_id': i.get('asset').get('assetId'),
-                           'asset_type': i.get('asset').get('assetType'),
-                           'asset_importance': i.get('asset').get('importance'),
-                           'asset_name': i.get('asset').get('name'),
-                           'activity_control': i.get('activityControl'),
-                           'delay_control': i.get('delayControl'),
-                           'eps': i.get('eps'),
-                           'last_event_date_time': i.get('lastEventTime')}
+        line_counter = 0
 
-        took_time = get_metrics_took_time(start_time)
+        for page in self.__iterate_pages_v3(url, body, state_filter, "assets_iterate"):
+            for item in page:
+                line_counter += 1
+                yield from self.__map_asset_source_v3(item)
 
-        self.log.info('status=success, action=get_forwarders_list, msg="Query executed, response have been read", '
-                      'hostname="{}", lines={}'.format(self.__core_hostname, line_counter))
-        self.log.info('hostname="{}", metric=get_forwarders_list, took={}ms, objects={}'.
-                      format(self.__core_hostname,
-                             took_time,
-                             line_counter))
+        self.__log_result("get_sources_list", start_time, line_counter)
 
-    def get_sources_by_forwarder(self, forwarder_id: str, begin: int, end: Optional[int] = None) -> Iterator[dict]:
-        """Получить все источники для форвардера Обертка над
-        get_sources_list."""
-        return self.get_sources_list(begin, end, forwarder_id)
+    def __iterate_forwarders_v3(
+        self,
+        begin: int,
+        end: int | None,
+        group_ids: list[str] | None,
+        state_filter: str,
+    ) -> Iterator[dict[str, Any]]:
+        url = f"https://{self.__core_hostname}{self.__api_forwarders_v3}"
+        body = self.__prepare_filter(begin, end, None, group_ids)
+        start_time = get_metrics_start_time()
+        line_counter = 0
 
-    def __prepare_params(self, begin, end=None):
+        for page in self.__iterate_pages_v3(
+            url, body, state_filter, "forwarders_iterate"
+        ):
+            for item in page:
+                line_counter += 1
+                yield self.__map_forwarder_v3(item)
 
-        if int(self.__core_version.split('.')[0]) < 27:
-            start_time = datetime.fromtimestamp(begin, tz=pytz.timezone('UTC')).strftime(self.__time_format)
-            params = {'timeFrom': start_time, 'controlState': 'all'}
-        else:
-            params = {'stateFilter': 'all'}
+        self.__log_result("get_forwarders_list", start_time, line_counter)
 
+    def __iterate_pages_v3(
+        self, url: str, body: dict[str, Any], state_filter: str, action: str
+    ) -> Iterator[list[dict[str, Any]]]:
+        """Постраничная выгрузка v3: ``limit``/``offset`` в query, фильтр в
+        теле; конец - по ``totalItems``."""
+        limit = self.settings.source_monitor_batch_size
+        offset = 0
+        total: int | None = None
+
+        while total is None or offset < total:
+            params: dict[str, Any] = {
+                "stateFilter": state_filter,
+                "limit": limit,
+                "offset": offset,
+            }
+            response: dict[str, Any] = exec_request(
+                self.__core_session,
+                url,
+                method="POST",
+                timeout=self.settings.connection_timeout,
+                params=params,
+                json=body,
+            ).json()
+
+            if isinstance(response, dict) and "items" in response:
+                items = list(response.get("items") or [])
+                total = int(response.get("totalItems") or 0)
+                if not items:
+                    break
+                yield items
+                offset += limit
+                continue
+
+            self.log.error(
+                f"status=failed, action={action}, "
+                f'msg="Core data request has wrong response structure", '
+                f"hostname={self.__core_hostname!r}"
+            )
+            raise RuntimeError("Core data request has wrong response structure")
+
+    @staticmethod
+    def __prepare_filter(
+        begin: int,
+        end: int | None,
+        forwarder_id: str | None,
+        group_ids: list[str] | None,
+    ) -> dict[str, Any]:
+        """Тело запроса v3 (Monitoring.yaml Filter)."""
+        body: dict[str, Any] = {"fromDateTime": SourceMonitor.__iso_time(begin)}
         if end is not None:
-            if int(self.__core_version.split('.')[0]) < 27:
-                end_time = datetime.fromtimestamp(end, tz=pytz.timezone('UTC')).strftime(self.__time_format)
-                params['timeTo'] = end_time
+            body["toDateTime"] = SourceMonitor.__iso_time(end)
+        if group_ids is not None:
+            body["groupIds"] = group_ids
+            body["recursive"] = True
+        if forwarder_id is not None:
+            body["forwarderIds"] = [forwarder_id]
+        return body
 
+    @staticmethod
+    def __map_asset_source_v3(item: dict[str, Any]) -> Iterator[dict[str, Any]]:
+        """AssetSource (asset + sources[]) -> строка на источник.
+
+        Актив без источников отдается одной строкой с пустыми полями
+        источника, иначе он исчезнет из выгрузки.
+        """
+        asset: dict[str, Any] = item.get("asset") or {}
+        base: dict[str, Any] = {
+            "asset_id": asset.get("assetId"),
+            "asset_name": asset.get("name"),
+            "asset_type": asset.get("assetType"),
+            "asset_importance": asset.get("importance"),
+            "activity_control": item.get("activityControl"),
+            "delay_control": item.get("delayControl"),
+        }
+        sources = item.get("sources") or []
+        if not sources:
+            yield dict(
+                base,
+                source_id=None,
+                source_vendor=None,
+                source_title=None,
+                source_subsystem=None,
+                control_status=None,
+                period_check_time=None,
+                policy_rule=None,
+                eps=None,
+                events_count=None,
+                deviation=None,
+            )
+            return
+
+        for source_item in sources:
+            source: dict[str, Any] = source_item.get("source") or {}
+            control_data = SourceMonitor.__control_data(source_item)
+            yield dict(
+                base,
+                source_id=source.get("id"),
+                source_vendor=source.get("vendor"),
+                source_title=source.get("title"),
+                source_subsystem=source.get("subsystem"),
+                control_status=source_item.get("state"),
+                period_check_time=source_item.get("periodCheckDateTime"),
+                policy_rule=(source_item.get("policyRule") or {}).get("name"),
+                eps=control_data.get("eps"),
+                events_count=control_data.get("eventsCount"),
+                deviation=control_data.get("deviation"),
+            )
+
+    @staticmethod
+    def __map_forwarder_v3(item: dict[str, Any]) -> dict[str, Any]:
+        asset: dict[str, Any] = item.get("asset") or {}
+        return {
+            "asset_id": asset.get("assetId"),
+            "asset_name": asset.get("name"),
+            "asset_type": asset.get("assetType"),
+            "asset_importance": asset.get("importance"),
+            "activity_control": item.get("activityControl"),
+            "delay_control": item.get("delayControl"),
+            "eps": item.get("eps"),
+            "last_event_time": item.get("lastEventDateTime"),
+        }
+
+    @staticmethod
+    def __control_data(source_item: dict[str, Any]) -> dict[str, Any]:
+        """sourceControlData разнотипен (eps / eventsCount / deviation)."""
+        data = source_item.get("sourceControlData")
+        return data if isinstance(data, dict) else {}
+
+    # ------------------------------------------------------------------ #
+    # v2 (MP SIEM 26.x)
+    # ------------------------------------------------------------------ #
+
+    def __iterate_sources_v2(
+        self, begin: int, end: int | None, forwarder_id: str | None
+    ) -> Iterator[dict[str, Any]]:
+        url = f"https://{self.__core_hostname}{self.__api_sources_v2}"
+        params = self.__prepare_params_v2(begin, end)
+        if forwarder_id is not None:
+            params["forwarderId"] = forwarder_id
+
+        start_time = get_metrics_start_time()
+        line_counter = 0
+        for page in self.__iterate_pages_v2(url, params, "sources_iterate"):
+            for item in page:
+                line_counter += 1
+                yield self.__map_source_v2(item)
+
+        self.__log_result("get_sources_list", start_time, line_counter)
+
+    def __iterate_forwarders_v2(
+        self, begin: int, end: int | None
+    ) -> Iterator[dict[str, Any]]:
+        url = f"https://{self.__core_hostname}{self.__api_forwarders_v2}"
+        params = self.__prepare_params_v2(begin, end)
+
+        start_time = get_metrics_start_time()
+        line_counter = 0
+        for page in self.__iterate_pages_v2(url, params, "forwarders_iterate"):
+            for item in page:
+                line_counter += 1
+                yield self.__map_source_v2(item)
+
+        self.__log_result("get_forwarders_list", start_time, line_counter)
+
+    def __iterate_pages_v2(
+        self, url: str, params: dict[str, Any], action: str
+    ) -> Iterator[list[dict[str, Any]]]:
+        limit = self.settings.source_monitor_batch_size
+        offset = 0
+
+        while True:
+            page_params = dict(params, offset=offset, limit=limit)
+            response: list[dict[str, Any]] = exec_request(
+                self.__core_session,
+                url,
+                method="GET",
+                timeout=self.settings.connection_timeout,
+                params=page_params,
+            ).json()
+
+            if isinstance(response, list):
+                if not response:
+                    break
+                yield response
+                if len(response) < limit:
+                    break
+                offset += limit
+                continue
+
+            self.log.error(
+                f"status=failed, action={action}, "
+                f'msg="Core data request has wrong response structure", '
+                f"hostname={self.__core_hostname!r}"
+            )
+            raise RuntimeError("Core data request has wrong response structure")
+
+    def __prepare_params_v2(self, begin: int, end: int | None) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "timeFrom": self.__iso_time(begin),
+            "controlState": "all",
+        }
+        if end is not None:
+            params["timeTo"] = self.__iso_time(end)
         return params
 
-    def __prepare_payloads(self, begin, end=None):
-        if int(self.__core_version.split('.')[0]) >= 27:
-            start_time = datetime.fromtimestamp(begin, tz=pytz.timezone('UTC')).strftime(self.__time_27_format)
-            payload = {
-                'fromDateTime': start_time,
-                'groupIds': [
-                    '00000000-0000-0000-0000-000000000002'
-                ],
-                'recursive': True
-            }
+    @staticmethod
+    def __map_source_v2(item: dict[str, Any]) -> dict[str, Any]:
+        source: dict[str, Any] = item.get("source") or {}
+        service: dict[str, Any] = item.get("service") or {}
+        return {
+            "id": source.get("id"),
+            "control_status": source.get("controlStatus"),
+            "control_time_status": source.get("timeControlStatus"),
+            "control_delay_status": source.get("delayControlStatus"),
+            "control_eps_status": source.get("epsControlStatus"),
+            "asset_id": source.get("assetId"),
+            "name": source.get("name"),
+            "hostname": source.get("host"),
+            "ip": source.get("ip"),
+            "service_vendor": service.get("vendor"),
+            "service_title": service.get("title"),
+            "service_subsystem": service.get("subsystem"),
+            "discovered": item.get("discoveredTime"),
+            "seen": item.get("lastSeenTime"),
+            "eps": item.get("eps"),
+            "eps_diff": item.get("epsDiff"),
+            "time_shift": item.get("timeShift"),  # minutes (+/-)
+            "events_count": item.get("eventsCount"),
+        }
 
-            if end is not None:
-                if int(self.__core_version.split('.')[0]) >= 27:
-                    end_time = datetime.fromtimestamp(end, tz=pytz.timezone('UTC')).strftime(self.__time_27_format)
-                    payload['toDateTime'] = end_time
+    # ------------------------------------------------------------------ #
+    # Общее
+    # ------------------------------------------------------------------ #
 
-            return payload
+    @staticmethod
+    def __iso_time(timestamp: int) -> str:
+        """Unix timestamp -> ISO 8601 в UTC (миллисекунды, суффикс Z)."""
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
-    def __iterate_items(self, url: str, params: dict, payload: dict, offset: int, limit: int):
-        params['offset'] = offset
-        params['limit'] = limit
+    @staticmethod
+    def __check_state_filter(state_filter: str, allowed: tuple[str, ...]) -> None:
+        if state_filter not in allowed:
+            raise ValueError(
+                f"Unknown stateFilter {state_filter!r}; "
+                f"expected one of {list(allowed)!r}"
+            )
 
-        if int(self.__core_version.split('.')[0]) < 27:
-            rq = exec_request(self.__core_session,
-                              url,
-                              method='GET',
-                              timeout=self.settings.connection_timeout,
-                              params=params)
-        else:
-            rq = exec_request(self.__core_session,
-                              url,
-                              method='POST',
-                              timeout=self.settings.connection_timeout,
-                              params=params, json=payload)
-        response = rq.json()
-        if response is None:
-            self.log.error('status=failed, action=monitor_items_iterate, msg="Core data request return None or '
-                           'has wrong response structure", '
-                           'hostname="{}"'.format(self.__core_hostname))
-            raise Exception('Core data request return None or has wrong response structure')
+    def __log_result(self, action: str, start_time: float, line_counter: int) -> None:
+        took_time = get_metrics_took_time(start_time)
+        self.log.info(
+            f"status=success, action={action}, "
+            f'msg="Query executed, response have been read", '
+            f"hostname={self.__core_hostname!r}, lines={line_counter}"
+        )
+        self.log.info(
+            f"hostname={self.__core_hostname!r}, metric={action}, "
+            f"took={took_time:.4f}ms, objects={line_counter}"
+        )
 
-        return response
-
-    def close(self):
+    def close(self) -> None:
         if self.__core_session is not None:
             self.__core_session.close()

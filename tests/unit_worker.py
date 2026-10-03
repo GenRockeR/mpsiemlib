@@ -1,29 +1,25 @@
 import unittest
 
 import requests
+from settings import creds_pat, settings
 
 from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
-from tests.settings import creds, creds_ldap, creds_local, settings
 
 
 class WorkerTestCase(unittest.TestCase):
-    __mpsiemworker = None
-    __creds_ldap = None
-    __creds_local = None
     __creds = None
     __settings = None
-    
+
     def setUp(self) -> None:
-        self.__creds_ldap = creds_ldap
-        self.__creds_local = creds_local
-        self.__creds = creds
+        self.__creds = creds_pat
         self.__settings = settings
         self.__mpsiemworker = MPSIEMWorker(self.__creds, self.__settings)
 
     def test_MPSIEMWorker_init(self):
         self.assertIsInstance(self.__mpsiemworker, WorkerInterface)
 
+    @unittest.skip("Storage is Logspace, not Elasticsearch (no ES impl yet)")
     def test_MPSIEMWorker_get_module_events(self):
         module = self.__mpsiemworker.get_module(ModuleNames.EVENTS)
         self.assertIsInstance(module, ModuleInterface)
@@ -38,19 +34,16 @@ class WorkerTestCase(unittest.TestCase):
 
 
 class ModuleTestCase(unittest.TestCase):
-    __creds_ldap = None
-    __creds_local = None
     __creds = None
     __settings = None
 
     def setUp(self) -> None:
-        self.__creds_ldap = creds_ldap
-        self.__creds_local = creds_local
-        self.__creds = creds
+        self.__creds = creds_pat
         self.__settings = settings
 
+    @unittest.skip("Skip test, when PAT auth")
     def test_MPSIEMAuth_connect_core_local(self):
-        mpsiemworker = MPSIEMWorker(self.__creds_local, self.__settings)
+        mpsiemworker = MPSIEMWorker(self.__creds, self.__settings)
         module = mpsiemworker.get_module(ModuleNames.AUTH)
         session = module.connect(MPComponents.CORE)
         self.assertIsInstance(session, requests.Session)
@@ -58,7 +51,14 @@ class ModuleTestCase(unittest.TestCase):
 
     @unittest.skip("Skip test, when Local auth")
     def test_MPSIEMAuth_connect_core_ldap(self):
-        mpsiemworker = MPSIEMWorker(self.__creds_ldap, self.__settings)
+        mpsiemworker = MPSIEMWorker(self.__creds, self.__settings)
+        module = mpsiemworker.get_module(ModuleNames.AUTH)
+        session = module.connect(MPComponents.CORE)
+        self.assertIsInstance(session, requests.Session)
+        session.close()
+
+    def test_MPSIEMAuth_connect_core_pat(self):
+        mpsiemworker = MPSIEMWorker(self.__creds, self.__settings)
         module = mpsiemworker.get_module(ModuleNames.AUTH)
         session = module.connect(MPComponents.CORE)
         self.assertIsInstance(session, requests.Session)
@@ -67,15 +67,16 @@ class ModuleTestCase(unittest.TestCase):
     def test_MPSIEMAuth_get_core_version(self):
         mpsiemworker = MPSIEMWorker(self.__creds, self.__settings)
         module = mpsiemworker.get_module(ModuleNames.AUTH)
-        version = int(module.get_core_version().split('.')[0])
-        self.assertGreater(version, 25)
+        version = int(module.get_core_version().split(".")[0])
+        self.assertGreaterEqual(version, 27)
 
+    @unittest.skip("Storage is Logspace, not Elasticsearch (no ES impl yet)")
     def test_MPSIEMAuth_get_storage_version(self):
         mpsiemworker = MPSIEMWorker(self.__creds, self.__settings)
         module = mpsiemworker.get_module(ModuleNames.AUTH)
-        version = module.get_storage_version()
-        self.assertTrue(version.startswith("7"))
+        version = int(module.get_storage_version().split(".")[0])
+        self.assertGreaterEqual(version, 7)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
