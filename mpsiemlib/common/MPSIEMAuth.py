@@ -21,6 +21,12 @@ from .Interfaces import (
 
 MAX_AUTH_FORM_ROUNDS = 10
 
+# Минимальный поддерживаемый релиз ядра (MP SIEM 26.0).
+MIN_SUPPORTED_CORE_RELEASE: tuple[int, int] = (26, 0)
+
+# Имя продукта MaxPatrol 10 в ответе `/api/licensing/v1/product`.
+_MP10_PRODUCT_NAME = "MaxPatrol 10"
+
 
 class AuthError(RuntimeError):
     """Базовое исключение для всех ошибок аутентификации/подключения."""
@@ -45,6 +51,10 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
     __api_core_auth_login_page = "/ui/login"
     __api_core_auth_form_page = "/account/login?returnUrl=/#/authorization/landing"
     __api_core_check_page = "/api/deployment_configuration/v1/system_info"
+    # Резервный источник версии ядра: Licensing v1 (Core, без MC Portal).
+    # `system_info` обслуживает MC Portal и на R28.0 может отвечать 500, тогда
+    # версию отдаёт `/api/licensing/v1/product` (поле `version` продукта MP10).
+    __api_core_version_fallback_page = "/api/licensing/v1/product"
 
     __kb_port = 8091
     __api_kb_auth_login_page = "/account/login"
@@ -225,30 +235,140 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         return self.__kb_version
 
     def request_core_version(self) -> None:
+        """Определить версию Core.
+
+        Основной источник - `system_info` (MC Portal). Он может быть недоступен
+        (на R28.0 отвечает 500), тогда версия берётся из Licensing v1
+        (`/api/licensing/v1/product`, продукт `MaxPatrol 10`).
+
+        :raises AuthError: Если ни один источник не вернул версию
+        """
+        version = self.__request_core_version_system_info()
+        if version is None:
+            version = self.__request_core_version_licensing()
+        self.__core_version = version
+        self._check_supported_core_release()
+
+    def __request_core_version_system_info(self) -> str | None:
+        """Версия Core из `system_info`, либо None если источник недоступен."""
         if self.__session is None:
             raise AuthError("Session is not initialized")
 
-        core_version_url = (
-            f"https://{self.creds.core_hostname}{self.__api_core_check_page}"
-        )
+        url = f"https://{self.creds.core_hostname}{self.__api_core_check_page}"
+        try:
+            r = exec_request(
+                self.__session,
+                url,
+                method="GET",
+                timeout=self.settings.connection_timeout,
+            )
+            core_info: dict[str, Any] = r.json()
+        except RequestException as err:
+            # `system_info` обслуживает MC Portal: он может отвечать 500
+            # (наблюдается на R28.0). Это не ошибка аутентификации -
+            # переходим на резервный источник.
+            self.log.warning(
+                f"hostname={self.creds.core_hostname!r}, status=failed, "
+                f"action=check_core_version, source=system_info, msg={err!r}, "
+                f'msg="Fallback to Licensing v1 product info"'
+            )
+            return None
 
-        r = exec_request(
-            self.__session,
-            core_version_url,
-            method="GET",
-            timeout=self.settings.connection_timeout,
-        )
-        core_info: dict[str, Any] = r.json()
+        version = core_info.get("productVersion")
+        if version is None:
+            self.log.warning(
+                f"hostname={self.creds.core_hostname!r}, status=failed, "
+                f"action=check_core_version, source=system_info, "
+                f'msg="Unsupported core info json, fallback to Licensing v1"'
+            )
+            return None
 
-        if core_info.get("productVersion") is None:
+        self.log.info(
+            f"hostname={self.creds.core_hostname!r}, status=success, "
+            f"action=check_core_version, source=system_info, "
+            f"version={str(version)!r}"
+        )
+        return str(version)
+
+    def __request_core_version_licensing(self) -> str:
+        """Версия Core из Licensing v1 (`/api/licensing/v1/product`).
+
+        Берётся `version` продукта `MaxPatrol 10` (ядро), а не `MaxPatrol SIEM`
+        (версия сервиса SIEM, например `100.1.3900`).
+
+        :raises AuthError: если версия не получена
+        """
+        if self.__session is None:
+            raise AuthError("Session is not initialized")
+
+        url = (
+            f"https://{self.creds.core_hostname}{self.__api_core_version_fallback_page}"
+        )
+        try:
+            r = exec_request(
+                self.__session,
+                url,
+                method="GET",
+                timeout=self.settings.connection_timeout,
+            )
+            products: Any = r.json()
+        except RequestException as err:
             self.log.error(
                 f"hostname={self.creds.core_hostname!r}, status=failed, "
-                f"action=check_core_version, "
-                f'msg="Unsupported core info json"'
+                f"action=check_core_version, source=licensing_v1, msg={err!r}"
             )
-            raise AuthError("Unsupported core info json")
+            raise
 
-        self.__core_version = str(core_info["productVersion"])
+        if not isinstance(products, list):
+            raise AuthError("Unsupported licensing product info json")
+
+        for product in products:
+            if not isinstance(product, dict):
+                continue
+            if product.get("name") == _MP10_PRODUCT_NAME and product.get("version"):
+                version = str(product["version"])
+                self.log.info(
+                    f"hostname={self.creds.core_hostname!r}, status=success, "
+                    f"action=check_core_version, source=licensing_v1, "
+                    f"version={version!r}"
+                )
+                return version
+
+        raise AuthError(
+            f"Core version is unknown ({_MP10_PRODUCT_NAME} not found "
+            f"in {self.__api_core_version_fallback_page})"
+        )
+
+    def get_core_release(self) -> tuple[int, int]:
+        """Релиз ядра `(MAJOR, MINOR)` из строки версии ("28.0.45355" -> (28, 0)).
+
+        Сравнение кортежем, а не float: "26.10" превращается в 26.1 и
+        неотличим от 26.1.
+
+        :return: Кортеж (мажор, минор)
+        :raises AuthError: если версия неизвестна или не разобрана
+        """
+        version = self.get_core_version()
+        parts = version.split(".")
+        try:
+            return int(parts[0]), int(parts[1])
+        except (IndexError, ValueError) as err:
+            raise AuthError(f"Can not parse Core version {version!r}") from err
+
+    def is_core_release_at_least(self, release: tuple[int, int]) -> bool:
+        """True, если релиз ядра >= переданного, например `(28, 0)`."""
+        return self.get_core_release() >= release
+
+    def _check_supported_core_release(self) -> None:
+        """Предупредить, если релиз ядра ниже поддерживаемого минимума."""
+        release = self.get_core_release()
+        if release < MIN_SUPPORTED_CORE_RELEASE:
+            self.log.warning(
+                f"hostname={self.creds.core_hostname!r}, "
+                f"action=check_core_version, core_release={release!r}, "
+                f"min_supported={MIN_SUPPORTED_CORE_RELEASE!r}, "
+                f'msg="Core release is below the supported minimum"'
+            )
 
     def check_missing_envs(self) -> None:
         required_by_type: dict[int, tuple[str, ...]] = {

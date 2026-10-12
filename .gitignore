@@ -18,3 +18,5 @@ __pycache__
 .env
 .vscode
 /docs/api/
+# Локальные креды для тестов на стенде (только через env: MP_PAT_TOKEN)
+/tests/token

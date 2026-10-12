@@ -1,4 +1,19 @@
 =======
+# v1.7.1
+- Переработан модуль Assets
+- `get_queries()` теперь возвращает список узлов дерева запросов
+- `update_query()` возвращает актуальный объект запроса
+- В Assets добавлены методы: `get_pdql_available_fields`, `get_pdql_available_types`,
+  `get_group_assets_ids`, `get_group_input_permissions`, `validate_group_predicate`,
+  `get_import_csv_metadata`, `get_import_csv_example`
+- Unit-тесты Assets расширены до 36 кейсов: пагинация, кэш групп, изменение
+  конфигурации актива, негативные сценарии
+- Версия Core определяется через `system_info`, при его недоступности (на R28.0
+  отвечает 500) - через `/api/licensing/v1/product`; добавлены `get_core_release()`,
+  `is_core_release_at_least()` и предупреждение о релизе ниже поддерживаемого
+  минимума 26.0
+- `tests/token` (локальные креды для тестов) добавлен в `.gitignore`
+
 # v1.7.0
 - Добавлен новый метод аутентификации через PAT-токен
 - Обновлены модули

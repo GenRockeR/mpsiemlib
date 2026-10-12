@@ -42,6 +42,17 @@ class Assets(ModuleInterface, LoggingHandler):
     )
     __api_assets_trm_selection = "/api/assets_temporal_readmodel/v1/assets_grid/data"
     __api_assets_trm_export_csv = "/api/assets_temporal_readmodel/v1/assets_grid/export"
+    __api_assets_trm_query_fields = (
+        "/api/assets_temporal_readmodel/v1/assets_grid/query/fields"
+    )
+    __api_assets_trm_query_types = (
+        "/api/assets_temporal_readmodel/v1/assets_grid/query/types"
+    )
+    __api_assets_trm_groups = "/api/assets_temporal_readmodel/v2/groups"
+    __api_assets_v2_csv = "/api/assets_processing/v2/csv"
+    __api_assets_v2_predicate_validate = (
+        "/api/assets_processing/v2/groups/predicate/validate"
+    )
     __api_assets_trm_stored_queries_folders = (
         "/api/assets_temporal_readmodel/v1/stored_queries/folders/queries"
     )
@@ -67,6 +78,13 @@ class Assets(ModuleInterface, LoggingHandler):
         self.__core_session = auth.sessions["core"]
         self.__core_hostname = creds.core_hostname
         self.__core_version = auth.get_core_version()
+        # Релиз ядра (MAJOR, MINOR): "27.6.40521" -> (27, 6). Сравнение
+        # кортежем, а не float: "26.10" превращается в 26.1.
+        version_parts = self.__core_version.split(".")
+        self.__core_release: tuple[int, int] = (
+            int(version_parts[0]),
+            int(version_parts[1]),
+        )
         siem_tz = datetime.now(pytz.timezone(settings.local_timezone)).strftime("%z")
         self.__default_utc_offset = (
             f"{siem_tz[:-2]}:{siem_tz[-2:]}"  # convert to +HH:MM
@@ -75,7 +93,7 @@ class Assets(ModuleInterface, LoggingHandler):
         self.__groups: dict[str, dict[str, Any]] = {}
         self.log.debug('status=success, action=prepare, msg="Assets Module init"')
 
-    def get_scopes_list(self, do_refresh: bool = False) -> dict:
+    def get_scopes_list(self, do_refresh: bool = False) -> dict[str, dict[str, Any]]:
         """Получить все инфраструктуры.
 
         :return: {'id': {'name': 'Инфраструктура по умолчанию',
@@ -87,22 +105,25 @@ class Assets(ModuleInterface, LoggingHandler):
         )
 
         if len(self.__scopes) != 0 and not do_refresh:
-            return self.__scopes
+            return dict(self.__scopes)
 
         self.__scopes.clear()
 
         url = f"https://{self.__core_hostname}{self.__api_scopes}"
-        response = exec_request(
+        response: list[dict[str, Any]] = exec_request(
             self.__core_session,
             url,
             method="GET",
             timeout=self.settings.connection_timeout,
         ).json()
 
-        for i in response:
-            self.__scopes[i.get("id")] = {
-                "name": i.get("name"),
-                "tenant_id": i.get("tenantId"),
+        for item in response:
+            scope_id = item.get("id")
+            if scope_id is None:
+                continue
+            self.__scopes[str(scope_id)] = {
+                "name": item.get("name"),
+                "tenant_id": item.get("tenantId"),
             }
 
         self.log.info(
@@ -110,7 +131,7 @@ class Assets(ModuleInterface, LoggingHandler):
             f"hostname={self.__core_hostname!r}"
         )
 
-        return self.__scopes
+        return dict(self.__scopes)
 
     def get_scope_id_by_name(
         self, scope_name: str, do_refresh: bool = False
@@ -166,7 +187,7 @@ class Assets(ModuleInterface, LoggingHandler):
             else self.__default_utc_offset,
         }
 
-        response = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="POST",
@@ -175,12 +196,19 @@ class Assets(ModuleInterface, LoggingHandler):
         ).json()
 
         token = response.get("token")
+        if token is None:
+            self.log.error(
+                'status=failed, action=create_assets_request, msg="PDQL parse result '
+                'has no token", '
+                f"hostname={self.__core_hostname!r}"
+            )
+            raise RuntimeError(f"Assets grid PDQL parse result has no token: {pdql!r}")
 
         self.log.info(
             "status=success, action=create_assets_request, "
             f'msg="Got selection token {token!r}", hostname={self.__core_hostname!r}'
         )
-        return cast("str", token)
+        return str(token)
 
     def get_assets_request_size(self, token: str) -> int:
         """Получить количество записей по токену.
@@ -196,14 +224,25 @@ class Assets(ModuleInterface, LoggingHandler):
 
         url = f"https://{self.__core_hostname}{self.__api_assets_trm_row_count}"
         params = {"pdqlToken": token}
-        response = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="GET",
             timeout=self.settings.connection_timeout,
             params=params,
         ).json()
-        count = int(response.get("rowCount"))
+
+        row_count = response.get("rowCount")
+        # PdqlRowCount.rowCount (int64) обязателен по контракту AssetsGrid
+        if row_count is None:
+            self.log.error(
+                'status=failed, action=get_assets_request_size, msg="Row count is '
+                'missing in response", '
+                f"hostname={self.__core_hostname!r}"
+            )
+            raise RuntimeError("Assets row count is missing in response")
+
+        count = int(cast("int", row_count))
 
         self.log.info(
             f'status=success, action=get_row_count, msg="Got row count for filter {count!r}", '
@@ -212,7 +251,94 @@ class Assets(ModuleInterface, LoggingHandler):
 
         return count
 
-    def get_assets_list_json(self, token: str) -> Iterator[dict]:
+    def get_pdql_available_fields(self, pdql: str) -> list[dict[str, Any]]:
+        """Получить поля, доступные по итогу выполнения PDQL-запроса.
+
+        Поля возвращаются после применения всех блоков запроса (фильтр,
+        проекции, агрегации), поэтому результат можно использовать для
+        валидации и автодополнения следующего блока PDQL.
+
+        :param pdql: PDQL-запрос целиком
+        :return: [{"name": "host", "localizedName": "Узел",
+            "type": "assetInfo", "isArray": False, "origin": "dataField"}]
+        :raises requests.exceptions.HTTPError: если PDQL невалиден (HTTP 400)
+        """
+        self.log.debug(
+            "status=prepare, action=get_pdql_available_fields, "
+            f'msg="Try to get fields available for pdql {pdql!r}", '
+            f"hostname={self.__core_hostname!r}"
+        )
+
+        url = f"https://{self.__core_hostname}{self.__api_assets_trm_query_fields}"
+        response: list[dict[str, Any]] = exec_request(
+            self.__core_session,
+            url,
+            method="POST",
+            timeout=self.settings.connection_timeout,
+            json={"pdqlQuery": pdql},
+        ).json()
+
+        self.log.info(
+            "status=success, action=get_pdql_available_fields, "
+            f'msg="Got {len(response)!r} fields", '
+            f"hostname={self.__core_hostname!r}"
+        )
+
+        return list(response)
+
+    def get_pdql_available_types(
+        self,
+        type_name: str | None = None,
+        selected_fields: list[str] | None = None,
+        has_time_series_pipe: bool = False,
+        has_time_point_pipe: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Получить типы сущностей, доступные в модельном (начальном) блоке PDQL.
+
+        :param type_name: Начальная часть имени типа для автодополнения,
+            должна заканчиваться точкой (например ``"Host."``). Без него
+            возвращаются корневые типы.
+        :param selected_fields: Поля, уже выбранные в проекциях
+        :param has_time_series_pipe: Присутствует ли пайп ``timeseries``
+        :param has_time_point_pipe: Присутствует ли пайп ``timepoint``
+        :return: [{"name": "AccessLists", "localizedName": "Списки контроля
+            доступа", "isPrimitive": False, "type": "string"}]
+        """
+        self.log.debug(
+            "status=prepare, action=get_pdql_available_types, "
+            f'msg="Try to get types available for pdql, type_name={type_name!r}", '
+            f"hostname={self.__core_hostname!r}"
+        )
+
+        params: dict[str, Any] = {
+            "hasTimeSeriesPipe": has_time_series_pipe,
+            "hasTimePointPipe": has_time_point_pipe,
+        }
+        if type_name is not None:
+            params["typeName"] = type_name
+        if selected_fields is not None:
+            params["selectedFields"] = selected_fields
+
+        url = f"https://{self.__core_hostname}{self.__api_assets_trm_query_types}"
+        response: dict[str, Any] = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout,
+            params=params,
+        ).json()
+
+        types = [dict(item) for item in response.get("types") or []]
+
+        self.log.info(
+            "status=success, action=get_pdql_available_types, "
+            f'msg="Got {len(types)!r} types", '
+            f"hostname={self.__core_hostname!r}"
+        )
+
+        return types
+
+    def get_assets_list_json(self, token: str) -> Iterator[dict[str, Any]]:
         """Получить список активов в JSON по токену запроса.
 
         :param token: Токен запроса
@@ -251,15 +377,16 @@ class Assets(ModuleInterface, LoggingHandler):
             f"took={took_time:.4f} ms, objects={line_counter!r}"
         )
 
-    def __iterate_assets(self, url: str, params: dict, offset: int, limit: int) -> list:
-        params["offset"] = offset
-        params["limit"] = limit
-        response = exec_request(
+    def __iterate_assets(
+        self, url: str, params: dict[str, Any], offset: int, limit: int
+    ) -> list[dict[str, Any]]:
+        page_params = dict(params, offset=offset, limit=limit)
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="GET",
             timeout=self.settings.connection_timeout,
-            params=params,
+            params=page_params,
         ).json()
 
         if response is None or "records" not in response:
@@ -268,15 +395,16 @@ class Assets(ModuleInterface, LoggingHandler):
                 'has wrong response structure", '
                 f"hostname={self.__core_hostname!r}"
             )
-            raise Exception(
+            raise RuntimeError(
                 "Assets data request return None or has wrong response structure"
             )
 
+        records = list(response["records"])
         self.log.debug(
-            f"Iterate assets, count={len(response.get('records'))!r}, offset={offset!r}, limit={limit!r}"
+            f"Iterate assets, count={len(records)!r}, offset={offset!r}, limit={limit!r}"
         )
 
-        return cast("list", response.get("records"))
+        return records
 
     def get_assets_list_csv(self, token: str) -> Iterator[str]:
         """Получить список активов в CSV по токену запроса.
@@ -334,6 +462,70 @@ class Assets(ModuleInterface, LoggingHandler):
         # decode_unicode=True + выставленный encoding -> str; стаб этого не сужает
         return cast(Iterator[str], response.iter_lines(decode_unicode=True))
 
+    def get_import_csv_metadata(self) -> list[dict[str, Any]]:
+        """Получить метадату пользовательских свойств для CSV-импорта.
+
+        Пустой список означает, что пользовательских свойств в модели актива
+        нет; обязательные колонки импорта (`typealias`, `fqdn`, `hostname`,
+        `ip`, `mac` и т.п.) в ответе не отдаются.
+
+        :return: [{"propertyName": "Custom.property",
+            "propertyDeclarations": [{"modelTypeName": "Host",
+            "propertyType": "string"}]}]
+        """
+        self.log.debug(
+            "status=prepare, action=get_import_csv_metadata, "
+            'msg="Try to get CSV import metadata", '
+            f"hostname={self.__core_hostname!r}"
+        )
+
+        url = f"https://{self.__core_hostname}{self.__api_assets_v2_csv}/metadata"
+        response: list[dict[str, Any]] = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout,
+        ).json()
+
+        self.log.info(
+            "status=success, action=get_import_csv_metadata, "
+            f'msg="Got {len(response)!r} custom properties", '
+            f"hostname={self.__core_hostname!r}"
+        )
+
+        return list(response)
+
+    def get_import_csv_example(self) -> str:
+        """Получить пример CSV-файла для импорта активов.
+
+        Сервер отдаёт файл с BOM и `Content-Type: application/json`, поэтому
+        тело читается как текст, а не как JSON.
+
+        :return: Содержимое CSV-примера
+        """
+        self.log.debug(
+            "status=prepare, action=get_import_csv_example, "
+            'msg="Try to get CSV import example", '
+            f"hostname={self.__core_hostname!r}"
+        )
+
+        url = f"https://{self.__core_hostname}{self.__api_assets_v2_csv}/example"
+        response = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout,
+        )
+        example = response.content.decode("utf-8-sig")
+
+        self.log.info(
+            "status=success, action=get_import_csv_example, "
+            f'msg="Got CSV example, {len(example)!r} chars", '
+            f"hostname={self.__core_hostname!r}"
+        )
+
+        return example
+
     def import_assets_from_csv(
         self,
         content: bytes | str | IO[Any] | IOBase,
@@ -357,7 +549,7 @@ class Assets(ModuleInterface, LoggingHandler):
 
         success_install = False
         error_log: str | None = None
-        import_status: dict = {}
+        import_status: dict[str, Any] = {}
 
         resp = self.__import_assets_from_csv_prepare(content, scope_id)
         operation_id = resp.get("id")
@@ -373,30 +565,37 @@ class Assets(ModuleInterface, LoggingHandler):
                     time.sleep(10)
                     self.log.debug("Try to check operation status")
                     import_status = self.__import_assets_get_status(operation_id)
-                    if import_status.get("state") == "completed":
+                    state = import_status.get("state")
+                    # state: validated | inprogress | completed | failed
+                    if state == "completed":
                         success_install = True
                         break
+                    if state == "failed":
+                        if error_log is None:
+                            error_log = self.__import_assets_get_logfile(operation_id)
+                        break
 
+        counter_imported = import_status.get("succeedCount") or 0
         if not success_install:
             self.log.error(
                 f'status=failed, action=import_assets_from_csv, msg="Can not import assets", '
-                f"error={error_log!r}, hostname={self.__core_hostname!r}"
+                f"state={import_status.get('state')!r}, error={error_log!r}, "
+                f"hostname={self.__core_hostname!r}"
             )
-
-        counter_imported = import_status.get("succeedCount") or 0
-        self.log.info(
-            "status=success, action=import_assets_from_csv, "
-            'msg="Assets have been imported", '
-            f"imported_assets={counter_imported!r}, "
-            f"updated_groups={len(import_status.get('updatedGroups', []))!r}, "
-            f"hostname={self.__core_hostname!r}"
-        )
+        else:
+            self.log.info(
+                "status=success, action=import_assets_from_csv, "
+                'msg="Assets have been imported", '
+                f"imported_assets={counter_imported!r}, "
+                f"updated_groups={len(import_status.get('updatedGroups') or [])}, "
+                f"hostname={self.__core_hostname!r}"
+            )
 
         return success_install, counter_imported, error_log
 
     def __import_assets_from_csv_prepare(
         self, content: bytes | str | IO[Any] | IOBase, scope_id: str
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Подготовить операцию импорта.
 
         :param content: Тело CSV для загрузки
@@ -417,7 +616,7 @@ class Assets(ModuleInterface, LoggingHandler):
         )
         files = {"upfile": ("body", content, "application/octet-stream")}
 
-        response = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="POST",
@@ -433,7 +632,7 @@ class Assets(ModuleInterface, LoggingHandler):
             f"hostname={self.__core_hostname!r}"
         )
 
-        return cast("dict", response)
+        return response
 
     def __import_assets_from_csv_start(self, operation_id: str, group_id: str) -> int:
         """Запуск импорта ранее загруженных данных.
@@ -469,7 +668,7 @@ class Assets(ModuleInterface, LoggingHandler):
 
         return response.status_code
 
-    def __import_assets_get_status(self, operation_id: str) -> dict:
+    def __import_assets_get_status(self, operation_id: str) -> dict[str, Any]:
         """Получить статус операции импорта.
 
         :return: {"state":"inprogress","succeedCount":null,"updatedGroups":null,"errorModel":null}
@@ -480,7 +679,7 @@ class Assets(ModuleInterface, LoggingHandler):
             f"{self.__api_assets_v2_import_operation}/{operation_id}/state"
         )
 
-        response = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="GET",
@@ -488,13 +687,13 @@ class Assets(ModuleInterface, LoggingHandler):
         ).json()
 
         state = response.get("state")
-        self.log.info(
+        self.log.debug(
             "status=success, action=get_import_status, "
             f'msg="Check import operation status: {state!r}", '
             f"hostname={self.__core_hostname!r}"
         )
 
-        return cast("dict", response)
+        return response
 
     def __import_assets_get_logfile(self, operation_id: str) -> str:
         """Получить журнал ошибок.
@@ -521,7 +720,7 @@ class Assets(ModuleInterface, LoggingHandler):
 
         return response.content.decode("utf-8")
 
-    def import_assets_get_groups(self) -> list:
+    def import_assets_get_groups(self) -> list[str]:
         """Получить список групп, куда можно проводить импорт.
 
         :return: ['12f04fc3-3e00-0001-0000-000000000006',
@@ -531,7 +730,7 @@ class Assets(ModuleInterface, LoggingHandler):
         url = (
             f"https://{self.__core_hostname}{self.__api_assets_processing_input_groups}"
         )
-        response = exec_request(
+        response: list[str] = exec_request(
             self.__core_session,
             url,
             method="GET",
@@ -539,11 +738,78 @@ class Assets(ModuleInterface, LoggingHandler):
         ).json()
 
         self.log.info(
-            f'status=success, action=get_import_groups, msg="Got input groups list: {response!r}", '
+            f"status=success, action=get_import_groups, "
+            f'msg="Got {len(response)!r} input groups", '
             f"hostname={self.__core_hostname!r}"
         )
 
-        return cast("list", response)
+        return list(response)
+
+    def get_group_input_permissions(self, group_id: str) -> bool:
+        """Проверить, разрешён ли в группе ручной ввод активов.
+
+        :param group_id: ID группы
+        :return: True, если ручной ввод разрешён
+        """
+        self.log.debug(
+            "status=prepare, action=get_group_input_permissions, "
+            f'msg="Try to check manual input permission for group {group_id!r}", '
+            f"hostname={self.__core_hostname!r}"
+        )
+
+        url = (
+            f"https://{self.__core_hostname}"
+            f"{self.__api_assets_processing_input_groups}/{group_id}/permissions"
+        )
+        response: dict[str, Any] = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout,
+        ).json()
+
+        enabled = bool(response.get("enabled"))
+
+        self.log.info(
+            "status=success, action=get_group_input_permissions, "
+            f'msg="Manual input allowed: {enabled!r}", '
+            f"group_id={group_id!r}, hostname={self.__core_hostname!r}"
+        )
+
+        return enabled
+
+    def validate_group_predicate(self, predicate: str) -> dict[str, Any]:
+        """Проверить предикат динамической группы, не создавая группу.
+
+        Невалидный предикат сервер считает ошибкой запроса, поэтому возвращается
+        только успешный результат.
+
+        :param predicate: Предикат динамической группы (фрагмент PDQL)
+        :return: {"isValid": True, "isPotentiallySlow": False}
+        :raises requests.exceptions.HTTPError: если предикат невалиден (HTTP 400)
+        """
+        self.log.debug(
+            "status=prepare, action=validate_group_predicate, "
+            f'msg="Try to validate group predicate {predicate!r}", '
+            f"hostname={self.__core_hostname!r}"
+        )
+
+        url = f"https://{self.__core_hostname}{self.__api_assets_v2_predicate_validate}"
+        response: dict[str, Any] = exec_request(
+            self.__core_session,
+            url,
+            method="POST",
+            timeout=self.settings.connection_timeout,
+            json={"predicate": predicate},
+        ).json()
+
+        self.log.info(
+            "status=success, action=validate_group_predicate, "
+            f'msg="Predicate checked: {response!r}", '
+            f"hostname={self.__core_hostname!r}"
+        )
+
+        return response
 
     def create_group_dynamic(
         self, parent_id: str, group_name: str, predicate: str
@@ -562,8 +828,9 @@ class Assets(ModuleInterface, LoggingHandler):
         )
 
         url = f"https://{self.__core_hostname}{self.__api_assets_processing_v2_groups}"
-        if int(self.__core_version.split(".")[0]) < 27:
-            params = {
+        if self.__core_release < (27, 0):
+            # MP SIEM 26.x: тело создания группы требовало блок `metrics`
+            params: dict[str, Any] = {
                 "name": group_name,
                 "parentId": parent_id,
                 "groupType": "dynamic",
@@ -589,7 +856,7 @@ class Assets(ModuleInterface, LoggingHandler):
                 "organizationInfrastructure": {},
             }
 
-        response = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="POST",
@@ -597,10 +864,9 @@ class Assets(ModuleInterface, LoggingHandler):
             json=params,
         ).json()
 
-        if "operationId" not in response:
-            raise Exception(f"operationId not found in response {response!r}")
-
-        operation_id = response["operationId"]
+        operation_id = self.__operation_id_from_response(
+            response, "create_group_dynamic"
+        )
         group_id = str(self.__group_operation_status(operation_id))
 
         self.log.info(
@@ -611,6 +877,8 @@ class Assets(ModuleInterface, LoggingHandler):
             f"hostname={self.__core_hostname!r}"
         )
 
+        # Дерево групп изменилось
+        self.__reset_groups_cache()
         return group_id
 
     def edit_group_dynamic(self, group_id: str, predicate: str) -> str:
@@ -632,7 +900,7 @@ class Assets(ModuleInterface, LoggingHandler):
         )
         params = [{"type": "SetPredicateGroupCommand", "value": predicate}]
 
-        response = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="PUT",
@@ -640,10 +908,7 @@ class Assets(ModuleInterface, LoggingHandler):
             json=params,
         ).json()
 
-        if "operationId" not in response:
-            raise Exception(f"operationId not found in response {response!r}")
-
-        operation_id = response["operationId"]
+        operation_id = self.__operation_id_from_response(response, "edit_group_dynamic")
         result_group_id = str(self.__group_operation_status(operation_id))
 
         self.log.info(
@@ -653,6 +918,8 @@ class Assets(ModuleInterface, LoggingHandler):
             f"group_id={result_group_id!r}, hostname={self.__core_hostname!r}"
         )
 
+        # Дерево групп изменилось
+        self.__reset_groups_cache()
         return result_group_id
 
     def create_group_static(self, parent_id: str, group_name: str) -> str:
@@ -669,8 +936,9 @@ class Assets(ModuleInterface, LoggingHandler):
         )
 
         url = f"https://{self.__core_hostname}{self.__api_assets_processing_v2_groups}"
-        if int(self.__core_version.split(".")[0]) < 27:
-            params = {
+        if self.__core_release < (27, 0):
+            # MP SIEM 26.x: тело создания группы требовало блок `metrics`
+            params: dict[str, Any] = {
                 "name": group_name,
                 "parentId": parent_id,
                 "groupType": "static",
@@ -694,7 +962,7 @@ class Assets(ModuleInterface, LoggingHandler):
                 "organizationInfrastructure": {},
             }
 
-        response = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="POST",
@@ -702,26 +970,27 @@ class Assets(ModuleInterface, LoggingHandler):
             json=params,
         ).json()
 
-        if "operationId" not in response:
-            raise Exception(f"operationId not found in response {response!r}")
-
-        operation_id = response["operationId"]
+        operation_id = self.__operation_id_from_response(
+            response, "create_group_static"
+        )
         group_id = str(self.__group_operation_status(operation_id))
 
         self.log.info(
-            "status=success, action=create_dynamic_group, "
+            "status=success, action=create_static_group, "
             'msg="Static group have been created.", '
             f"operation_id={operation_id!r}, "
             f"group_id={group_id!r}, hostname={self.__core_hostname!r}"
         )
 
+        # Дерево групп изменилось
+        self.__reset_groups_cache()
         return group_id
 
     def delete_group(self, group_id: str) -> bool:
-        """Удалить группы.
+        """Удалить группу.
 
-        :param group_id: ID групп для удаления
-        :return: status_code
+        :param group_id: ID группы для удаления
+        :return: True при успехе
         """
         self.log.debug(
             "status=prepare, action=delete_group, "
@@ -735,7 +1004,7 @@ class Assets(ModuleInterface, LoggingHandler):
         )
         params = {"groupIds": [group_id]}
 
-        response = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="POST",
@@ -743,22 +1012,45 @@ class Assets(ModuleInterface, LoggingHandler):
             json=params,
         ).json()
 
-        if "operationId" not in response:
-            raise Exception(f"operationId not found in response {response!r}")
-
-        operation_id = response["operationId"]
+        operation_id = self.__operation_id_from_response(response, "delete_group")
         status = self.__group_operation_status(operation_id, "remove")
         operation_status = isinstance(status, dict) and status.get("succeedCount") == 1
 
-        self.log.info(
-            f'status=success, action=delete_group, msg="Group deleted", status={operation_status!r},'
-            f" report={status!r}, hostname={self.__core_hostname!r}"
-        )
+        if operation_status:
+            self.log.info(
+                f'status=success, action=delete_group, msg="Group deleted", '
+                f"operation_id={operation_id!r}, report={status!r}, "
+                f"hostname={self.__core_hostname!r}"
+            )
+        else:
+            self.log.error(
+                f'status=failed, action=delete_group, msg="Group have not been deleted", '
+                f"operation_id={operation_id!r}, report={status!r}, "
+                f"hostname={self.__core_hostname!r}"
+            )
 
+        # Дерево групп изменилось (успех или нет - на всякий случай)
+        self.__reset_groups_cache()
         return operation_status
 
+    @staticmethod
+    def __operation_id_from_response(response: dict[str, Any], action: str) -> str:
+        """Достать `operationId` из ответа асинхронной операции.
+
+        :raises RuntimeError: Если идентификатора операции в ответе нет
+        """
+        operation_id = response.get("operationId")
+        if operation_id is None:
+            raise RuntimeError(
+                f"{action}: operationId not found in response: {response!r}"
+            )
+        return str(operation_id)
+
     def __poll_operation(self, url: str, timeout: int) -> requests.Response:
-        """Опрос статуса асинхронной операции до 200 или тайм-аута."""
+        """Опрос статуса асинхронной операции до 200 или тайм-аута.
+
+        :raises RuntimeError: Если статус так и не получен за время ожидания
+        """
         last_response: requests.Response | None = None
         for _ in range(max(1, round(timeout / 10))):
             time.sleep(10)
@@ -773,13 +1065,14 @@ class Assets(ModuleInterface, LoggingHandler):
             if response.status_code == 200:
                 return response
 
-        if last_response is None:
-            raise Exception(f"Operation status check timed out: {url!r}")
-        return last_response
+        code = last_response.status_code if last_response is not None else "n/a"
+        raise RuntimeError(
+            f"Operation status check timed out (last status: {code!r}): {url!r}"
+        )
 
     def __group_operation_status(
         self, operation_id: str, operation_type: str = "create", timeout: int = 360
-    ) -> str | dict:
+    ) -> str | dict[str, Any]:
         operation = "operations" if operation_type == "create" else "removeOperation"
 
         url = (
@@ -788,7 +1081,7 @@ class Assets(ModuleInterface, LoggingHandler):
         )
         response = self.__poll_operation(url, timeout)
 
-        result: str | dict = (
+        result: str | dict[str, Any] = (
             response.text.strip('"') if operation_type == "create" else response.json()
         )
 
@@ -799,7 +1092,7 @@ class Assets(ModuleInterface, LoggingHandler):
 
         return result
 
-    def get_groups_hierarchy(self) -> list:
+    def get_groups_hierarchy(self) -> list[dict[str, Any]]:
         """Получить иерархию групп.
 
         :return: Список узлов дерева, каждый узел содержит id, name,
@@ -814,7 +1107,7 @@ class Assets(ModuleInterface, LoggingHandler):
         )
 
         url = f"https://{self.__core_hostname}{self.__api_assets_trm_groups_hierarchy}"
-        response = exec_request(
+        response: list[dict[str, Any]] = exec_request(
             self.__core_session,
             url,
             method="GET",
@@ -826,9 +1119,46 @@ class Assets(ModuleInterface, LoggingHandler):
             f"hostname={self.__core_hostname!r}"
         )
 
-        return cast("list", response)
+        return list(response)
 
-    def get_groups_list(self, do_refresh: bool = False) -> dict:
+    def get_group_assets_ids(
+        self, group_id: str, is_recursive: bool = True
+    ) -> list[str]:
+        """Получить ID активов, входящих в группу.
+
+        :param group_id: ID группы
+        :param is_recursive: Включая активы вложенных групп
+        :return: ['1ebc98c2-7400-0001-0000-0000000000bc', ...]
+        """
+        self.log.debug(
+            "status=prepare, action=get_group_assets_ids, "
+            f'msg="Try to get assets of group {group_id!r}", '
+            f"hostname={self.__core_hostname!r}"
+        )
+
+        url = (
+            f"https://{self.__core_hostname}"
+            f"{self.__api_assets_trm_groups}/{group_id}/assets"
+        )
+        # Сервер понимает только "True"/"False": "true"/"false" дают пустой
+        # список, поэтому передаём bool, а не строку.
+        response: list[str] = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout,
+            params={"isRecursive": is_recursive},
+        ).json()
+
+        self.log.info(
+            "status=success, action=get_group_assets_ids, "
+            f'msg="Got {len(response)!r} assets of group {group_id!r}", '
+            f"hostname={self.__core_hostname!r}"
+        )
+
+        return list(response)
+
+    def get_groups_list(self, do_refresh: bool = False) -> dict[str, dict[str, Any]]:
         """Получить список всех групп активов.
 
         :param do_refresh: Обновить кэш
@@ -844,8 +1174,9 @@ class Assets(ModuleInterface, LoggingHandler):
         )
 
         if len(self.__groups) != 0 and not do_refresh:
-            return self.__groups
+            return dict(self.__groups)
 
+        self.__groups.clear()
         tree = self.get_groups_hierarchy()
         self.__iterate_groups_tree(tree)
 
@@ -854,25 +1185,31 @@ class Assets(ModuleInterface, LoggingHandler):
             f"hostname={self.__core_hostname!r}"
         )
 
-        return self.__groups
+        return dict(self.__groups)
+
+    def __reset_groups_cache(self) -> None:
+        """Сбросить кэш групп: он устаревает при любом изменении дерева групп."""
+        self.__groups = {}
 
     def __iterate_groups_tree(
-        self, root_node: list, parent_id: str | None = None
+        self, root_node: list[dict[str, Any]], parent_id: str | None = None
     ) -> None:
-        for i in root_node:
-            node_id = i.get("id")
-            self.__groups[node_id] = {
+        for node in root_node:
+            node_id = node.get("id")
+            if node_id is None:
+                continue
+            self.__groups[str(node_id)] = {
                 "parent_id": parent_id,
-                "name": i.get("name"),
-                "type": i.get("groupType"),
-                "is_readonly": i.get("isReadOnly", False),
-                "is_removable": i.get("isRemovable", False),
-                "is_invalid_predicate": i.get("isInvalidPredicate", False),
-                "is_slow": i.get("isSlow", False),
+                "name": node.get("name"),
+                "type": node.get("groupType"),
+                "is_readonly": node.get("isReadOnly", False),
+                "is_removable": node.get("isRemovable", False),
+                "is_invalid_predicate": node.get("isInvalidPredicate", False),
+                "is_slow": node.get("isSlow", False),
             }
-            node_children = i.get("children")
-            if node_children is not None and len(node_children) != 0:
-                self.__iterate_groups_tree(node_children, node_id)
+            node_children = node.get("children")
+            if isinstance(node_children, list) and len(node_children) != 0:
+                self.__iterate_groups_tree(node_children, str(node_id))
 
     def get_group_id_by_name(
         self, group_name: str, do_refresh: bool = False
@@ -899,14 +1236,14 @@ class Assets(ModuleInterface, LoggingHandler):
 
         return group_id
 
-    def __delete_assets_by_ids(self, asset_ids: list) -> str:
+    def __delete_assets_by_ids(self, asset_ids: list[str]) -> str:
         """Удаление активов по id.
 
         :param asset_ids: Список ID активов, которые необходимо удалить
-        :return: {"operationId":"16b577e1-3900-a001-0000-000000000e79"}
+        :return: ID операции удаления
         """
         self.log.debug(
-            "status=prepare, action=__delete_assets_by_ids, "
+            "status=prepare, action=delete_assets_by_ids, "
             f'msg="Try to delete {len(asset_ids)!r} asset(s)", '
             f"hostname={self.__core_hostname!r}"
         )
@@ -914,7 +1251,7 @@ class Assets(ModuleInterface, LoggingHandler):
         url = f"https://{self.__core_hostname}{self.__api_assets_v1_remove_assets}"
         params = {"assetsIds": asset_ids}
 
-        response = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="POST",
@@ -922,19 +1259,23 @@ class Assets(ModuleInterface, LoggingHandler):
             json=params,
         ).json()
 
+        operation_id = self.__operation_id_from_response(
+            response, "delete_assets_by_ids"
+        )
         self.log.info(
-            "status=success, action=__delete_assets_by_ids, "
+            "status=success, action=delete_assets_by_ids, "
             'msg="Deleting started", '
-            f"operation_id={response['operationId']!r}, "
+            f"operation_id={operation_id!r}, "
             f"hostname={self.__core_hostname!r}"
         )
 
-        return cast("str", response.get("operationId"))
+        return operation_id
 
-    def __remove_assets_get_status(self, operation_id: str) -> dict | None:
+    def __remove_assets_get_status(self, operation_id: str) -> dict[str, Any] | None:
         """Получить статус операции удаления.
 
         :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
+            или None, если операция ещё не завершена
         """
 
         url = (
@@ -950,50 +1291,54 @@ class Assets(ModuleInterface, LoggingHandler):
         )
         status_code = response.status_code
 
-        if status_code == 200:
-            resp = response.json()
-            self.log.info(
-                "status=success, action=__remove_assets_get_status, "
-                f'msg="Check remove operation status: {resp!r}", '
+        if status_code != 200:
+            self.log.debug(
+                "status=prepare, action=__remove_assets_get_status, "
+                f'msg="Remove operation is not ready: HTTP:{status_code!r}", '
                 f"hostname={self.__core_hostname!r}"
             )
-            return cast("dict", resp)
-        else:
-            self.log.info(
-                "status=success, action=__remove_assets_get_status, "
-                f'msg="Check remove operation status: HTTP:{status_code!r}", '
-                f"hostname={self.__core_hostname!r}"
-            )
-
             return None
 
-    def delete_assets_by_ids(self, asset_ids: list) -> dict | None:
+        result = cast("dict[str, Any]", response.json())
+        self.log.debug(
+            "status=success, action=__remove_assets_get_status, "
+            f'msg="Check remove operation status: {result!r}", '
+            f"hostname={self.__core_hostname!r}"
+        )
+        return result
+
+    def delete_assets_by_ids(self, asset_ids: list[str]) -> dict[str, Any] | None:
         """Удаление активов по id.
 
         :param asset_ids: Список ID активов, которые необходимо удалить
         :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
             или None, если статус операции не получен за время ожидания
         """
-        status: dict | None = None
+        status: dict[str, Any] | None = None
         operation_id = self.__delete_assets_by_ids(asset_ids)
 
-        if operation_id is not None:
-            for _ in range(30):
-                time.sleep(1)
-                status = self.__remove_assets_get_status(operation_id=operation_id)
-                self.log.warning(f"status: {status}")
-                if status is not None:
-                    break
+        for _ in range(30):
+            time.sleep(1)
+            status = self.__remove_assets_get_status(operation_id=operation_id)
+            if status is not None:
+                break
 
-        self.log.info(
-            "status=success, action=delete_assets_by_ids, "
-            'msg="Deleting finished", '
-            f"status={status!r}, hostname={self.__core_hostname!r}"
-        )
+        if status is None:
+            self.log.error(
+                "status=failed, action=delete_assets_by_ids, "
+                'msg="Deleting status is not ready", '
+                f"operation_id={operation_id!r}, hostname={self.__core_hostname!r}"
+            )
+        else:
+            self.log.info(
+                "status=success, action=delete_assets_by_ids, "
+                'msg="Deleting finished", '
+                f"status={status!r}, hostname={self.__core_hostname!r}"
+            )
         return status
 
     def __change_asset_configuration_by_id(
-        self, asset_id: str, params: dict
+        self, asset_id: str, params: dict[str, Any]
     ) -> str | None:
         """Отправить изменение конфигурации актива.
 
@@ -1015,27 +1360,28 @@ class Assets(ModuleInterface, LoggingHandler):
 
         status_code = response.status_code
 
-        if status_code == 200:
-            resp = response.json()
-            self.log.info(
-                "status=success, action=__change_asset_configuration_by_id, "
-                f'msg="Check change operation status: {resp!r}", '
-                f"hostname={self.__core_hostname!r}"
+        if status_code != 200:
+            self.log.debug(
+                "status=failed, action=__change_asset_configuration_by_id, "
+                f'msg="Asset change request not accepted: HTTP:{status_code!r}", '
+                f"asset_id={asset_id!r}, hostname={self.__core_hostname!r}"
             )
-            return cast("str | None", resp.get("ticketId"))
-        else:
-            self.log.info(
-                "status=success, action=__change_asset_configuration_by_id, "
-                f'msg="Check change operation status: HTTP:{status_code!r}, '
-                f"hostname={self.__core_hostname!r}"
-            )
-
             return None
 
-    def __change_assets_get_status(self, ticket_id: str) -> dict | None:
+        resp: dict[str, Any] = response.json()
+        ticket_id = resp.get("ticketId")
+        self.log.info(
+            "status=success, action=__change_asset_configuration_by_id, "
+            f'msg="Asset change request accepted", ticket_id={ticket_id!r}, '
+            f"asset_id={asset_id!r}, hostname={self.__core_hostname!r}"
+        )
+        return str(ticket_id) if ticket_id is not None else None
+
+    def __change_assets_get_status(self, ticket_id: str) -> dict[str, Any] | None:
         """Получить статус операции изменения актива.
 
         :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
+            или None, если операция ещё не завершена
         """
 
         url = (
@@ -1050,59 +1396,65 @@ class Assets(ModuleInterface, LoggingHandler):
             timeout=self.settings.connection_timeout,
         )
 
-        if r.status_code == 200:
-            resp = r.json()
-            self.log.info(
-                "status=success, action=__change_assets_get_status, "
-                f'msg="Check edit operation status: {resp!r}", '
-                f"hostname={self.__core_hostname!r}"
-            )
-            return cast("dict", resp)
-        else:
+        if r.status_code != 200:
             self.log.debug(
-                "status=success, action=__change_assets_get_status, "
-                f'msg="Check edit operation status: HTTP:{r.status_code}", '
+                "status=prepare, action=__change_assets_get_status, "
+                f'msg="Edit operation is not ready: HTTP:{r.status_code}", '
                 f"hostname={self.__core_hostname!r}"
             )
-
             return None
 
+        result = cast("dict[str, Any]", r.json())
+        self.log.debug(
+            "status=success, action=__change_assets_get_status, "
+            f'msg="Check edit operation status: {result!r}", '
+            f"hostname={self.__core_hostname!r}"
+        )
+        return result
+
     def change_asset_configuration_by_id(
-        self, asset_id: str, config: dict
-    ) -> dict | None:
+        self, asset_id: str, config: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """Изменение активов по id.
 
         :param asset_id: ID актива, который надо сконфигурировать
         :param config: конфигурация актива
         :return: {"isSuccessful":true,"assetId":"17c930dc-0340-0001-0000-000000000002"}
+            или None, если статус операции не получен за время ожидания
         """
 
         ticket_id = self.__change_asset_configuration_by_id(asset_id, config)
 
-        status: dict | None = None
+        status: dict[str, Any] | None = None
         if ticket_id is not None:
             for _ in range(15):
                 time.sleep(2)
                 status = self.__change_assets_get_status(ticket_id=ticket_id)
-                self.log.warning(f"status: {status}")
                 if status is not None:
                     break
 
-        self.log.info(
-            "status=success, action=change_asset_configuration_by_id, "
-            'msg="Editing finished", '
-            f"status={status!r}, hostname={self.__core_hostname!r}"
-        )
+        if status is None:
+            self.log.error(
+                "status=failed, action=change_asset_configuration_by_id, "
+                'msg="Editing status is not ready", '
+                f"asset_id={asset_id!r}, hostname={self.__core_hostname!r}"
+            )
+        else:
+            self.log.info(
+                "status=success, action=change_asset_configuration_by_id, "
+                'msg="Editing finished", '
+                f"status={status!r}, hostname={self.__core_hostname!r}"
+            )
         return status
 
-    def get_asset_configuration_by_id(self, asset_id: str) -> dict:
+    def get_asset_configuration_by_id(self, asset_id: str) -> dict[str, Any]:
         """Получение информации об активе по id.
 
         :param asset_id: ID интересующего актива
         :return: { dict with asset config }
         """
 
-        resp: dict = {}
+        resp: dict[str, Any] = {}
 
         url = (
             f"https://{self.__core_hostname}"
@@ -1122,40 +1474,42 @@ class Assets(ModuleInterface, LoggingHandler):
                 f"hostname={self.__core_hostname!r}"
             )
             return resp
-        else:
-            self.log.info(
-                "status=success, action=get_asset_configuration_by_id, "
-                f'msg="Got asset configuration: HTTP:{r.status_code}", '
-                f"hostname={self.__core_hostname!r}"
-            )
+
+        self.log.warning(
+            "status=failed, action=get_asset_configuration_by_id, "
+            f'msg="Asset configuration is not available: HTTP:{r.status_code}", '
+            f"asset_id={asset_id!r}, hostname={self.__core_hostname!r}"
+        )
         return resp
 
-    def get_queries(self) -> dict:
-        """Получить все запросы.
+    def get_queries(self) -> list[dict[str, Any]]:
+        """Получить дерево сохранённых запросов.
 
-        :return: Узлы дерева сохранённых запросов
+        :return: Узлы дерева сохранённых запросов (см. FoldersHierarchy -
+            `GET /stored_queries/folders/{hierarchyType}`, `hierarchyType=queries`)
         """
         url = (
             f"https://{self.__core_hostname}"
             f"{self.__api_assets_trm_stored_queries_folders}"
         )
-        r = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="GET",
             timeout=self.settings.connection_timeout,
-        )
-        response = r.json()
+        ).json()
+
+        nodes = [dict(node) for node in response.get("nodes") or []]
 
         self.log.info(
             "status=success, action=get_queries, "
-            f'msg="Got queries {len(response)}", '
+            f'msg="Got {len(nodes)!r} query tree roots", '
             f"hostname={self.__core_hostname!r}"
         )
 
-        return cast("dict", response["nodes"])
+        return nodes
 
-    def get_query_by_id(self, queryid: str) -> dict:
+    def get_query_by_id(self, queryid: str) -> dict[str, Any]:
         """Получить запрос по id.
 
         :return: Объект запроса с полями id, displayName, folderId,
@@ -1167,23 +1521,22 @@ class Assets(ModuleInterface, LoggingHandler):
             f"https://{self.__core_hostname}"
             f"{self.__api_assets_trm_stored_queries_query}/{queryid}"
         )
-        r = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="GET",
             timeout=self.settings.connection_timeout,
-        )
-        response = r.json()
+        ).json()
 
         self.log.info(
             "status=success, action=get_query_by_id, "
-            f'msg="Got query {response["displayName"]!r}", '
+            f'msg="Got query {response.get("displayName")!r}", '
             f"hostname={self.__core_hostname!r}"
         )
 
-        return cast("dict", response)
+        return response
 
-    def create_query_folder(self, parent_id: str, folder_name: str) -> dict:
+    def create_query_folder(self, parent_id: str, folder_name: str) -> dict[str, Any]:
         """Создать папку для запросов.
 
         :param parent_id: ID родительской папки
@@ -1198,7 +1551,7 @@ class Assets(ModuleInterface, LoggingHandler):
             f"{self.__api_assets_trm_stored_queries_folders}"
         )
         params = {"displayName": folder_name, "parentId": parent_id}
-        response = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="POST",
@@ -1208,16 +1561,16 @@ class Assets(ModuleInterface, LoggingHandler):
 
         self.log.info(
             "status=success, action=create_query_folder, "
-            f'msg="Query folder created", Name={response["displayName"]!r}, '
-            f"type={response['type']!r}, "
+            f'msg="Query folder created", name={response.get("displayName")!r}, '
+            f"type={response.get('type')!r}, "
             f"hostname={self.__core_hostname!r}"
         )
 
-        return cast("dict", response)
+        return response
 
     def create_query(
         self, folder_id: str, query_name: str, pdql_filter: str, pdql_selection: str
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Создать запрос в папке.
 
         :param folder_id: ID родительской папки
@@ -1243,7 +1596,7 @@ class Assets(ModuleInterface, LoggingHandler):
             "filterPdql": pdql_filter,
         }
 
-        response = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="POST",
@@ -1253,12 +1606,12 @@ class Assets(ModuleInterface, LoggingHandler):
 
         self.log.info(
             "status=success, action=create_query, "
-            f'msg="Query created", Name={response["displayName"]!r}, '
-            f"type={response['type']!r}, "
+            f'msg="Query created", name={response.get("displayName")!r}, '
+            f"type={response.get('type')!r}, "
             f"hostname={self.__core_hostname!r}"
         )
 
-        return cast("dict", response)
+        return response
 
     def update_query(
         self,
@@ -1267,7 +1620,7 @@ class Assets(ModuleInterface, LoggingHandler):
         query_name: str,
         pdql_filter: str,
         pdql_selection: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Обновить запрос в папке.
 
         Имя и папка меняются отдельным эндпоинтом: контракт `UpdateQueryCommand`
@@ -1282,7 +1635,7 @@ class Assets(ModuleInterface, LoggingHandler):
         :param query_name: Название запроса
         :param pdql_filter: фильтр
         :param pdql_selection: выборка
-        :return: dict
+        :return: Обновлённый объект запроса (см. :meth:`get_query_by_id`)
         """
 
         url = (
@@ -1296,7 +1649,8 @@ class Assets(ModuleInterface, LoggingHandler):
             "filterPdql": pdql_filter,
         }
 
-        response = exec_request(
+        # 204 No Content, тело ответа отсутствует
+        exec_request(
             self.__core_session,
             url,
             method="PUT",
@@ -1304,20 +1658,11 @@ class Assets(ModuleInterface, LoggingHandler):
             json=params,
         )
 
-        status_code = response.status_code
-
-        if status_code == 204:
-            self.log.info(
-                "status=success, action=update_query, "
-                f'msg="Query update", name={query_name!r}, id={query_id!r}, '
-                f"hostname={self.__core_hostname!r}"
-            )
-        else:
-            self.log.error(
-                "status=failed, action=update_query, "
-                f'msg="Query update", name={query_name!r}, id={query_id!r}, '
-                f"hostname={self.__core_hostname!r}"
-            )
+        self.log.info(
+            "status=success, action=update_query, "
+            f'msg="Query updated", name={query_name!r}, id={query_id!r}, '
+            f"hostname={self.__core_hostname!r}"
+        )
 
         current = self.get_query_by_id(query_id)
 
@@ -1327,7 +1672,7 @@ class Assets(ModuleInterface, LoggingHandler):
         ):
             # PathInfo требует оба поля: передаём текущую связку целиком, чтобы
             # изменение имени не сбрасывало папку (и наоборот).
-            path_response = exec_request(
+            exec_request(
                 self.__core_session,
                 f"{url}/path",
                 method="PUT",
@@ -1336,33 +1681,28 @@ class Assets(ModuleInterface, LoggingHandler):
             )
             self.log.info(
                 "status=success, action=update_query_path, "
-                f'msg="Query path update", name={query_name!r}, id={query_id!r}, '
-                f"status_code={path_response.status_code!r}, "
+                f'msg="Query path updated", name={query_name!r}, id={query_id!r}, '
                 f"hostname={self.__core_hostname!r}"
             )
+            current = self.get_query_by_id(query_id)
 
-        return response.json() if response.text else {}
+        return current
 
     def __update_group_entries_by_ids(
         self,
-        asset_ids: list,
-        include: list | None = None,
-        exclude: list | None = None,
+        asset_ids: list[str],
+        include: list[str] | None = None,
+        exclude: list[str] | None = None,
     ) -> str:
         """Изменение групп активов по id.
 
         :param asset_ids: Список ID активов, для которых нужно изменить группы
         :param include: Список ID групп, в которые необходимо добавить актив
         :param exclude: Список ID групп, из которых необходимо удалить актив
-        :return: {"operationId":"16b577e1-3900-a001-0000-000000000e79"}
+        :return: ID операции изменения
         """
-        if exclude is None:
-            exclude = []
-        if include is None:
-            include = []
-
         self.log.debug(
-            "status=prepare, action=__update_group_entries_by_ids, "
+            "status=prepare, action=update_group_entries_by_ids, "
             f'msg="Try to update groups for {len(asset_ids)!r} asset(s)", '
             f"hostname={self.__core_hostname!r}"
         )
@@ -1372,11 +1712,11 @@ class Assets(ModuleInterface, LoggingHandler):
         )
         params = {
             "assetsIds": asset_ids,
-            "includeInGroups": include,
-            "excludeFromGroups": exclude,
+            "includeInGroups": include or [],
+            "excludeFromGroups": exclude or [],
         }
 
-        response = exec_request(
+        response: dict[str, Any] = exec_request(
             self.__core_session,
             url,
             method="POST",
@@ -1384,19 +1724,25 @@ class Assets(ModuleInterface, LoggingHandler):
             json=params,
         ).json()
 
+        operation_id = self.__operation_id_from_response(
+            response, "update_group_entries_by_ids"
+        )
         self.log.info(
-            "status=success, action=__update_group_entries_by_ids, "
+            "status=success, action=update_group_entries_by_ids, "
             'msg="Update started", '
-            f"operation_id={response['operationId']!r}, "
+            f"operation_id={operation_id!r}, "
             f"hostname={self.__core_hostname!r}"
         )
 
-        return cast("str", response.get("operationId"))
+        return operation_id
 
-    def __update_group_entries_get_status(self, operation_id: str) -> dict:
+    def __update_group_entries_get_status(
+        self, operation_id: str
+    ) -> dict[str, Any] | None:
         """Получить статус операции изменения групп.
 
         :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
+            или None, если операция ещё не завершена
         """
 
         url = (
@@ -1413,60 +1759,58 @@ class Assets(ModuleInterface, LoggingHandler):
 
         status_code = response.status_code
 
-        if status_code == 200:
-            resp = response.json()
-            self.log.info(
-                "status=success, action=__update_group_entries_get_status, "
-                f'msg="Check update operation status: {resp!r}", '
+        if status_code != 200:
+            self.log.debug(
+                "status=prepare, action=__update_group_entries_get_status, "
+                f'msg="Update operation is not ready: HTTP:{status_code}", '
                 f"hostname={self.__core_hostname!r}"
             )
+            return None
 
-            return cast("dict", resp)
-        else:
-            self.log.info(
-                "status=success, action=__update_group_entries_get_status, "
-                f'msg="Check update operation status: HTTP:{status_code}", '
-                f"hostname={self.__core_hostname!r}"
-            )
-
-            return {}
+        result = cast("dict[str, Any]", response.json())
+        self.log.debug(
+            "status=success, action=__update_group_entries_get_status, "
+            f'msg="Check update operation status: {result!r}", '
+            f"hostname={self.__core_hostname!r}"
+        )
+        return result
 
     def update_group_entries_by_ids(
         self,
-        asset_ids: list,
-        include: list | None = None,
-        exclude: list | None = None,
-    ) -> dict:
+        asset_ids: list[str],
+        include: list[str] | None = None,
+        exclude: list[str] | None = None,
+    ) -> dict[str, Any] | None:
         """Изменение групп активов по id.
 
         :param asset_ids: Список ID активов, для которых нужно изменить группы
         :param include: Список ID групп, в которые необходимо добавить актив
         :param exclude: Список ID групп, из которых необходимо удалить актив
         :return: {"type":"AssetsOperationResult","totalCount":2,"succeedCount":2,"failedCount":0}
+            или None, если статус операции не получен за время ожидания
         """
 
-        if exclude is None:
-            exclude = []
-        if include is None:
-            include = []
-        status: dict = {}
+        status: dict[str, Any] | None = None
         operation_id = self.__update_group_entries_by_ids(asset_ids, include, exclude)
 
-        if operation_id is not None:
-            for _ in range(30):
-                time.sleep(1)
-                status = self.__update_group_entries_get_status(
-                    operation_id=operation_id
-                )
-                self.log.debug(f"status: {status}")
-                if len(status) != 0:
-                    break
+        for _ in range(30):
+            time.sleep(1)
+            status = self.__update_group_entries_get_status(operation_id=operation_id)
+            if status is not None:
+                break
 
-        self.log.info(
-            "status=success, action=update_group_entries_by_ids, "
-            f'msg="Update finished", status={status}, '
-            f'hostname="{self.__core_hostname}"'
-        )
+        if status is None:
+            self.log.error(
+                "status=failed, action=update_group_entries_by_ids, "
+                'msg="Update status is not ready", '
+                f"operation_id={operation_id!r}, hostname={self.__core_hostname!r}"
+            )
+        else:
+            self.log.info(
+                "status=success, action=update_group_entries_by_ids, "
+                f'msg="Update finished", status={status!r}, '
+                f"hostname={self.__core_hostname!r}"
+            )
 
         return status
 
