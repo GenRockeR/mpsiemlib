@@ -2,6 +2,7 @@ import unittest
 from datetime import datetime
 
 import pytz
+import requests
 from settings import creds_pat, settings
 
 from mpsiemlib.common import *
@@ -54,6 +55,21 @@ class TestEventsAPITestCase(unittest.TestCase):
                 time_to=self.__end,
             )
         )
+
+    def _first_v3_page(self) -> dict:
+        """Первая страница v3 (сырой ответ: events + token)."""
+        return self.__module.get_events_by_filter_v3_page(
+            query_filter="select(time, event_src.host, text)",
+            time_from=self.__begin,
+            time_to=self.__end,
+            offset=0,
+            limit=5,
+        )
+
+    def __skip_if_status(self, err: requests.HTTPError, code: int, action: str) -> None:
+        if getattr(err.response, "status_code", None) == code:
+            self.skipTest(f"{action}: HTTP {code} на текущих правах/данных стенда")
+        raise err
 
     # ------------------------------------------------------------------ #
     # метаданные и группировки
@@ -180,6 +196,205 @@ class TestEventsAPITestCase(unittest.TestCase):
         if len(events) > 0:
             self.assertIn("id", events[0])
             self.assertIn("date", events[0])
+
+    # ------------------------------------------------------------------ #
+    # Агрегация v3 (конвейерный PDQL group(...), контракт GetAggregation v3)
+    # ------------------------------------------------------------------ #
+    def test_get_events_aggregation_v3(self):
+        # Синтаксис v3-агрегации (отличается от v2 structured aggregateBy):
+        # обязателен select(...) c временем и секция group(key:[...], agg: ...).
+        query = (
+            "select(time, event_src.host) | "
+            "group(key: [event_src.host], agg: COUNT(*) as Cnt) | "
+            "sort(Cnt desc)"
+        )
+        result = self.__module.get_events_aggregation_v3(
+            query_filter=query,
+            time_from=self.__begin,
+            time_to=self.__end,
+            limit=100,
+        )
+        for key in ("errors", "hasMoreResults", "columns", "rows"):
+            self.assertIn(key, result)
+        self.assertIsInstance(result["rows"], list)
+        self.assertGreater(len(result["rows"]), 0)
+        self.assertIn("groups", result["rows"][0])
+        self.assertIn("values", result["rows"][0])
+
+    def test_get_events_aggregation_v3_limit(self):
+        # limit ограничивает число строк распределения. Поле text не groupable
+        # ("Неверные поля в параметре group: text"), группируем двумя
+        # groupable-полями.
+        query = (
+            "select(time, event_src.host, event_src.category) | "
+            "group(key: [event_src.host, event_src.category], "
+            "agg: COUNT(*) as Cnt) | sort(Cnt desc)"
+        )
+        result = self.__module.get_events_aggregation_v3(
+            query_filter=query,
+            time_from=self.__begin,
+            time_to=self.__end,
+            limit=1,
+        )
+        self.assertLessEqual(len(result["rows"]), 1)
+
+    def test_get_events_aggregation_v3_invalid_pdql(self):
+        # PDQL без секции group(...) - Core отвечает 400
+        with self.assertRaises(requests.HTTPError):
+            self.__module.get_events_aggregation_v3(
+                query_filter="select(time)",
+                time_from=self.__begin,
+                time_to=self.__end,
+            )
+
+    # ------------------------------------------------------------------ #
+    # Метаданные таксономии и настройки
+    # ------------------------------------------------------------------ #
+    def test_get_events_taxonomy(self):
+        fields = self.__module.get_events_taxonomy()
+        self.assertGreater(len(fields), 0)
+        self.assertTrue(all(isinstance(f, dict) and "name" in f for f in fields))
+        names = {f["name"] for f in fields}
+        for required in ("time", "event_src.host", "normalized"):
+            self.assertIn(required, names)
+
+    def test_get_events_settings(self):
+        settings_map = self.__module.get_events_settings()
+        self.assertIsInstance(settings_map, dict)
+        self.assertIn("showContentFromDescendants", settings_map)
+
+    # ------------------------------------------------------------------ #
+    # Постраничная выдача v3 и счётчик по токену
+    # ------------------------------------------------------------------ #
+    def test_get_events_by_filter_v3_page(self):
+        page = self._first_v3_page()
+        self.assertIn("events", page)
+        self.assertIn("token", page)
+        self.assertTrue(len(page["events"]) > 0)
+
+    def test_get_events_count_by_token(self):
+        page = self._first_v3_page()
+        total = self.__module.get_events_count_by_token(page["token"])
+        self.assertIsInstance(total, int)
+        self.assertGreaterEqual(total, len(page["events"]))
+
+    def test_get_events_count_by_token_not_found(self):
+        # Контракт: неизвестный токен - 404 TokenNotFoundError
+        with self.assertRaises(requests.HTTPError):
+            self.__module.get_events_count_by_token(
+                "ffffffff-0000-0000-0000-000000000000"
+            )
+
+    # ------------------------------------------------------------------ #
+    # Подсчёт событий
+    # ------------------------------------------------------------------ #
+    def test_get_events_count(self):
+        result = self.__module.get_events_count(
+            query_filter="normalized = true",
+            time_from=self.__begin,
+            time_to=self.__end,
+        )
+        self.assertIn("totalCount", result)
+        self.assertGreater(result["totalCount"], 0)
+
+    def test_get_events_count_v3(self):
+        # В v3 время в запросе не задаётся (см. docstring метода): считаем по
+        # фильтру и сравниваем структуру ответа с v2-счётчиком.
+        result = self.__module.get_events_count_v3(
+            query_filter="select(time, event_src.host)"
+        )
+        self.assertIn("totalCount", result)
+        self.assertIsInstance(result["totalCount"], int)
+        self.assertGreater(result["totalCount"], 0)
+        self.assertIn("periodStart", result)
+        self.assertIn("periodEnd", result)
+
+    # ------------------------------------------------------------------ #
+    # Значения полей
+    # ------------------------------------------------------------------ #
+    def test_count_distinct_field_values(self):
+        values = self.__module.count_distinct_field_values(
+            query_filter="normalized = true",
+            fields=["event_src.host"],
+            time_from=self.__begin,
+            time_to=self.__end,
+            top=10,
+        )
+        self.assertIsInstance(values, list)
+        self.assertGreater(len(values), 0)
+        for item in values:
+            self.assertIn("count", item)
+
+    def test_get_group_values(self):
+        result = self.__module.get_group_values(
+            query_filter="normalized = true",
+            fields=["event_src.host"],
+            time_from=self.__begin,
+            time_to=self.__end,
+            top=10,
+        )
+        self.assertIn("groups", result)
+        self.assertGreater(len(result["groups"]), 0)
+        self.assertIn("fieldValues", result["groups"][0])
+
+    # ------------------------------------------------------------------ #
+    # Локализация события (требует прав выше read-only: под PAT - 403)
+    # ------------------------------------------------------------------ #
+    def test_get_event_localization(self):
+        event = self._first_event()
+        details = self.__module.get_event_details(
+            event_id=event["_meta"]["id"], event_date=event["_meta"]["time"]
+        )
+        try:
+            result = self.__module.get_event_localization(details, locale="RUS")
+        except requests.HTTPError as err:
+            self.__skip_if_status(err, 403, "get_event_localization")
+        else:
+            self.assertIn("text", result)
+
+    # ------------------------------------------------------------------ #
+    # Вложенные (sub)события: на стенде берём событие без subevents -
+    # сервер отвечает 400 (поле-связка отсутствует). Негативный кейс
+    # подтверждает, что эндпоинт жив и доходит до валидации Core.
+    # ------------------------------------------------------------------ #
+    def test_get_event_subevents_missing_field(self):
+        event = self._first_event()
+        with self.assertRaises(requests.HTTPError):
+            self.__module.get_event_subevents(
+                event_id=event["_meta"]["id"],
+                event_date=event["_meta"]["time"],
+                query_filter="normalized = true",
+                time_from=self.__begin,
+                time_to=self.__end,
+            )
+
+    def test_get_event_subevents_count_missing_field(self):
+        event = self._first_event()
+        with self.assertRaises(requests.HTTPError):
+            self.__module.get_event_subevents_count(
+                event_id=event["_meta"]["id"],
+                event_date=event["_meta"]["time"],
+                query_filter="normalized = true",
+                time_from=self.__begin,
+                time_to=self.__end,
+            )
+
+    # ------------------------------------------------------------------ #
+    # Raw-событие: на ядрах <28.0 эндпоинт жив (возвращает dict),
+    # на R28.0+ выведен из маршрутизации и закрыт version-gate
+    # (RuntimeError до запроса). Проверяем обе ветки без завязки на версию.
+    # ------------------------------------------------------------------ #
+    def test_get_event_raw(self):
+        event = self._first_event()
+        try:
+            raw = self.__module.get_event_raw(
+                event_id=event["_meta"]["id"], recv_time=event["_meta"]["time"]
+            )
+        except RuntimeError as err:
+            # version-gate на R28.0+
+            self.assertIn("raw event API", str(err))
+        else:
+            self.assertIsInstance(raw, dict)
 
 
 if __name__ == "__main__":
