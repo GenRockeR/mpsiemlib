@@ -2,6 +2,7 @@ import contextlib
 import unittest
 from uuid import UUID
 
+import requests
 from helpers import gen_lowercase_string
 from settings import creds, settings
 
@@ -14,9 +15,17 @@ class MacrosTestCase(unittest.TestCase):
 
     Читающие операции проверяются на реальном контенте БД, CRUD - на
     временных объектах с префиксом ``unittest_`` (удаляются в finally).
-    Поведение эндпоинтов сверено с измерениями на стенде R26+:
-    GET коллекции контракта сломан, удаление мягкое (GET после DELETE -
-    пустое тело), локаль удаляется по коду, PUT тела частичный.
+
+    RB-контракты ``CoreApi.SiemMacros*.yaml`` (``/api/SiemMacros*``) на стенде
+    28.x не маршрутизируются (404), рабочий интерфейс - KB Studio API
+    ``/api-studio/siem/macros*`` (порт 8091). Измеренное поведение, которое
+    кодируют тесты:
+
+    - изменяющие запросы защищены ``SiemMacros.HashMismatch`` - публичные
+      методы сами перечитывают модель и перегенерируют хэш через ``validate``;
+    - удаление физическое: ``GET`` после ``DELETE`` - ``404`` (``None``);
+    - локалей у макроса должно оставаться минимум одна;
+    - метка после ``DELETE`` отдаёт ``409`` (а не ``404``) - тоже ``None``.
     """
 
     __mpsiemworker = None
@@ -38,13 +47,17 @@ class MacrosTestCase(unittest.TestCase):
     def tearDownClass(cls) -> None:
         # Страховка: CRUD-тесты удаляют макросы/метки в finally, но падение до
         # захвата id оставляет мусор с префиксом unittest_ - подчищаем.
+        # Только по полному списку: серверный search в /list нестрогой, по
+        # нему легко задеть посторонние объекты.
+        macros: list[dict] = []
         try:
-            for macro in cls.__module.get_macros_list(do_refresh=True):
-                if str(macro.get("name") or "").startswith("unittest_"):
-                    with contextlib.suppress(Exception):
-                        cls.__module.delete_macro(macro["id"])
-        except Exception as err:
-            print(f"macros cleanup errors: {err!r}")
+            macros = cls.__module.get_macros_list(do_refresh=True)
+        except (requests.RequestException, ValueError) as err:
+            print(f"macros cleanup skipped: {err!r}")
+        for macro in macros:
+            if str(macro.get("name") or "").startswith("unittest_"):
+                with contextlib.suppress(Exception):
+                    cls.__module.delete_macro(macro["id"])
         cls.__module.close()
         cls.__kb_module.close()
 
@@ -55,10 +68,6 @@ class MacrosTestCase(unittest.TestCase):
                 return name
         raise unittest.SkipTest("No deployable content database on stand")
 
-    @property
-    def __db(self):
-        return self.__db_name
-
     # ---------------- helpers ---------------- #
 
     def __any_macro(self):
@@ -67,15 +76,21 @@ class MacrosTestCase(unittest.TestCase):
             self.skipTest("No macros in db")
         return macros[0]
 
-    def __create_macro(self):
+    def __create_macro(self, with_arg: bool = False):
         name = gen_lowercase_string(12)
+        signature = "(string $p)" if with_arg else "()"
+        text = (
+            f"filter {name}{signature} {{\n"
+            f"\t{'action == $p' if with_arg else 'action == "access"'}\n}}"
+        )
         macro_id = self.__module.create_macro(
             system_name=name,
-            text="rule unittest: Event\nemit {\n\t$id = 'unittest'\n}",
-            locales=[{"Locale": "RUS", "Name": name, "Description": "unittest"}],
+            text=text,
+            name=name,
+            description="unittest",
         )
         self.__is_uuid(macro_id)
-        return name, macro_id
+        return name, text, macro_id
 
     def __delete_macro_quietly(self, macro_id):
         # удаление - best-effort cleanup (объект мог быть уже удалён в тесте)
@@ -92,9 +107,9 @@ class MacrosTestCase(unittest.TestCase):
         except ValueError as err:
             self.fail(f"{value!r} is not a UUID: {err!r}")
 
-    # ---------------- kb-ui: список и чтение ---------------- #
+    # ---------------- чтение: kb-ui список ---------------- #
 
-    def test_get_custom_macros_list(self):
+    def test_get_macros_list(self):
         macros = self.__module.get_macros_list(do_refresh=True)
         self.assertGreater(len(macros), 0)
         for key in ("id", "name", "object_id"):
@@ -156,7 +171,7 @@ class MacrosTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.__module.unpack_macros("unittest-no-such-id")
 
-    # ---------------- контракт: чтение ---------------- #
+    # ---------------- чтение: KB Studio API ---------------- #
 
     def test_get_macro(self):
         macro = self.__any_macro()
@@ -165,25 +180,65 @@ class MacrosTestCase(unittest.TestCase):
         self.assertEqual(info["id"], macro["id"])
         self.assertIsNotNone(info["system_name"])
         self.assertIsNotNone(info["text"])
-        # kb-ui name (локаль RUS) совпадает с локализованным именем контракта
-        rus = [loc for loc in info["locales"] if loc.get("Locale") == "RUS"]
-        if rus:
-            self.assertEqual(rus[0].get("Name"), macro["name"])
+        # имя отдаётся в локали заголовка Content-Locale (RUS)
+        self.assertEqual(info["name"], macro["name"])
+
+    def test_get_macro_not_found(self):
+        self.assertIsNone(
+            self.__module.get_macro("00000000-0000-0000-0000-000000000000")
+        )
+
+    def test_get_macro_by_system_name(self):
+        macro = self.__any_macro()
+        system_name = self.__module.get_macro(macro["id"])["system_name"]
+        info = self.__module.get_macro_by_system_name(system_name)
+        self.assertIsNotNone(info)
+        self.assertEqual(info["system_name"], system_name)
+
+    def test_get_macro_by_system_name_not_found(self):
+        self.assertIsNone(
+            self.__module.get_macro_by_system_name("unittest_no_such_macro")
+        )
 
     def test_get_macros_tags_list(self):
         tags = self.__module.get_macros_tags_list()
         self.assertGreater(len(tags), 0)
-        for key in ("id", "parent_id", "is_group", "locales"):
+        for key in ("id", "parent_id", "name", "is_group"):
             self.assertIn(key, tags[0])
 
-    # ---------------- контракт: CRUD макросов ---------------- #
+    # ---------------- валидация и проверка имени ---------------- #
+
+    def test_validate_macro_text_ok(self):
+        validation = self.__module.validate_macro_text(
+            'filter unittest_valid() {\n\taction == "access"\n}'
+        )
+        self.assertEqual(validation["errors"], [])
+        self.assertIsNotNone(validation["result_hash"])
+        self.assertTrue(validation["sdk_version"])
+        self.assertEqual(validation["system_name"], "unittest_valid")
+
+    def test_validate_macro_text_syntax_error(self):
+        validation = self.__module.validate_macro_text("filter unittest_bad( {")
+        self.assertGreater(len(validation["errors"]), 0)
+
+    def test_check_macro_system_name(self):
+        name, _, macro_id = self.__create_macro()
+        try:
+            self.assertEqual(self.__module.check_macro_system_name(name), macro_id)
+            self.assertIsNone(
+                self.__module.check_macro_system_name("unittest_free_system_name_zz")
+            )
+        finally:
+            self.__delete_macro_quietly(macro_id)
+
+    # ---------------- CRUD макросов ---------------- #
 
     def test_create_update_delete_macro(self):
-        name, macro_id = self.__create_macro()
+        name, text, macro_id = self.__create_macro()
         try:
             info = self.__module.get_macro(macro_id)
             self.assertEqual(info["system_name"], name)
-            self.assertEqual(len(info["locales"]), 1)
+            self.assertEqual(info["name"], name)
 
             # макрос виден в kb-ui списке
             listed_names = [
@@ -191,93 +246,152 @@ class MacrosTestCase(unittest.TestCase):
             ]
             self.assertIn(name, listed_names)
 
-            new_text = "rule unittest_updated: Event\nemit {\n\t$id = 'upd'\n}"
-            self.__module.update_macro(macro_id, name, new_text)
+            new_text = text.replace("access", "block")
+            self.__module.update_macro(macro_id, new_text)
             info = self.__module.get_macro(macro_id)
-            self.assertEqual(info["text"], new_text)
-            # PUT частичный: локали сохранились
-            self.assertEqual(len(info["locales"]), 1)
+            self.assertIn("block", info["text"])
+            # частичное изменение: имя и описание сохранились
+            self.assertEqual(info["name"], name)
         finally:
             self.__delete_macro_quietly(macro_id)
 
-        # удаление мягкое: GET после DELETE - пустое тело
+        # удаление физическое: GET после DELETE - 404 -> None
         self.assertIsNone(self.__module.get_macro(macro_id))
         self.assertNotIn(
             name, [m["name"] for m in self.__module.get_macros_list(do_refresh=True)]
         )
 
-    def test_macro_params(self):
-        _, macro_id = self.__create_macro()
-        param_id = None
-        try:
-            param_id = self.__module.add_macro_param(
-                macro_id,
-                name="unittest_param",
-                param_type="string",
-                default_value="1",
-                index=0,
-                locales=[{"Locale": "RUS", "Description": "unittest"}],
+    def test_create_macro_invalid_text_raises(self):
+        with self.assertRaises(ValueError):
+            self.__module.create_macro(
+                system_name="unittest_broken_zz",
+                text="filter unittest_broken( {",
             )
-            self.__is_uuid(param_id)
 
-            info = self.__module.get_macro(macro_id)
-            self.assertEqual(len(info["params"]), 1)
-            self.assertEqual(info["params"][0]["Name"], "unittest_param")
-
-            self.__module.remove_macro_param(macro_id, param_id)
-            param_id = None
-            info = self.__module.get_macro(macro_id)
-            self.assertEqual(info["params"], [])
-        finally:
-            if param_id is not None:
-                with contextlib.suppress(Exception):
-                    self.__module.remove_macro_param(macro_id, param_id)
-            self.__delete_macro_quietly(macro_id)
-
-    def test_macro_locales(self):
-        name, macro_id = self.__create_macro()
-        try:
-            locale_id = self.__module.add_macro_locale(
-                macro_id, "ENG", name, "unittest eng"
-            )
-            self.__is_uuid(locale_id)
-            locales = self.__module.get_macro(macro_id)["locales"]
-            self.assertEqual({loc["Locale"] for loc in locales}, {"RUS", "ENG"})
-
-            self.__module.change_macro_locale(macro_id, "ENG", name + "_upd", "upd")
-            eng = [
-                loc
-                for loc in self.__module.get_macro(macro_id)["locales"]
-                if loc["Locale"] == "ENG"
-            ]
-            self.assertEqual(eng[0]["Name"], name + "_upd")
-
-            # 26.0 RemoveLocaleFromSiemMacros дефектен: 204, но локаль
-            # остаётся с обнулённым Name (измерено). С asserting факта удаления
-            # воздерживаемся - проверяем только ответ.
-            response = self.__module.remove_macro_locale(macro_id, "ENG")
-            self.assertEqual(response.status_code, 204)
-            eng = [
-                loc
-                for loc in self.__module.get_macro(macro_id)["locales"]
-                if loc["Locale"] == "ENG"
-            ]
-            if eng:
-                # дефект не исправлен: локаль осталась, обнулено имя
-                self.assertIsNone(eng[0]["Name"])
-
-        finally:
-            self.__delete_macro_quietly(macro_id)
-
-    def test_add_macro_locale_requires_description(self):
-        name, macro_id = self.__create_macro()
+    def test_update_macro_invalid_text_raises(self):
+        _, _, macro_id = self.__create_macro()
         try:
             with self.assertRaises(ValueError):
-                self.__module.add_macro_locale(macro_id, "ENG", name, "  ")
+                self.__module.update_macro(macro_id, "filter broken( {")
+            # объект не изменён
+            self.assertIn("access", self.__module.get_macro(macro_id)["text"])
         finally:
             self.__delete_macro_quietly(macro_id)
 
-    # ---------------- контракт: метки ---------------- #
+    def test_delete_missing_macro_raises(self):
+        with self.assertRaises(requests.HTTPError) as ctx:
+            self.__module.delete_macro("00000000-0000-0000-0000-000000000000")
+        self.assertEqual(ctx.exception.response.status_code, 404)
+
+    def test_rename_macro(self):
+        name, _, macro_id = self.__create_macro()
+        new_name = name + "_renamed"
+        try:
+            new_text = self.__module.rename_macro(macro_id, new_name)
+            info = self.__module.get_macro(macro_id)
+            # rename переписывает имя и в поле, и в тексте фильтра
+            self.assertEqual(info["system_name"], new_name)
+            self.assertIn(new_name, info["text"])
+            self.assertIn(new_name, new_text)
+            self.assertEqual(
+                self.__module.get_macro_by_system_name(new_name)["id"], macro_id
+            )
+        finally:
+            self.__delete_macro_quietly(macro_id)
+
+    def test_clone_macro(self):
+        name, _, macro_id = self.__create_macro()
+        clone_name = name + "_clone"
+        clone_id = None
+        try:
+            clone_id = self.__module.clone_macro(macro_id, clone_name)
+            self.__is_uuid(clone_id)
+            self.assertNotEqual(clone_id, macro_id)
+            clone = self.__module.get_macro(clone_id)
+            self.assertEqual(clone["system_name"], clone_name)
+            self.assertEqual(clone["text"], self.__module.get_macro(macro_id)["text"])
+        finally:
+            if clone_id is not None:
+                self.__delete_macro_quietly(clone_id)
+            self.__delete_macro_quietly(macro_id)
+
+    # ---------------- параметры макроса ---------------- #
+
+    def test_macro_params(self):
+        _, _, macro_id = self.__create_macro(with_arg=True)
+        try:
+            self.__module.add_macro_param(
+                macro_id, "p2", "string", default_value="x", description="описание p2"
+            )
+            params = self.__module.get_macro(macro_id)["params"]
+            self.assertIn("p2", [p["Name"] for p in params])
+
+            self.__module.remove_macro_param(macro_id, "p2")
+            params = self.__module.get_macro(macro_id)["params"]
+            self.assertNotIn("p2", [p["Name"] for p in params])
+            # существующий параметр не задет
+            self.assertIn("p", [p["Name"] for p in params])
+        finally:
+            self.__delete_macro_quietly(macro_id)
+
+    def test_add_macro_param_duplicate_raises(self):
+        _, _, macro_id = self.__create_macro(with_arg=True)
+        try:
+            with self.assertRaises(ValueError):
+                self.__module.add_macro_param(macro_id, "p", "string")
+        finally:
+            self.__delete_macro_quietly(macro_id)
+
+    def test_remove_macro_param_missing_raises(self):
+        _, _, macro_id = self.__create_macro()
+        try:
+            with self.assertRaises(ValueError):
+                self.__module.remove_macro_param(macro_id, "no_such_param")
+        finally:
+            self.__delete_macro_quietly(macro_id)
+
+    # ---------------- локали макроса ---------------- #
+
+    def test_macro_locales(self):
+        name, _, macro_id = self.__create_macro()
+        try:
+            self.__module.add_macro_locale(macro_id, "ENG", name + "_en", "desc en")
+            edit = self.__module.get_macro_edit_model(macro_id)
+            self.assertEqual(set(edit["Name"]), {"RUS", "ENG"})
+
+            self.__module.change_macro_locale(
+                macro_id, "ENG", name + "_en2", "desc en2"
+            )
+            edit = self.__module.get_macro_edit_model(macro_id)
+            self.assertEqual(edit["Name"]["ENG"], name + "_en2")
+            self.assertEqual(edit["Description"]["ENG"], "desc en2")
+
+            self.__module.remove_macro_locale(macro_id, "ENG")
+            edit = self.__module.get_macro_edit_model(macro_id)
+            self.assertEqual(set(edit["Name"]), {"RUS"})
+        finally:
+            self.__delete_macro_quietly(macro_id)
+
+    def test_add_macro_locale_duplicate_raises(self):
+        _, _, macro_id = self.__create_macro()
+        try:
+            with self.assertRaises(ValueError):
+                self.__module.add_macro_locale(macro_id, "RUS", "dup", "dup")
+        finally:
+            self.__delete_macro_quietly(macro_id)
+
+    def test_remove_last_macro_locale_raises(self):
+        _, _, macro_id = self.__create_macro()
+        try:
+            with self.assertRaises(ValueError):
+                self.__module.remove_macro_locale(macro_id, "RUS")
+            # локаль не потеряна
+            edit = self.__module.get_macro_edit_model(macro_id)
+            self.assertEqual(set(edit["Name"]), {"RUS"})
+        finally:
+            self.__delete_macro_quietly(macro_id)
+
+    # ---------------- метки ---------------- #
 
     def test_macro_tag_lifecycle(self):
         tag_name = gen_lowercase_string(12)
@@ -286,44 +400,61 @@ class MacrosTestCase(unittest.TestCase):
         macro_id = None
         try:
             tag = self.__module.get_macro_tag(tag_id)
-            self.assertIsNotNone(tag)
             self.assertEqual(tag["id"], tag_id)
+            self.assertEqual(tag["name"], tag_name)
             self.assertFalse(tag["is_group"])
 
-            loc_id = self.__module.add_macro_tag_locale(tag_id, "ENG", tag_name)
-            self.__is_uuid(loc_id)
-            self.__module.change_macro_tag_locale(tag_id, "ENG", tag_name + "_upd")
-            eng = [
-                loc
-                for loc in self.__module.get_macro_tag(tag_id)["locales"]
-                if loc["Locale"] == "ENG"
-            ]
-            self.assertEqual(eng[0]["Name"], tag_name + "_upd")
-            self.__module.remove_macro_tag_locale(tag_id, "ENG")
-            locales = self.__module.get_macro_tag(tag_id)["locales"]
-            self.assertEqual({loc["Locale"] for loc in locales}, {"RUS"})
-
-            # привязка/отвязка метки макросу
-            _, macro_id = self.__create_macro()
-            link_id = self.__module.add_macro_tag(macro_id, tag_id)
-            self.__is_uuid(link_id)
+            _, _, macro_id = self.__create_macro()
+            self.__module.add_macro_tag(macro_id, tag_id)
             self.assertIn(tag_id, self.__module.get_macro(macro_id)["tag_ids"])
 
             self.__module.remove_macro_tag(macro_id, tag_id)
             self.assertNotIn(tag_id, self.__module.get_macro(macro_id)["tag_ids"])
+
+            self.__module.rename_macro_tag(tag_id, tag_name + "_upd")
+            self.assertEqual(
+                self.__module.get_macro_tag(tag_id)["name"], tag_name + "_upd"
+            )
         finally:
             if macro_id is not None:
                 self.__delete_macro_quietly(macro_id)
             self.__delete_tag_quietly(tag_id)
 
+        # после удаления метка отдаёт 409 (не 404) - тоже None
         self.assertIsNone(self.__module.get_macro_tag(tag_id))
 
+    def test_macro_tag_group_parent(self):
+        group_id = self.__module.create_macro_tag(
+            gen_lowercase_string(12), is_group=True
+        )
+        child_id = None
+        try:
+            child_id = self.__module.create_macro_tag(
+                gen_lowercase_string(12), parent_id=group_id
+            )
+            child = self.__module.get_macro_tag(child_id)
+            self.assertEqual(child["parent_id"], group_id)
+
+            self.__module.rename_macro_tag(child_id, child["name"] + "_upd")
+            self.assertEqual(
+                self.__module.get_macro_tag(child_id)["parent_id"], group_id
+            )
+        finally:
+            if child_id is not None:
+                self.__delete_tag_quietly(child_id)
+            self.__delete_tag_quietly(group_id)
+
+    def test_get_macro_tag_not_found(self):
+        self.assertIsNone(
+            self.__module.get_macro_tag("00000000-0000-0000-0000-000000000000")
+        )
+
     def test_delete_macro_tag_unlinks_macros(self):
-        # измерено на стенде: RemoveSiemMacrosTag снимает и привязки
+        # измерено на стенде: удаление метки снимает и её привязки
         tag_id = self.__module.create_macro_tag(gen_lowercase_string(12))
         macro_id = None
         try:
-            _, macro_id = self.__create_macro()
+            _, _, macro_id = self.__create_macro()
             self.__module.add_macro_tag(macro_id, tag_id)
             self.assertIn(tag_id, self.__module.get_macro(macro_id)["tag_ids"])
 
