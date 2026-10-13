@@ -30,6 +30,35 @@ class ConveyorTestCase(unittest.TestCase):
             self.assertIsNotNone(conveyor.get("alias"))
             self.assertIsInstance(conveyor.get("is_primary"), bool)
 
+    def test_get_conveyor_list_includes_storage_fields(self):
+        """Список отдаёт и поля подключения хранилища (SiemFullInfo).
+
+        Вызывающему важны db_type/db_host/db_port: на стендах storage -
+        Logspace, а не Elasticsearch, и выбирать запросы нужно по этому полю.
+        """
+        conveyor = self.__module.get_primary_conveyor()
+        for field in (
+            "uri_scheme",
+            "port",
+            "db_type",
+            "db_host",
+            "db_port",
+            "db_cross_port",
+            "seed_host",
+            "taxonomy_version",
+        ):
+            self.assertIn(field, conveyor)
+
+        siem_id = conveyor.get("id")
+        full = self.__module.get_conveyor_info(siem_id)
+        self.assertEqual(conveyor.get("db_type"), full.get("dbType"))
+        self.assertEqual(conveyor.get("db_host"), full.get("dbHost"))
+        self.assertEqual(conveyor.get("db_port"), full.get("dbPort"))
+        self.assertEqual(conveyor.get("db_cross_port"), full.get("dbCrossPort"))
+        self.assertEqual(conveyor.get("uri_scheme"), full.get("uriScheme"))
+        self.assertEqual(conveyor.get("port"), full.get("port"))
+        self.assertEqual(conveyor.get("seed_host"), full.get("seedHost"))
+
     def test_get_conveyor_count(self):
         self.assertEqual(
             self.__module.get_conveyor_count(),

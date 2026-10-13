@@ -24,7 +24,8 @@
 - `UpdateSiem` (PUT `/siems/{id}`) и `UpdateSiemAgents`
   (PUT `/siems/{id}/agents`) на R28.0 отвечают 403 (пустое тело) и под PAT,
   и под Local Administrator — эндпоинт закрыт на стороне ядра, кейсы
-  скипаются.
+  скипаются. `UpdateSiemInfo` (PUT `/siems/{id}/info`) и `MakeSiemPrimary`
+  (POST `/siems/{id}/make_primary`) живы — 204 под PAT.
 - Write-кейсы идемпотентны: отправляют текущие значения основного конвейера
   (register/info/agents/make_primary), стенд не меняется; удаление не
   проверяется на реальном конвейере (только негативный кейс на несуществующем
