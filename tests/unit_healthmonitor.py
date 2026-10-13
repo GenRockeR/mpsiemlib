@@ -10,7 +10,7 @@ from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
 
 
-class KBTestCase(unittest.TestCase):
+class HealthMonitorTestCase(unittest.TestCase):
     __mpsiemworker = None
     __module = None
     __creds = creds_pat
@@ -192,7 +192,12 @@ class KBTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.__module.validate_health_agents_delete([])
 
-    @unittest.skip("Not implemented")
+    @unittest.skip(
+        "KB `GET :8091/api/v1/knowledgeBase` on R28.0 returns 404 even with a "
+        "KB session and Content-Database header (400 'Content Database is not "
+        "initialized' without it). Likely superseded by KB Studio API - "
+        "revisit after KnowledgeBase module review"
+    )
     def test_get_kb_status(self):
         ret = self.__module.get_health_kb_status()
 
