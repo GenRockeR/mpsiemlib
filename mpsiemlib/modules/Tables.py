@@ -25,6 +25,11 @@ class Tables(ModuleInterface, LoggingHandler):
     ``/api/events/v*/table_lists``), и с их белыми списками
     (``/api/whitelists/{tokenId}``, доступны с R27.0).
 
+    v2 (``Events.TableListsV2.Contracts.yaml``) - список списков, метаданные,
+    поиск и построчное изменение содержимого по ``token``. v1
+    (``Events.TableListsV1.Contracts.yaml``) - импорт/экспорт CSV, подсчет
+    записей и сессия редактирования по ``имени`` списка.
+
     MP SIEM 26.0+ : идентификатор списка для этих эндпоинтов - ``token`` из
     ``GET /api/events/v2/table_lists`` (не uuid объекта KB). Создание и
     правление самими списками - домен KB (``CoreApi.TabularLists.yaml``),
@@ -279,6 +284,215 @@ class Tables(ModuleInterface, LoggingHandler):
             f'msg="Data imported to table {table_name!r}", '
             f"hostname={self.__core_hostname!r}, siem_id={siem_id!r}, "
             f"lines={imported_records}"
+        )
+
+    def get_table_rows_count(
+        self,
+        table_name: str,
+        filters: dict[str, Any] | None = None,
+        siem_id: str | None = None,
+    ) -> int:
+        """Подсчитать записи табличного списка (контракт CalcCount,
+        ``POST /api/events/v1/table_lists/{name}/count``).
+
+        Имя списка (не token) - параметр пути v1 эндпоинта.
+
+        :param table_name: Имя таблицы
+        :param filters: ``TableListsExportFilter``: {select, where, timeZone}
+            (без orderBy); None - без фильтра. На R28.0 сервер возвращает
+            полный размер списка, игнорируя ``where``
+        :param siem_id: id конвейера (GUID); обязателен при нескольких
+            конвейерах в Core (см. ``set_default_conveyor``)
+        :return: Количество записей
+        """
+        params: dict[str, Any] = {"filter": filters if filters is not None else {}}
+        api_url = f"{self.__api_table_list_v1}/{table_name}/count"
+        url = f"https://{self.__core_hostname}{api_url}"
+        response: dict[str, Any] = exec_request(
+            self.__core_session,
+            url,
+            method="POST",
+            params=self.add_params(siem_id),
+            timeout=self.settings.connection_timeout,
+            json=params,
+        ).json()
+
+        if "count" not in response:
+            self.log.error(
+                f"status=failed, action=get_table_rows_count, "
+                f'msg="Count response has wrong structure", '
+                f"hostname={self.__core_hostname!r}, "
+                f"table={table_name!r}, siem_id={siem_id!r}"
+            )
+            raise RuntimeError(
+                f"Count of table {table_name!r} has wrong response structure"
+            )
+        count = int(response["count"])
+
+        self.log.info(
+            f"status=success, action=get_table_rows_count, "
+            f'msg="Counted rows of table {table_name!r}", '
+            f"hostname={self.__core_hostname!r}, siem_id={siem_id!r}, "
+            f"count={count}"
+        )
+        return count
+
+    def export_table(
+        self,
+        table_name: str,
+        filters: dict[str, Any] | None = None,
+        limit: int | None = None,
+        siem_id: str | None = None,
+    ) -> str:
+        """Экспортировать содержимое списка в CSV (контракт ExportTableList,
+        ``POST /api/events/v1/table_lists/{name}/export``).
+
+        :param table_name: Имя таблицы
+        :param filters: ``TableListsExportFilter``: {select, where, timeZone}.
+            Пустой/отсутствующий ``select`` - экспорт всех полей; None - все
+            поля без фильтра. Ключ ``filter`` отправляется всегда: без него
+            сервер отвечает 500 (замерено на R28.0)
+        :param limit: Ограничение количества строк, None - без ограничения
+        :param siem_id: id конвейера (GUID); обязателен при нескольких
+            конвейерах в Core (см. ``set_default_conveyor``)
+        :return: Текст CSV (с BOM, разделитель ``;``)
+        """
+        params: dict[str, Any] = {"filter": filters if filters is not None else {}}
+        if limit is not None:
+            params["limit"] = limit
+        api_url = f"{self.__api_table_list_v1}/{table_name}/export"
+        url = f"https://{self.__core_hostname}{api_url}"
+        response = exec_request(
+            self.__core_session,
+            url,
+            method="POST",
+            params=self.add_params(siem_id),
+            timeout=self.settings.connection_timeout,
+            json=params,
+        )
+
+        self.log.info(
+            f"status=success, action=export_table, "
+            f'msg="Exported table {table_name!r}", '
+            f"hostname={self.__core_hostname!r}, siem_id={siem_id!r}, "
+            f"limit={limit!r}"
+        )
+        return response.text
+
+    def export_table_by_ids(
+        self, table_name: str, row_ids: list[str], siem_id: str | None = None
+    ) -> str:
+        """Экспортировать строки списка по идентификаторам (контракт
+        ExportByIds, ``POST /api/events/v1/table_lists/{name}/export_by_ids``).
+
+        :param table_name: Имя таблицы
+        :param row_ids: Идентификаторы строк (``_id``)
+        :param siem_id: id конвейера (GUID); обязателен при нескольких
+            конвейерах в Core (см. ``set_default_conveyor``)
+        :return: Текст CSV (с BOM, разделитель ``;``); несуществующие id
+            молча пропускаются
+        """
+        api_url = f"{self.__api_table_list_v1}/{table_name}/export_by_ids"
+        url = f"https://{self.__core_hostname}{api_url}"
+        response = exec_request(
+            self.__core_session,
+            url,
+            method="POST",
+            params=self.add_params(siem_id),
+            timeout=self.settings.connection_timeout,
+            json=row_ids,
+        )
+
+        self.log.info(
+            f"status=success, action=export_table_by_ids, "
+            f'msg="Exported {len(row_ids)} rows of table {table_name!r}", '
+            f"hostname={self.__core_hostname!r}, siem_id={siem_id!r}"
+        )
+        return response.text
+
+    def get_table_session(
+        self, table_name: str, siem_id: str | None = None
+    ) -> dict[str, Any]:
+        """Проверить сессию редактирования списка (контракт GetSession,
+        ``GET /api/events/v1/table_lists/{name}/session``).
+
+        :param table_name: Имя таблицы
+        :param siem_id: id конвейера (GUID); обязателен при нескольких
+            конвейерах в Core (см. ``set_default_conveyor``)
+        :return: {result: none|active, created, stopActivity}
+        """
+        api_url = f"{self.__api_table_list_v1}/{table_name}/session"
+        url = f"https://{self.__core_hostname}{api_url}"
+        response: dict[str, Any] = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            params=self.add_params(siem_id),
+            timeout=self.settings.connection_timeout,
+        ).json()
+
+        self.log.info(
+            f"status=success, action=get_table_session, "
+            f'msg="Session of table {table_name!r}: {response.get("result")!r}", '
+            f"hostname={self.__core_hostname!r}, siem_id={siem_id!r}"
+        )
+        return response
+
+    def open_table_session(
+        self,
+        table_name: str,
+        stop_activity: bool = False,
+        siem_id: str | None = None,
+    ) -> None:
+        """Открыть сессию редактирования списка (контракт OpenSession,
+        ``POST /api/events/v1/table_lists/{name}/session``).
+
+        :param table_name: Имя таблицы
+        :param stop_activity: Остановить ли правила корреляции на время
+            редактирования
+        :param siem_id: id конвейера (GUID); обязателен при нескольких
+            конвейерах в Core (см. ``set_default_conveyor``)
+        """
+        api_url = f"{self.__api_table_list_v1}/{table_name}/session"
+        url = f"https://{self.__core_hostname}{api_url}"
+        exec_request(
+            self.__core_session,
+            url,
+            method="POST",
+            params=self.add_params(siem_id),
+            timeout=self.settings.connection_timeout,
+            json={"stopActivity": stop_activity},
+        )
+
+        self.log.info(
+            f"status=success, action=open_table_session, "
+            f'msg="Session of table {table_name!r} opened", '
+            f"hostname={self.__core_hostname!r}, siem_id={siem_id!r}, "
+            f"stop_activity={stop_activity}"
+        )
+
+    def close_table_session(self, table_name: str, siem_id: str | None = None) -> None:
+        """Закрыть сессию редактирования списка (контракт CloseSession,
+        ``DELETE /api/events/v1/table_lists/{name}/session``).
+
+        :param table_name: Имя таблицы
+        :param siem_id: id конвейера (GUID); обязателен при нескольких
+            конвейерах в Core (см. ``set_default_conveyor``)
+        """
+        api_url = f"{self.__api_table_list_v1}/{table_name}/session"
+        url = f"https://{self.__core_hostname}{api_url}"
+        exec_request(
+            self.__core_session,
+            url,
+            method="DELETE",
+            params=self.add_params(siem_id),
+            timeout=self.settings.connection_timeout,
+        )
+
+        self.log.info(
+            f"status=success, action=close_table_session, "
+            f'msg="Session of table {table_name!r} closed", '
+            f"hostname={self.__core_hostname!r}, siem_id={siem_id!r}"
         )
 
     def get_table_info(
