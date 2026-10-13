@@ -2,6 +2,7 @@ import unittest
 from random import choice
 from string import ascii_lowercase
 
+import requests
 from settings import creds_pat, settings
 
 from mpsiemlib.common import *
@@ -130,6 +131,71 @@ class FiltersTestCase(unittest.TestCase):
         self.assertIn("removed", info)
         # На ядрах 26.1+ get_filter_info идёт контрактом v3
         self.assertIn("pdqlQuery", info)
+
+    def test_get_filter_info_removed_requires_with_removed(self):
+        """Удалённый фильтр читается только с with_removed (измерено на R28.0).
+
+        Без признака сервер отвечает 400 FilterDoesNotExists.Error - это и есть
+        контрактное поведение, поэтому оно закреплено как негативный кейс.
+        """
+        filter_id, filter_name, _ = self._create_probe_filter()
+        self.__module.delete_event_filter(filter_id)
+
+        with self.assertRaises(requests.HTTPError):
+            self.__module.get_filter_info_v3(filter_id)
+
+        removed_v3 = self.__module.get_filter_info_v3(filter_id, with_removed=True)
+        self.assertEqual(removed_v3.get("name"), filter_name)
+        self.assertEqual(removed_v3.get("removed"), True)
+
+        # v2 контракт жив на R28.0 и ведёт себя так же
+        with self.assertRaises(requests.HTTPError):
+            self.__module.get_filter_info_v2(filter_id)
+        removed_v2 = self.__module.get_filter_info_v2(filter_id, with_removed=True)
+        self.assertEqual(removed_v2.get("removed"), True)
+        self.assertEqual(removed_v2.get("name"), filter_name)
+
+        # get_filter_info прокидывает with_removed в выбранный контракт
+        self.assertEqual(
+            self.__module.get_filter_info(filter_id, with_removed=True).get("removed"),
+            True,
+        )
+
+    # ------------------------------------------------------------------ #
+    # папки: иерархия для нотификаций
+    # ------------------------------------------------------------------ #
+    def test_get_folders_list_for_notifications(self):
+        """Отдельный контракт иерархии для подсистемы нотификаций.
+
+        На R28.0 срез тот же, что и у обычной иерархии (проверено на стенде),
+        поэтому сверяем структуру и совпадение набора id, но не права: они
+        зависят от роли токена.
+        """
+        folders = self.__module.get_folders_list_for_notifications()
+        self.assertTrue(isinstance(folders, dict) and len(folders) > 0)
+        for folder_id, folder in folders.items():
+            self.assertTrue(isinstance(folder_id, str) and len(folder_id) > 0)
+            self.assertIn("name", folder)
+            self.assertIn("source", folder)
+        self.assertTrue(
+            any(f.get("parent_id") is None for f in folders.values()),
+            "в иерархии нотификаций нет ни одной корневой папки",
+        )
+        self.assertEqual(
+            set(folders),
+            set(self.__module.get_folders_list()),
+            "набор папок в иерархии нотификаций отличается от основной",
+        )
+
+    def test_get_folders_list_for_notifications_does_not_touch_cache(self):
+        """Метод не должен подменять собой кэш основной иерархии."""
+        victim = next(iter(self.__module.get_folders_list()))
+        folders = self.__module.get_folders_list_for_notifications()
+        folders[victim] = {"parent_id": None, "name": "HACKED", "source": "user"}
+
+        self.assertNotEqual(
+            self.__module.get_folders_list().get(victim, {}).get("name"), "HACKED"
+        )
 
     # ------------------------------------------------------------------ #
     # папки: создание, чтение, изменение, удаление
