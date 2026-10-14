@@ -16,7 +16,6 @@ from .Interfaces import (
     LoggingHandler,
     MPComponents,
     Settings,
-    StorageVersion,
 )
 
 MAX_AUTH_FORM_ROUNDS = 10
@@ -30,6 +29,16 @@ _MP10_PRODUCT_NAME = "MaxPatrol 10"
 
 class AuthError(RuntimeError):
     """Базовое исключение для всех ошибок аутентификации/подключения."""
+
+
+class StorageNotSupportedError(AuthError):
+    """Хранилище событий недоступно библиотеке в данном окружении.
+
+    Производитель отказывается от Elasticsearch в пользу Logspace, поэтому
+    ядро библиотеки не знает, как определять версию и тип хранилища: чтение
+    событий из Elasticsearch - ответственность extra-модуля
+    `mpsiemlib[events]` (`mpsiemlib.modules.Events`).
+    """
 
 
 class MPSIEMAuth(AuthInterface, LoggingHandler):
@@ -47,6 +56,11 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
     __ms_port = 3334
     __api_ms_authorize = "/connect/authorize"
     __token_uri = "/connect/token"
+    # Выход cookie-сессии (LOCAL/LDAP): AccountV2.Logout. Реальное завершение
+    # серверной сессии делает второй_stage - GET /ui/logout?logoutId=...,
+    # поэтому logout выполняется с обходом редиректов (измерено на R28.0:
+    # без обхода 302 серверную сессию не гасит).
+    __api_ms_logout = "/ptms/api/sso/v2/account/logout"
 
     __api_core_auth_login_page = "/ui/login"
     __api_core_auth_form_page = "/account/login?returnUrl=/#/authorization/landing"
@@ -65,16 +79,12 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
     __siem_port = ""
     __api_siem_check_page = ""
 
-    __storage_port = 9200
-    __api_storage_check_page = "/_nodes"
-
     def __init__(self, creds: Creds, settings: Settings) -> None:
         AuthInterface.__init__(self, creds, settings)
         LoggingHandler.__init__(self)
         self.__session: requests.Session | None = None
         self.__is_connected = False
         self.__component = MPComponents.CORE
-        self.__storage_version: str | None = None
         self.__core_version: str | None = None
         self.__kb_version: str | None = None
         self.sessions: dict[str, requests.Session] | None = None
@@ -154,6 +164,8 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         Interfaces.Creds.
 
         :return: session
+        :raise StorageNotSupportedError: для `MPComponents.STORAGE` - хранилище
+            событий не является компонентом REST API ядра (см. модуль Events)
         """
         if creds is not None:
             self.creds = creds
@@ -167,7 +179,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         elif component == MPComponents.SIEM:
             self.__siem_try_connect()
         elif component == MPComponents.STORAGE:
-            self.__storage_try_connect()
+            raise self.__storage_unsupported()
         elif component == MPComponents.KB:
             self.__kb_try_connect()
         else:
@@ -180,13 +192,60 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         return self.__session
 
     def disconnect(self) -> None:
-        """Очистка сессии."""
-        # TODO logout in MP CORE
+        """Закрыть сессию.
 
+        Для cookie-сессий (LOCAL/LDAP) Core/MS сначала выполняется выход
+        (`POST /ptms/api/sso/v2/account/logout` с обходом редиректов до
+        `/ui/logout?logoutId=...`): он завершает серверную сессию IAM
+        (измерено на R28.0: после выхода API отвечает 401, повторный
+        `connect()` аутентифицируется заново). Для PAT/SECRET выход не
+        вызывается: Bearer-токен им не отзывается, а серверная cookie-сессия
+        при таких типах не создаётся.
+        """
         if self.__session is not None:
+            if (
+                self.__is_connected
+                and self.__auth_type in (AuthType.LOCAL, AuthType.LDAP)
+                and self.__component
+                in (MPComponents.CORE, MPComponents.MS, MPComponents.KB)
+            ):
+                self.__logout_ms_session()
             self.__session.close()
         self.__is_connected = False
         self.__session = None
+
+    def __logout_ms_session(self) -> None:
+        """Выполнить logout IAM для текущей cookie-сессии.
+
+        Ошибки выхода не должны срывать очистку сессии вызывающим кодом
+        (disconnect() вызывается и в finally), поэтому они только логируются.
+        """
+        if self.__session is None:
+            return
+        logout_url = (
+            f"https://{self.creds.core_hostname}:{self.__ms_port}{self.__api_ms_logout}"
+        )
+        try:
+            # allow_redirects=True обязателен: POST отдаёт 302 на
+            # /ui/logout?logoutId=..., и только этот GET завершает сессию
+            # (измерено на R28.0).
+            self.__session.request(
+                "POST",
+                logout_url,
+                timeout=self.settings.connection_timeout,
+                verify=False,
+                allow_redirects=True,
+            )
+            self.log.info(
+                f"hostname={self.creds.core_hostname!r}, status=success, "
+                f'action=logout, msg="MS session logged out"'
+            )
+        except RequestException as err:
+            self.log.warning(
+                f"hostname={self.creds.core_hostname!r}, status=failed, "
+                f"action=logout, msg={err!r}, "
+                f'msg="Session closed without server-side logout"'
+            )
 
     def get_session(self) -> requests.Session:
         if not self.__is_connected or self.__session is None:
@@ -204,7 +263,7 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
     def get_core_version(self) -> str:
         """Текущая версия Core.
 
-        :return: StorageVersion
+        :return: версия ядра (например `28.0.45355`)
         """
         if self.__core_version is None:
             self.connect(MPComponents.CORE)
@@ -212,21 +271,10 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
             raise AuthError("Core version is unknown")
         return self.__core_version
 
-    def get_storage_version(self) -> str:
-        """Текущая версия Storage.
-
-        :return: StorageVersion
-        """
-        if self.__storage_version is None:
-            self.connect(MPComponents.STORAGE)
-        if self.__storage_version is None:
-            raise AuthError("Storage version is unknown")
-        return self.__storage_version
-
     def get_kb_version(self) -> str:
         """Текущая версия PT KB.
 
-        :return: KBVersion
+        :return: версия KB (поле `CoreVersion` ответа `/api-studio/aboutSystem`)
         """
         if self.__kb_version is None:
             self.connect(MPComponents.KB)
@@ -450,13 +498,27 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
                     f'msg="Auth. Phase 2. Send creds."'
                 )
 
-                r = exec_request(
-                    self.__current_session(),
-                    login_url,
-                    timeout=self.settings.connection_timeout,
-                    method="POST",
-                    json=auth_params,
-                )
+                try:
+                    r = exec_request(
+                        self.__current_session(),
+                        login_url,
+                        timeout=self.settings.connection_timeout,
+                        method="POST",
+                        json=auth_params,
+                    )
+                except requests.HTTPError as err:
+                    # IAM отвечает 400 Platform.Iam.User.Login.Error как на
+                    # неверные креды, так и на отсутствующее LDAP-подключение
+                    # (измерено на R28.0). Поднимаем AuthError с сообщением
+                    # сервера: тип ошибки аутентификации, а не HTTP.
+                    message = self.__extract_login_error_message(err)
+                    self.log.error(
+                        f"hostname={self.creds.core_hostname!r}, url={login_url!r}, "
+                        f"status=failed, action=auth, msg={err!r}, "
+                        f"iam_message={message!r}"
+                    )
+                    raise AuthError(f"SIEM login failed: {message}") from err
+
                 if '"requiredPasswordChange":true' in r.text:
                     self.log.error(
                         f"hostname={self.creds.core_hostname!r}, url={login_url!r}, status=failed, "
@@ -535,6 +597,38 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
         return self.__session
 
     @staticmethod
+    def __extract_login_error_message(err: requests.HTTPError) -> str:
+        """Сообщение IAM из тела ответа входа.
+
+        Форма ответа: `{"message": "...", "errors": [{"error": {"message":
+        "...", "type": "Platform.Iam.User.Login.Error"}}]}`. Если тело не
+        распарсилось (не JSON или неизвестная форма), возвращается текст
+        ответа - он информативнее кода статуса.
+        """
+        response = err.response
+        if response is None:
+            return str(err)
+
+        try:
+            body: Any = response.json()
+        except ValueError:
+            return response.text or str(err)
+
+        if isinstance(body, dict):
+            errors = body.get("errors")
+            if isinstance(errors, list):
+                for item in errors:
+                    if isinstance(item, dict) and isinstance(item.get("error"), dict):
+                        message = item["error"].get("message")
+                        if message:
+                            return str(message)
+            message = body.get("message")
+            if message:
+                return str(message)
+
+        return response.text or str(err)
+
+    @staticmethod
     def __core_parse_form(data: str) -> tuple[str, dict[str, str]]:
         tree = lxml_html.fromstring(data)
         forms = tree.xpath("//form")
@@ -556,63 +650,25 @@ class MPSIEMAuth(AuthInterface, LoggingHandler):
     def __siem_try_connect(self) -> None:
         raise NotImplementedError()
 
-    def __storage_try_connect(self) -> None:
-        if self.creds.storage_hostname is None:
-            raise AuthError(
-                f"hostname={self.creds.storage_hostname!r}, status=failed, "
-                f'action=auth, msg="STORAGE hostname is empty"'
-            )
-        start_url = f"http://{self.creds.storage_hostname}:{self.__storage_port}{self.__api_storage_check_page}"
-        try:
-            r = exec_request(
-                self.__current_session(),
-                start_url,
-                timeout=self.settings.connection_timeout,
-                method="GET",
-            )
+    def __storage_unsupported(self) -> StorageNotSupportedError:
+        """Ошибка «storage недоступен ядру библиотеки».
 
-            self.log.debug(
-                f"hostname={self.creds.storage_hostname!r}, status=prepare, "
-                f'action=check_storage_version, msg="Try to check Storage version"'
-            )
-
-            es_info: dict[str, Any] = r.json()
-            if es_info.get("nodes") is None:
-                self.log.error(
-                    f"hostname={self.creds.storage_hostname!r}, status=failed, "
-                    f"action=check_storage_version, "
-                    f'msg="Unsupported node info json"'
-                )
-                raise AuthError("Unsupported node info json")
-
-            node = next(iter(es_info["nodes"].values()))
-            version = node["version"]
-
-            if version.startswith("7.17"):
-                self.__storage_version = StorageVersion.ES7_17
-            elif version.startswith("7."):
-                self.__storage_version = StorageVersion.ES7
-            else:
-                self.log.error(
-                    f"hostname={self.creds.storage_hostname!r}, status=failed, "
-                    f"action=check_storage_version, "
-                    f'msg="Storage version found, but not supported"'
-                )
-                raise AuthError("Storage version found, but not supported")
-        except RequestException as rex:
-            self.log.error(
-                f"hostname={self.creds.storage_hostname!r}, status=failed, "
-                f"action=auth, msg={rex!r}"
-            )
-            raise
-
-        self.__is_connected = True
-        self.log.info(
-            f"hostname={self.creds.storage_hostname!r}, status=success, "
-            f"action=check_storage_version, version={self.__storage_version!r}"
+        Хранилище событий не является REST API ядра: ранее определялось
+        прямым `GET {storage}:9200/_nodes`, что работало только пока
+        хранилище - Elasticsearch. Производитель переводит storage на
+        Logspace, поэтому ES-зонд из ядра библиотеки удалён, а чтение
+        событий осталось в extra-модуле `mpsiemlib[events]`.
+        """
+        message = (
+            "storage is not a Core REST API component: read events via the "
+            "mpsiemlib[events] extra (mpsiemlib.modules.Events)"
         )
-        self.log.info(
-            f"hostname={self.creds.storage_hostname!r}, status=success, action=auth"
+        self.log.error(
+            f"hostname={self.creds.storage_hostname!r}, status=failed, "
+            f"action=auth, component={MPComponents.STORAGE!r}, msg={message!r}"
+        )
+        return StorageNotSupportedError(
+            f"hostname={self.creds.storage_hostname!r}, {message}"
         )
 
     def __kb_check_version(self) -> None:

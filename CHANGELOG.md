@@ -1,4 +1,20 @@
 =======
+# Unreleased
+- Elasticsearch окончательно вынесен из ядра библиотеки в extra
+  `mpsiemlib[events]` (производитель переводит storage на Logspace):
+  **breaking changes** в `MPSIEMAuth` - `connect(MPComponents.STORAGE)` и
+  `get_storage_version()` удалены, вместо ES-зонда (`GET :9200/_nodes`)
+  бросается `StorageNotSupportedError` (наследник `AuthError`); из
+  `StorageVersion` удалены `ES7`, `ES17`, `LS` (остались `ES7_17` и маркер
+  фильтров `ALL`)
+- Версию хранилища теперь определяет сам модуль Events (`info()` клиента) и
+  проверяет линейку 7.17.x; неподдерживаемое хранилище - `StorageNotSupportedError`
+  при создании модуля
+- `Events.get_events()` выгружает выборку целиком через point in time +
+  `search_after` (tie-breaker `_shard_doc`, закрытие PIT в finally) - вместо
+  ограничения в одну пачку `storage_batch_size`
+
+
 # v1.7.1
 - Переработан модуль Assets
 - `get_queries()` теперь возвращает список узлов дерева запросов

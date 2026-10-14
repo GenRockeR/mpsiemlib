@@ -17,6 +17,21 @@
 - Все тесты используют локальную учетную запись. Сменить поведение можно в tests/settings.py
 - Далеко не все тесты имеют строгие проверки возвращаемых данных.
 
+## MPSIEMAuth (unit_worker)
+- `AuthMethodsTestCase` проверяет все типы аутентификации на реальном стенде:
+  PAT (токен из кредов, CORE/KB), SECRET (`:3334/connect/token`), LOCAL
+  (cookie-вход через UI-form), версия ядра (`system_info` на R28.0 отвечает
+  500 - версия добирается fallback'ом licensing v1).
+- `disconnect()` под LOCAL/LDAP гасит серверную cookie-сессию IAM
+  (`POST /ptms/api/sso/v2/account/logout` + обход 302 на `/ui/logout`); после
+  него probe-запрос отвечает 401. Кейс логинится изолированным `MPSIEMAuth`,
+  поэтому общие PAT-сессии других классов не затрагиваются. Под PAT/SECRET
+  выход не вызывается (Bearer не отзывается).
+- Неверные креды и отсутствующее LDAP-подключение - оба `400
+  Platform.Iam.User.Login.Error` - оборачиваются в `AuthError` с сообщением
+  IAM. LDAP-кейсы скипаются (LDAP на стенде нет), STORAGE-кейсы скипаются
+  (storage - Logspace, ES `:9200` закрыт).
+
 ## Conveyor
 - SiemManager API (`/api/siem_manager/v1/siems*`) на R28.0 требует токен с
   правами на чтение реестра SIEM: без прав GET отвечает 401 (падает весь
@@ -32,7 +47,19 @@
   id — 400 SM.SiemNotFound.Error, как в контракте).
 
 ## Events
-- Для выборки событий используют интервал в 60 сек, для группировки в 3600 сек. Если у вас нет событий в этом интервале, тесты провалятся.
+- Storage на стендах — Logspace, порт Elasticsearch `:9200` закрыт, поэтому
+  `unit_events.py` — мок-тесты (`unittest.mock` вместо `elasticsearch`-клиента):
+  тело ES-запроса, расчёт индексов (`siem_events_*`) и data stream
+  (`siem_events`), разбор агрегаций, пустые ответы и `index_not_found_exception`.
+  Сетевых запросов нет, прогон не требует стенда:
+  `PYTHONPATH=.. python -m unittest -v unit_events` (нужен extras `events`:
+  `poetry install --extras events`).
+- Кейсы проверяют контракт поведения модуля: пустой результат группировки —
+  одна строка-схема с `count=0`; `get_events` выгружает выборку целиком
+  пачками по `storage_batch_size` через point in time + `search_after`
+  (tie-breaker `_shard_doc`, PIT закрывается в `finally` и при досрочном
+  выходе из генератора); ошибки шардов (`root_cause`) дают пустой результат
+  с log.error.
 
 ## EventsAPI
 - `get_event_raw` закрыт version-gate: на R28.0 `GET /api/events/v2/events/{id}/raw`
