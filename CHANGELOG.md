@@ -116,6 +116,71 @@
   (`copy_task`) и на вновь созданных учётках/справочниках/профилях, все
   created-объекты убираются в `tearDownClass`; `test_create_delete` переведён
   на skip вместо падения при отсутствии агента/SysLog-профиля
+- Модуль `Incidents` дополнен read-доменом (22 новых метода): статистика
+  `IncidentStatistics.yaml` - `get_incidents_status_statistics`,
+  `get_created_incidents_distribution`, `get_closed_incidents_distribution`,
+  `get_open_incidents_distribution`; read-model задач и коллекций -
+  `get_incident_task_by_id`, `get_incident_issue_by_id`, `get_incident_issues`,
+  `get_incident_events_by_id`, `get_deleted_incident_ids`; синхронизация и
+  публичный id - `get_sync_incidents_short_info`, `get_incident_version`,
+  `get_public_incident_id`; фильтры и папки `IncidentFilter.yaml` /
+  `IncidentFilterFolder.yaml` - `get_incident_filter`,
+  `get_default_incident_filter`, `get_incident_filter_public`,
+  `get_default_incident_filter_public`, `get_incident_filters_by_ids`,
+  `validate_incident_filter`, `get_incident_filters_hierarchy`,
+  `get_incident_filter_folder`, `get_incident_filter_folders_in_folder`,
+  `get_incident_filters_in_folder`
+- Модуль `Incidents` дополнен write-доменом (20 методов) - реализованы все
+  маршруты контрактов `Incidents.yaml` и `IncidentsExport.yaml`, а также
+  запись фильтров/папок:
+  - инциденты: `create_incident`, `update_incident`, `change_incident_status`,
+    `change_incident_measures`, `update_incident_groups`, `link_incident_events`,
+    `unlink_incident_event`, `unlink_incident_asset`, `delete_incidents`,
+    `delete_incidents_by_filter`
+  - задачи: `add_incident_task`, `update_incident_task`
+  - экспорт: `export_incidents_by_ids`, `export_incidents_by_filter`
+  - фильтры: `create_incident_filter`, `update_incident_filter`,
+    `delete_incident_filter`
+  - папки фильтров: `create_incident_filter_folder`,
+    `update_incident_filter_folder`, `delete_incident_filter_folder`
+  Не реализовано осознанно (замерено на R28.0): MPX-ветка
+  `IncidentManagement.yaml` / `IncidentReadModel.yaml`
+  (`/api/incident_management/v1`, `/api/incident_read_model/v1` - архив,
+  комментарии, файлы, вердикт, назначенный, связи parent/child),
+  `IncidentAssignees.yaml`, `IncidentSource.yaml`, импорт сессиями
+  (`IncidentImportSession.yaml`), триггеры `IncidentsTriggers*Contracts.yaml` и
+  `GET /api/sync/incidents/{incidentId}/domainevent` - все отвечают `404`
+  (маршруты ядром не подняты); публичные `IncidentsPublic.yaml`
+  (`GET /api/v1/external_incident_ids?publicId=`) и `PublicIncidents.yaml`
+  (`/api/public/v1/incidents`, `incidents_bundle*`) живы, но в модуль не
+  берутся, MPX-словари `/api/incidents/dictionaries/*` дублируют контрактные
+  справочники
+- `update_incident_task()` работает как read-modify-write: `PUT /api/issues/{id}`
+  на R28.0 отклоняет частичное тело (500 internal.error), поэтому текущее
+  состояние задачи читается через read-model и перезаписываются только
+  переданные поля
+- Исправлен маппинг `get_incident_tasks()`: read-model `TaskDto` отдаёт
+  `taskId`/`innerIncident.incidentId`, а не `id`/`incident.id` — раньше поля
+  `id` и `incident_id` всегда были пустыми
+- Замеренные особенности контрактов инцидентов на R28.0 (учтены в докстрингах):
+  приватный `GET /api/v1/incidents/filters/default` отвечает
+  `500 internal.error` (`source: Unkown`) - рабочим является публичный
+  `/api/incident_filters/default`; неизвестная задача read-model - `200` с
+  пустым телом (не `404`), поэтому метод бросает `ValueError`; несуществующая
+  папка фильтров - `500`, повторное удаление фильтра - `500`, недопустимый
+  статус/переход инцидента и отвязка несвязанного события - `500`/`400`;
+  `create_incident_filter`/`add_incident_task` требуют поля, которые контракт
+  объявляет необязательными (`name`/`select`/`where`, `name`/`type`);
+  пустая выборка `delete_by_filter` - `400`; `get_deleted_incident_ids`
+  на стенде с непрогнанным read-model включает живые инциденты; удаление папки
+  фильтров каскадно (но read-model удалённых фильтров устаревает); запись
+  фильтров разрешена только в пользовательскую ветку (в системную - 403)
+- `unit_incidents` расширен до 76 кейсов: read-model, справочники, статистика
+  по всем гранулярностям, фильтры/папки (в т.ч. каскадное удаление и негативы
+  по системным папкам), полный write-цикл инцидента и задачи, экспорт;
+  write-кейсы создаются прогоном и убираются в `tearDownClass` (инциденты - по
+  одному, т.к. пакетное удаление на R28.0 теряет часть ID), факт удаления
+  сверяется по экспорту
 
 
 # v1.7.1
