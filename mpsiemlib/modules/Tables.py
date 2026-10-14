@@ -16,6 +16,7 @@ from mpsiemlib.common import (
 )
 
 from .Conveyor import Conveyor
+from .KnowledgeBase import KnowledgeBase
 
 
 class Tables(ModuleInterface, LoggingHandler):
@@ -23,7 +24,7 @@ class Tables(ModuleInterface, LoggingHandler):
 
     Работа с табличными списками, установленными в SIEM (сторона Core,
     ``/api/events/v*/table_lists``), и с их белыми списками
-    (``/api/whitelists/{tokenId}``, доступны с R27.0).
+    (``/api/whitelists/{tokenId}`` / ``/app/kb/api/whitelists/{tokenId}``).
 
     v2 (``Events.TableListsV2.Contracts.yaml``) - список списков, метаданные,
     поиск и построчное изменение содержимого по ``token``. v1
@@ -40,7 +41,12 @@ class Tables(ModuleInterface, LoggingHandler):
 
     __api_table_list = "/api/events/v2/table_lists"
     __api_table_list_v1 = "/api/events/v1/table_lists"
+    # Контракт R27.0 (CoreApi.Whitelists.yaml): ядро отдаёт по нему 404 с R28.0
     __api_whitelist = "/api/whitelists"
+    # MP10-домен (AngularJS UI), живёт и на R28.0: требует заголовок
+    # Content-Database, суффикс пути регистронезависим
+    __api_whitelist_mpx = "/app/kb/api/whitelists"
+    __content_locale = "RUS"
 
     # Типы списков, строки которых можно менять построчно через content PUT
     __ROW_EDITABLE_TYPES = ("correlationrule", "enrichmentrule")
@@ -69,6 +75,9 @@ class Tables(ModuleInterface, LoggingHandler):
         # Разрешение siem_id (конвейеры): при одном конвейере параметр не
         # передаётся, при нескольких - обязателен (см. Conveyor.resolve_siem_id)
         self.__conveyor = Conveyor(auth, settings)
+        # Имя БД контента для R28+ (заголовок Content-Database), резолвится
+        # лениво - см. __resolve_db_name
+        self.__db_name: str | None = None
         self.log.debug('status=success, action=prepare, msg="Table Module init"')
 
     # ------------------------------------------------------------------ #
@@ -764,32 +773,105 @@ class Tables(ModuleInterface, LoggingHandler):
                 f"({action}); R27.0+ required"
             )
 
-    def can_edit_whitelist(self, table_name: str, siem_id: str | None = None) -> bool:
+    def __resolve_db_name(self, db_name: str | None) -> str:
+        """Имя БД контента для заголовка ``Content-Database`` (нужен R28+).
+
+        MP10-домен (``/app/kb/api/...``) работает в контексте БД контента и
+        без заголовка отвечает ``400 Content Database is not initialized``,
+        поэтому имя обязательно. По умолчанию берется первая deployable БД -
+        так же, как это делает ``KnowledgeBase.__resolve_db_name`` (имя
+        кэшируется на экземпляр модуля).
+
+        :param db_name: Явное имя БД; None - первая deployable
+        :raises ValueError: если deployable БД на стенде нет и имя не указано
+        """
+        if db_name is not None:
+            return db_name
+        resolved = self.__db_name
+        if resolved is None:
+            # KB-сессия поднимается лениво внутри KnowledgeBase
+            resolved = KnowledgeBase(self.auth, self.settings).get_deployable_db_name()
+            self.__db_name = resolved
+        return resolved
+
+    def __whitelist_request(
+        self,
+        method: str,
+        table_id: str,
+        suffix: str,
+        db_name: str | None,
+        **kwargs: Any,
+    ) -> requests.Response:
+        """Запрос к whitelist-эндпоинту с выбором ветки по версии ядра.
+
+        R27.x - контракт ``CoreApi.Whitelists.yaml``
+        (``/api/whitelists/{tokenId}``). На R28.0 эти маршруты ядра удалены
+        (``404`` с пустым телом для любых token), функциональность осталась
+        только в MP10-домене (``/app/kb/api/whitelists/{tokenId}``). Суффиксы
+        MP10-маршрута регистронезависимы (замерено: ``canedit``/``canEdit``/
+        ``CanEdit`` - все 200), поэтому контрактное написание ``canEdit``
+        сохраняется и для обеих веток.
+
+        :return: Response
+        """
+        if self.__core_release >= (28, 0):
+            resolved_db = self.__resolve_db_name(db_name)
+            url = (
+                f"https://{self.__core_hostname}"
+                f"{self.__api_whitelist_mpx}/{table_id}/{suffix.lower()}"
+            )
+            headers = {
+                "Content-Database": resolved_db,
+                "Content-Locale": self.__content_locale,
+            }
+            target = "mpx"
+        else:
+            url = f"https://{self.__core_hostname}{self.__api_whitelist}/{table_id}/{suffix}"
+            headers = {}
+            target = "core"
+
+        self.log.debug(
+            f"status=prepare, action=whitelist_request, target={target!r}, "
+            f"method={method!r}, url={url!r}"
+        )
+        return exec_request(
+            self.__core_session,
+            url,
+            method=method,
+            headers=headers,
+            timeout=self.settings.connection_timeout,
+            **kwargs,
+        )
+
+    def can_edit_whitelist(
+        self, table_name: str, siem_id: str | None = None, db_name: str | None = None
+    ) -> bool:
         """Можно ли редактировать белый список (контракт CanEdit).
 
         Core отвечает ``204/200`` для списков-белых списков и ``404`` для
-        прочих табличных списков.
+        прочих табличных списков. На R28.0 ``404`` означает и «не белый
+        список» (``SiemDeployErrors.CannotResolveObjectId``), и прочие
+        ошибки, поэтому из HTTP-ошибок в ``False`` трактуется только ``404``;
+        остальные поднимаются (иначе ошибка конфигурации выглядела бы как
+        «не редактируется»).
 
         :param table_name: Имя таблицы
         :param siem_id: id конвейера (GUID) для резолвинга token списка;
             обязателен при нескольких конвейерах (см.
             ``set_default_conveyor``)
+        :param db_name: Имя БД контента (заголовок ``Content-Database``,
+            R28+); None - первая deployable БД
         :return: True если список доступен для редактирования
         """
         self.__check_whitelist_supported("can_edit_whitelist")
         table_id = self.get_table_id_by_name(table_name, siem_id)
-        api_url = f"{self.__api_whitelist}/{table_id}/canEdit"
-        url = f"https://{self.__core_hostname}{api_url}"
         try:
-            exec_request(
-                self.__core_session,
-                url,
-                method="GET",
-                timeout=self.settings.connection_timeout,
-            )
-        except requests.HTTPError:
-            # 404/4xx => список не является редактируемым белым списком
-            # (сетевые ошибки не глушим: они не про права/тип списка)
+            self.__whitelist_request("GET", table_id, "canEdit", db_name)
+        except requests.HTTPError as err:
+            status = err.response.status_code if err.response is not None else None
+            if status != 404:
+                # 400 (БД не найдена) / 401 / 5xx - не про тип списка
+                raise
             self.log.info(
                 f"status=success, action=can_edit_whitelist, "
                 f'msg="Whitelist {table_name!r} is not editable", '
@@ -809,59 +891,62 @@ class Tables(ModuleInterface, LoggingHandler):
         table_name: str,
         rows: list[list[str]],
         siem_id: str | None = None,
+        db_name: str | None = None,
     ) -> list[bool]:
         """Проверить нахождение строк в белом списке (контракт IsRowExists).
+
+        На R28.0 MP10-домен отвечает ``201`` (в контракте R27 - ``200``), тело
+        то же. Несоответствие схемы строк полям справочника - ``404
+        RegistryTabularListErrors.FieldChangedOrNotFound`` (поднимается).
 
         :param table_name: Имя таблицы
         :param rows: [["Subrule_Unix_PortForwarding", "445", "alert_context"], ...]
         :param siem_id: id конвейера (GUID) для резолвинга token списка;
             обязателен при нескольких конвейерах (см.
             ``set_default_conveyor``)
+        :param db_name: Имя БД контента (заголовок ``Content-Database``,
+            R28+); None - первая deployable БД
         :return: список булев по каждой строке
         """
         self.__check_whitelist_supported("whitelist_rows_exists")
         table_id = self.get_table_id_by_name(table_name, siem_id)
-        api_url = f"{self.__api_whitelist}/{table_id}/exists"
-        url = f"https://{self.__core_hostname}{api_url}"
-        response: list[bool] = exec_request(
-            self.__core_session,
-            url,
-            method="POST",
-            timeout=self.settings.connection_timeout,
-            json=rows,
-        ).json()
+        response = self.__whitelist_request(
+            "POST", table_id, "exists", db_name, json=rows
+        )
+        result: list[bool] = response.json()
         self.log.info(
             f"status=success, action=whitelist_rows_exists, "
             f'msg="Checked {len(rows)} rows in {table_name!r}", '
             f"hostname={self.__core_hostname!r}"
         )
-        return response
+        return result
 
     def insert_whitelist_rows(
-        self, table_name: str, row: list[str], siem_id: str | None = None
+        self,
+        table_name: str,
+        row: list[str],
+        siem_id: str | None = None,
+        db_name: str | None = None,
     ) -> str:
         """Вставить одну строку в белый список (контракт InsertRow).
 
         Контракт ожидает плоский массив значений строки
-        (``["col1", "col2", ...]``), а не список строк.
+        (``["col1", "col2", ...]``), а не список строк. R28.0 отвечает ``201``
+        (в контракте R27 - ``204``).
 
         :param table_name: Имя таблицы
         :param row: Значения строки по порядку её полей
         :param siem_id: id конвейера (GUID) для резолвинга token списка;
             обязателен при нескольких конвейерах (см.
             ``set_default_conveyor``)
+        :param db_name: Имя БД контента (заголовок ``Content-Database``,
+            R28+); None - первая deployable БД
         :return: Текст ответа
         """
         self.__check_whitelist_supported("insert_whitelist_rows")
         table_id = self.get_table_id_by_name(table_name, siem_id)
-        api_url = f"{self.__api_whitelist}/{table_id}/insert"
-        url = f"https://{self.__core_hostname}{api_url}"
-        response = exec_request(
-            self.__core_session,
-            url,
-            method="POST",
-            timeout=self.settings.connection_timeout,
-            json=row,
+        response = self.__whitelist_request(
+            "POST", table_id, "insert", db_name, json=row
         )
         self.log.info(
             f"status=success, action=insert_whitelist_rows, "
@@ -871,34 +956,75 @@ class Tables(ModuleInterface, LoggingHandler):
         return response.text
 
     def remove_whitelist_rows(
-        self, table_name: str, row: list[str], siem_id: str | None = None
+        self,
+        table_name: str,
+        row: list[str],
+        siem_id: str | None = None,
+        db_name: str | None = None,
     ) -> str:
         """Удалить одну строку из белого списка (контракт RemoveRow).
+
+        На R28.0 MP10-домен отвечает ``500 InternalServerError`` в момент
+        *успешного* удаления существующей строки (замерено на 28.0.45355:
+        удаление отсутствующей строки - ``201``; после ``500`` строка в
+        списке отсутствует). Поэтому на этой ветке ``500`` не трактуется как
+        отказ: факт удаления проверяется запросом ``exists``, и только если
+        строка осталась в списке - поднимается ``RuntimeError``. На R27.x
+        контракт строгий (``204``), ``500`` поднимается как есть.
 
         :param table_name: Имя таблицы
         :param row: Значения удаляемой строки по порядку её полей
         :param siem_id: id конвейера (GUID) для резолвинга token списка;
             обязателен при нескольких конвейерах (см.
             ``set_default_conveyor``)
-        :return: Текст ответа
+        :param db_name: Имя БД контента (заголовок ``Content-Database``,
+            R28+); None - первая deployable БД
+        :return: Текст ответа (на R28+ - пустая строка и для ``201``, и для
+            ``500`` с подтверждённым удалением: тело 500 описывает ошибку
+            сервера, а не результат, и только логируется)
+        :raises RuntimeError: строка осталась в списке (R28+, при ``500``)
         """
         self.__check_whitelist_supported("remove_whitelist_rows")
         table_id = self.get_table_id_by_name(table_name, siem_id)
-        api_url = f"{self.__api_whitelist}/{table_id}/remove"
-        url = f"https://{self.__core_hostname}{api_url}"
-        response = exec_request(
-            self.__core_session,
-            url,
-            method="POST",
-            timeout=self.settings.connection_timeout,
-            json=row,
-        )
+        tolerant_500 = self.__core_release >= (28, 0)
+        try:
+            response = self.__whitelist_request(
+                "POST", table_id, "remove", db_name, json=row
+            )
+            text = response.text
+        except requests.HTTPError as err:
+            status = err.response.status_code if err.response is not None else None
+            if status != 500 or not tolerant_500:
+                raise
+            # R28: сервер отдаёт 500 уже после применения удаления
+            removed = not self.whitelist_rows_exists(
+                table_name, [row], siem_id, db_name
+            )[0]
+            if not removed:
+                self.log.error(
+                    f"status=failed, action=remove_whitelist_rows, "
+                    f'msg="Row is still present in {table_name!r} after 500", '
+                    f"hostname={self.__core_hostname!r}"
+                )
+                raise RuntimeError(
+                    f"Row removal from whitelist {table_name!r} failed: "
+                    f"storage returned 500 and the row is still present"
+                )
+            self.log.warning(
+                f"status=warning, action=remove_whitelist_rows, "
+                f'msg="Whitelist {table_name!r} return 500 but row removed", '
+                f"hostname={self.__core_hostname!r}"
+            )
+            # тело 500 - текст об ошибке сервера, а не результат: наружу отдаём
+            # пустую строку, как R27-ветка (204 No Content)
+            return ""
+
         self.log.info(
             f"status=success, action=remove_whitelist_rows, "
             f'msg="Removed row from {table_name!r}", '
             f"hostname={self.__core_hostname!r}"
         )
-        return response.text
+        return text
 
     def close(self) -> None:
         if self.__core_session is not None:

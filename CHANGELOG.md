@@ -13,6 +13,18 @@
 - `Events.get_events()` выгружает выборку целиком через point in time +
   `search_after` (tie-breaker `_shard_doc`, закрытие PIT в finally) - вместо
   ограничения в одну пачку `storage_batch_size`
+- Whitelist-методы `Tables` стали версионно-адаптивными: на R28.0 маршруты
+  ядра `/api/whitelists/{tokenId}` (контракт R27.0) удалены (404 для любых
+  token), поэтому с R28.0+ запросы идут в MP10-домен
+  `/app/kb/api/whitelists/{tokenId}` с заголовком   `Content-Database`; имя БД резолвится лениво (первая deployable БД KB) и
+  переопределяется параметром
+  `db_name` во всех четырёх методах
+- `Tables.remove_whitelist_rows()` на R28.0 сверяет удаление через `exists`:
+  сервер отвечает `500 InternalServerError` уже после применения удаления,
+  `RuntimeError` бросается только если строка осталась в списке
+- `MP_TEST_TABLE` по умолчанию - `test_tl_r272` (на стендах R28 такого списка
+  нет, пишущие тесты скипаются); whitelist-кейсы `unit_tables` теперь покрывают
+  round-trip insert/exists/remove и негативные сценарии
 
 
 # v1.7.1

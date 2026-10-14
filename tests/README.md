@@ -84,10 +84,18 @@
 - Пишущие тесты (import/set_table_row/truncate) работают с табличным списком из
   MP_TEST_TABLE (по умолчанию `test_tl_r272`). Такой список нужно создать в KB
   и установить на конвейер (создание списков — домен KB, не модуля Tables);
-  без него эти тесты скипаются.
+  без него эти тесты скипаются. На R28.0-стенде такого списка нет — тесты
+  скипаются, есть `test_AD_hosts_lab_local` (`enrichmentRule`).
 - Читающие тесты сами выбирают первый непустой список из установленных.
-- Whitelist-тест скипаётся, если на стенде недоступен `/api/whitelists`
-  (на R28.0 отвечает 404 для любых token).
+- Whitelist-тесты скипаются, если среди установленных списков не найден
+  отвечающий `canEdit` (см. `__pick_whitelist_table`). На R28.0 whitelist API
+  ядра `/api/whitelists/{token}` удалён (404 для любых token), работает
+  MP10-домен `/app/kb/api/whitelists/{token}` с обязательным `Content-Database`
+  (модуль резолвит первую deployable БД KB).
+- `test_whitelist_insert_exists_remove` делает round-trip на найденном `_WL`
+  (пишет в контентный справочник PTKB!) и убирает probe-строку cleanup'ом. На
+  R28.0 `remove` существующей строки отвечает 500, уже применив удаление, —
+  кейс это и фиксирует. Арity строки = поля списка без `_id`/`_last_changed`.
 
 ## Macros
 - Модуль работает через KB Studio API (`/api-studio/siem/macros*`, порт 8091):

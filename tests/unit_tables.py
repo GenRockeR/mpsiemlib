@@ -23,8 +23,10 @@ class TablesTestCase(unittest.TestCase):
     вручную и устанавливается на конвейер - создание списков лежит в домене
     KB, не модуля Tables. Нет подходящего списка - тесты скипаются.
 
-    Whitelist-тесты скипаются, если на стенде недоступен сервис
-    /api/whitelists (на R28.0 отвечает 404 для всех token).
+    Whitelist-тесты скипаются, если на стенде не найден ни один список,
+    отвечающий canEdit (см. __pick_whitelist_table). На R28.0 whitelist API
+    ядра (/api/whitelists) удалён, работает MP10-домен
+    /app/kb/api/whitelists/{token} - модуль выбирает ветку сам.
     """
 
     __mpsiemworker = None
@@ -329,13 +331,76 @@ class TablesTestCase(unittest.TestCase):
 
     def test_whitelist_rows_exists(self):
         table = self.__pick_whitelist_table()
-        columns = [
-            f.get("name")
-            for f in (self.__module.get_table_info(table).get("fields") or [])
-        ]
+        columns = self.__whitelist_key_columns(table)
         rows = [["*"] * len(columns)]
         ret = self.__module.whitelist_rows_exists(table_name=table, rows=rows)
         self.assertEqual(len(ret), len(rows))
+
+    def test_whitelist_insert_exists_remove(self):
+        """Round-trip вставки/проверки/удаления строки белого списка.
+
+        На R28.0 MP10-домен отвечает на remove существующей строки 500, уже
+        применив удаление, - метод сверяется с exists и не должен падать.
+        """
+        table = self.__pick_whitelist_table()
+        columns = self.__whitelist_key_columns(table)
+        row = [f"mps-iemlib-probe-{i}" for i in range(len(columns))]
+
+        self.assertFalse(self.__module.whitelist_rows_exists(table, [row])[0])
+
+        self.__module.insert_whitelist_rows(table, row)
+        self.addCleanup(self.__safe_remove, table, row)
+        self.assertTrue(self.__module.whitelist_rows_exists(table, [row])[0])
+
+        self.__module.remove_whitelist_rows(table, row)
+        self.assertFalse(self.__module.whitelist_rows_exists(table, [row])[0])
+
+    def test_whitelist_remove_absent_row(self):
+        """Удаление отсутствующей строки не должно считаться ошибкой."""
+        table = self.__pick_whitelist_table()
+        columns = self.__whitelist_key_columns(table)
+        row = [f"mps-iemlib-absent-{i}" for i in range(len(columns))]
+        self.__module.remove_whitelist_rows(table, row)
+        self.assertFalse(self.__module.whitelist_rows_exists(table, [row])[0])
+
+    def test_whitelist_rows_exists_wrong_columns(self):
+        """Недостаточно колонок в строке - 404 FieldChangedOrNotFound."""
+        table = self.__pick_whitelist_table()
+        columns = self.__whitelist_key_columns(table)
+        with self.assertRaises(requests.HTTPError) as ctx:
+            self.__module.whitelist_rows_exists(table, [["*"] * (len(columns) - 1)])
+        self.assertEqual(ctx.exception.response.status_code, 404)
+
+    def test_whitelist_not_editable_rule_table(self):
+        """Списки-правила (enrichment/correlation) белыми списками не являются."""
+        candidates = [
+            name
+            for name, entry in self.__tables.items()
+            if entry.get("type") in self.__ROW_EDITABLE_TYPES
+        ]
+        if not candidates:
+            self.skipTest("No rule-sourced table lists installed on stand")
+        self.assertFalse(self.__module.can_edit_whitelist(min(candidates)))
+
+    def __whitelist_key_columns(self, table_name: str) -> list[str]:
+        """Колонки, задающие строку белого списка.
+
+        MP10 требует минимум пользовательских полей без `_last_changed`
+        (замерено: 4 поля списка - достаточно 2 значений, 7 полей - минимум
+        5; на одном значении - 404 FieldChangedOrNotFound).
+        """
+        fields = [
+            f.get("name")
+            for f in (self.__module.get_table_info(table_name).get("fields") or [])
+        ]
+        return [name for name in fields if name not in ("_id", "_last_changed")]
+
+    def __safe_remove(self, table_name: str, row: list[str]) -> None:
+        """Cleanup: убрать probe-строку, не роняя тест если она уже удалена."""
+        try:
+            self.__module.remove_whitelist_rows(table_name, row)
+        except (requests.RequestException, RuntimeError) as err:
+            print(f"cleanup: whitelist row remove in {table_name!r} skipped: {err}")
 
     def __pick_whitelist_table(self) -> str:
         """Первый список, который Core считает редактируемым белым списком.
@@ -355,8 +420,9 @@ class TablesTestCase(unittest.TestCase):
                 return name
         self.skipTest(
             "No editable whitelist found among "
-            f"{len(candidates)} table lists probed: /api/whitelists/{{tokenId}} "
-            "unresponsive (on R28.0 answers 404 for any token)"
+            f"{len(candidates)} table lists probed: whitelist API "
+            "(R27 /api/whitelists/{tokenId}, R28 /app/kb/api/whitelists/{tokenId}) "
+            "answered 404 for every candidate"
         )
 
 
