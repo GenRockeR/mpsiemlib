@@ -25,6 +25,25 @@
 - `MP_TEST_TABLE` по умолчанию - `test_tl_r272` (на стендах R28 такого списка
   нет, пишущие тесты скипаются); whitelist-кейсы `unit_tables` теперь покрывают
   round-trip insert/exists/remove и негативные сценарии
+- Модуль `SourceMonitor` дополнен остальными 14 эндпоинтами `Monitoring.yaml`
+  (реализованы все 16 путей контракта): `get_assets_statistics`,
+  `get_forwarders_statistics`, `get_unidentified_sources`,
+  `get_unidentified_forwarders`, `get_asset_source_eps_graph`,
+  `get_forwarder_eps_graph`, `get_unidentified_source_eps_graph`,
+  `get_average_eps` и шесть экспортов в CSV (`export_assets`,
+  `export_assets_specified`, `export_forwarders`, `export_forwarders_specified`,
+  `export_unidentified_sources`, `export_unidentified_forwarders`). Экспорты
+  возвращают текст CSV со снятым UTF-8 BOM, имя файла из `Content-Disposition`
+  пишется в лог
+- Границы периода у `get_average_eps` и `get_unidentified_source_eps_graph`
+  принимаются в минутах от 00:00 UTC: сервер (R28.0) требует для среднего EPS
+  ISO 8601 duration строго меньше суток (`PT24H` → 400), а для графика
+  неидентифицированного источника - `HH:mm`; выходящие за сутки значения
+  отбиваются `ValueError` до запроса. Все v3-методы на ядрах 26.x бросают
+  `NotImplementedError` (v3 там отсутствует)
+- `unit_sourcemonitor` расширен до 28 кейсов: статистика, неидентифицированные
+  источники, графики EPS, средний EPS, все экспорт-ветки и негативы по
+  `stateFilter`/`assetSourceType`/границам периода
 
 
 # v1.7.1
