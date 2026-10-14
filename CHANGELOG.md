@@ -44,6 +44,78 @@
 - `unit_sourcemonitor` расширен до 28 кейсов: статистика, неидентифицированные
   источники, графики EPS, средний EPS, все экспорт-ветки и негативы по
   `stateFilter`/`assetSourceType`/границам периода
+- Модуль `Tasks` дополнен read-only эндпоинтами сканера (20 новых методов):
+  агенты `get_available_agents_list`, `get_agents_by_ids`,
+  `get_agent_module_capacity`; профили `get_profile_info`,
+  `get_profile_schemas`, `get_profile_schemas_localization`; учётные записи
+  `get_credential`, `get_credentials_tags`; задачи `get_tasks_count`,
+  `get_scope_tasks_count`, `get_tasks_bookmarks`, `validate_task`,
+  `get_task_info_v4`, `calc_next_run_time`; запуски `get_runs_list`,
+  `get_job_info`, `get_job_errors`, `get_run_agents`; справочники сканера
+  `get_dictionaries_list`, `get_dictionary`
+- Модуль `Tasks` дополнен write-доменом сканера (50 методов) - реализованы все
+  остальные маршруты контрактов `TaskSelections`, `TaskBulkOperations`,
+  `TaskReportDownload`, `Scans.Contracts`, а также CRUD профилей, учётных
+  записей (четыре типа + `PUT /api/v4/credentials/certificates/{id}`),
+  справочников, ёмкости модулей агента и удаления агентов:
+  - управления задачей: `suspend_task`, `clean_task_bookmarks`,
+    `clear_task_migration_errors`, `start_task_connection_check`,
+    `get_task_report`, `create_task_v4`, `edit_task_v4`,
+    `get_task_params_for_copy`, `copy_task`, `wait_task_status`,
+    `get_tasks_list_v4`
+  - выделения (обязательный аргумент bulk-операций): `create_task_selection`,
+    `edit_task_selection`, `get_task_selection`, `delete_task_selection`
+  - массовые операции: `start_tasks`, `stop_tasks`, `suspend_tasks`,
+    `delete_tasks`, `clean_tasks_bookmarks`, `start_tasks_connection_check`,
+    `update_tasks_schedule`, `compare_tasks_schedule`,
+    `get_bulk_operation_status`, `wait_bulk_operation`, `delete_bulk_operation`,
+    `get_tasks_groups`, `update_tasks_groups`
+  - агенты: `set_agent_module_capacity`, `delete_agent_module_capacity`,
+    `validate_agents_delete`, `delete_agents`, `get_agents_delete_status`
+  - профили: `create_profile`, `update_profile`, `delete_profile`,
+    `clear_profile_migration_errors`, `generate_pentest_profile`,
+    `validate_vulnerability_for_pentest`
+  - учётные записи: `create_credential`, `update_credential`,
+    `update_credential_v4`, `delete_credential`, `get_credential_type`,
+    `check_laps_provider_connection`
+  - справочники: `create_dictionary`, `update_dictionary`, `delete_dictionary`
+  - снимки результатов скана: `build_scan_snapshot`, `add_scan`
+  Write-методы сбрасывают кэши списка задач/профилей/справочников/учётных
+  записей/агентов. Не реализовано осознанно: `POST /api/v1/scanner_agents`
+  (404 на R28.0 - агенты ставятся вне API сканера), rest-чтение снимков
+  `Scans.Contracts` и справочник групп задач (GET-путей групп в контрактах
+  сканера нет)
+- Замеренные особенности write-контрактов на R28.0 (отличия от доков учтены в
+  докстрингах): `suspend` принимается только из `preparing`/`waiting`/
+  `running`/`finishing` (из `new` - 400 «Cannot suspend scanner task.»);
+  `POST /api/scanning/v4/scanner_tasks` требует тело (без него 415) и на
+  dev-стенде отвечает `totalCount=0`; `PUT task_selections` пустым списком -
+  400, count при этом не уменьшается; bulk-операции работают по `selectionId`,
+  `start_tasks`/`start_connection_check_tasks` остаются `inProgress` из-за
+  лицензии/очереди; `checkDeleteStatus` агентов сломан (всегда 400);
+  certificates принимают только base64 (PEM «как есть» -
+  `invalid.certificate.error`); `DELETE` справочника и учётной записи - 200/204
+  с пустым телом, дубль имени - 400; учётка, на которую ссылается LAPS, не
+  удаляется (`credential.dependency.error`); PUT ёмкости модуля агента
+  `module_id` не валидирует (неизвестный модуль - 204, GET/DELETE - 404);
+  `PUT /api/v1/scans/{scanId}`
+  валидирует `source` (`Scanner` - 400) и не имеет DELETE-маршрута;
+  pentest-эндпоинты на стенде отвечают 500/405
+- Исправлены дефекты кэширования `Tasks`: кэш `get_tasks_list()` и
+  `get_modules_list()` теперь ключуется фильтром (раньше второй вызов с
+  `main_filter`/`work_type` подменял полный набор отфильтрованным), кэш
+  `get_credentials_list()` - списком тэгов; кэш профилей не пополняется
+  отфильтрованной по модулю выборкой
+- `get_task_info()` больше не добавляет в ответ поля `parameters`: в контракте
+  v3 `ScannerTask` его нет (вместо него `overrides`/`triggerParameters`).
+  Для полей v4 (`agents`, `gen2Agents`, `output`, `connectionCheckSupported`)
+  добавлен `get_task_info_v4()`
+- `unit_tasks` расширен до 109 кейсов: справочники, пагинация, кэши и негативы
+  по кодам ответа сервера (неизвестный агент → 500, профиль/job → 400, задача
+  → 404, справочник → пустое тело); write-кейсы идут на копиях задач
+  (`copy_task`) и на вновь созданных учётках/справочниках/профилях, все
+  created-объекты убираются в `tearDownClass`; `test_create_delete` переведён
+  на skip вместо падения при отсутствии агента/SysLog-профиля
 
 
 # v1.7.1
