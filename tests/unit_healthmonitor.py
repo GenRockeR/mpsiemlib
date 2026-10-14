@@ -192,18 +192,27 @@ class HealthMonitorTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.__module.validate_health_agents_delete([])
 
-    @unittest.skip(
-        "KB `GET :8091/api/v1/knowledgeBase` on R28.0 returns 404 even with a "
-        "KB session and Content-Database header (400 'Content Database is not "
-        "initialized' without it). Likely superseded by KB Studio API - "
-        "revisit after KnowledgeBase module review"
-    )
     def test_get_kb_status(self):
         ret = self.__module.get_health_kb_status()
 
         print(json.dumps(ret, indent=4, ensure_ascii=False))
 
         self.assertGreater(len(ret), 0)
+        for key in (
+            "status",
+            "local_updated",
+            "local_current_revision",
+            "local_global_revision",
+            "kb_db_name",
+        ):
+            self.assertIn(key, ret)
+        if ret.get("local_current_revision") is not None:
+            self.assertIsInstance(ret["local_current_revision"], int)
+
+    def test_get_kb_status_unknown_db(self):
+        with self.assertRaises(requests.HTTPError) as ctx:
+            self.__module.get_health_kb_status("sdk-no-such-db")
+        self.assertEqual(ctx.exception.response.status_code, 404)
 
 
 if __name__ == "__main__":
