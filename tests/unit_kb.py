@@ -786,6 +786,17 @@ class KBTestCase(unittest.TestCase):
     def test_get_rule_localizations_and_localization(self):
         db_name = self.__choose_deployable_db()
 
+        # R28.0: контрактный GET /api/RuleLocalizations удалён (404), а
+        # студийной глобальной замены нет (локализации отдаются только в
+        # DTO отдельного правила) - метод осознанно бросает
+        # NotImplementedError.
+        if self.__module.auth.get_core_release() >= (28, 0):
+            with self.assertRaises(NotImplementedError):
+                self.__module.get_rule_localizations(db_name)
+            with self.assertRaises(NotImplementedError):
+                self.__module.get_rule_localization(db_name, "any-id")
+            return
+
         localizations = self.__module.get_rule_localizations(db_name)
         self.assertGreater(len(localizations), 0)
 

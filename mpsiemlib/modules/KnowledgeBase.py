@@ -215,6 +215,15 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         if creds is None or creds.core_hostname is None:
             raise AuthError("Core hostname is not set")
         self.__kb_hostname = creds.core_hostname
+        # Версия ядра определяет ветку контентных эндпоинтов. Контрактный
+        # Content API (CoreApi.{RuleClasses,RuleLocalizations,CorrelationRules,
+        # AggregationRules,EnrichmentRules,NormalizationRules}.yaml,
+        # `GET /api/siem/export/kbpackage`) жив на 26.x-27.x и удалён на R28.0
+        # (404 на KB-стороне); там функциональность доступна только через
+        # Studio API (`/api-studio/siem/...`) - см. ``__use_studio_content_api``.
+        self.__core_version = auth.get_core_version()
+        self.__core_release = auth.get_core_release()
+        self.__use_studio_content_api = self.__core_release >= (28, 0)
         # Разрешение siem_id для RulesAPI (Core `/api/siem/v2/rules`):
         # при одном конвейере параметр не передаётся, при нескольких -
         # обязателен (см. Conveyor.resolve_siem_id)
@@ -820,16 +829,294 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         return self.get_deployable_db_name()
 
+    # ------------------------------------------------------------------ #
+    # Ветка R28.0: Studio API вместо удалённого контрактного Content API
+    # ------------------------------------------------------------------ #
+
+    def __deployment_sets_studio(self, db_name: str) -> list[dict[str, Any]]:
+        """Плоский список наборов установки через kb-ui (ветка R28.0).
+
+        Контракт kb-ui ``GET /api-studio/siem/deploymentSets`` (без
+        ``withoutRoot``) отдаёт и корневой узел ``all``, и все вложенные
+        наборы - то же дерево, что ``GET /api/RuleClasses`` на 26.x-27.x.
+
+        :param db_name: Имя БД
+        :return: Список DTO ``{Id, ParentSetId, Name, SystemName, ...}``
+        """
+        return cast(
+            "list[dict[str, Any]]",
+            self.__studio_api_request(
+                db_name, self.__api_deployment_sets, "deployment_sets_studio"
+            ),
+        )
+
+    def __content_rule_studio_dto(
+        self, db_name: str, content_type: str, rule_id: str
+    ) -> dict[str, Any]:
+        """Полное правило через kb-ui (ветка R28.0).
+
+        Контракт kb-ui ``GET /api-studio/siem/{type}-rules/{id}`` - тот же
+        эндпоинт, что использует ``get_rule`` (Formula, Folder, Origin,
+        CompilationStatus), плюс ``DeploymentSets``/``LocalizationRules``.
+
+        :param db_name: Имя БД
+        :param content_type: Тип объекта MPContentTypes
+        :param rule_id: KB ID правила
+        :return: Сырой DTO правила
+        :raises NotImplementedError: для типов без студийных путей правил
+        """
+        rule_path = self.CONTENT_RULE_PATH_MAP.get(content_type)
+        if rule_path is None or rule_path == "tabular-lists":
+            raise NotImplementedError(
+                f"Studio content rules API is not supported for {content_type}"
+            )
+        api_path = f"{self.__api_siem}/{rule_path}/{rule_id}"
+        return cast(
+            "dict[str, Any]",
+            self.__studio_api_request(db_name, api_path, "get_content_rule_studio"),
+        )
+
+    @staticmethod
+    def __content_rule_studio_normalized(
+        dto: dict[str, Any], include_formula: bool = False
+    ) -> dict[str, Any]:
+        """Привести DTO kb-ui правила к схеме ``__normalize_content_rule``.
+
+        ``classes`` заполняются из ``DeploymentSets`` (на 26.x это были
+        ``Classes`` - RuleClassDTO того же дерева наборов), ``localizations``
+        - из ``LocalizationRules`` (``Value`` вместо контрактного ``Name``
+        в Locales).
+
+        :param dto: Сырой DTO kb-ui
+        :param include_formula: включить поле ``formula``
+        :return: Нормализованный словарь
+        """
+        compilation = dto.get("CompilationStatus") or {}
+        normalized: dict[str, Any] = {
+            "id": dto.get("Id"),
+            "guid": dto.get("ObjectId"),
+            "system_name": dto.get("SystemName"),
+            "folder_id": (dto.get("Folder") or {}).get("Id"),
+            "origin_id": dto.get("OriginId"),
+            "origin_name": (dto.get("Origin") or {}).get("Name"),
+            "deployment_status": str(dto.get("GeneralDeploymentStatus") or "").lower(),
+            "copy_of": (dto.get("CopyOf") or {}).get("Name"),
+            "classes": [
+                {
+                    "id": c.get("Id"),
+                    "system_name": c.get("SystemName"),
+                    "parent_id": None,
+                    "name": c.get("Name") or c.get("SystemName"),
+                }
+                for c in dto.get("DeploymentSets") or []
+            ],
+            "localizations": [
+                {
+                    "id": loc.get("Id"),
+                    "criteria": loc.get("Criteria"),
+                    "name": KnowledgeBase.__studio_locale_name(loc.get("Locales")),
+                    "locales": loc.get("Locales"),
+                }
+                for loc in dto.get("LocalizationRules") or []
+            ],
+            "locales": dto.get("Locales") or [],
+            "compilation_sdk": compilation.get("SdkVersion"),
+            "compilation_status": compilation.get("CompilationStatusId"),
+        }
+        if include_formula:
+            normalized["formula"] = dto.get("Formula")
+
+        return normalized
+
+    def __studio_rules_page(
+        self,
+        db_name: str,
+        body: dict[str, Any],
+        action: str,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
+        """Одна страница ``POST /api-studio/siem/objects/list``.
+
+        :param db_name: Имя БД
+        :param body: Тело запроса (filters/sort/skip/take и пр.)
+        :param action: Имя действия для логирования
+        :param timeout: Тайм-аут запроса (по умолчанию -
+            ``settings.connection_timeout``)
+        :return: ``{"Count": int, "Rows": [...]}``
+        """
+        return cast(
+            "dict[str, Any]",
+            self.__studio_api_request(
+                db_name,
+                self.__api_list_objects,
+                action,
+                method="POST",
+                body=body,
+                timeout=timeout,
+            ),
+        )
+
+    def __iterate_content_rules_studio(
+        self,
+        db_name: str,
+        content_type: str,
+        search: str,
+        folder_id: str | None,
+        timeout: float | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """Итератор правил через kb-ui (ветка R28.0).
+
+        ``search``/``folderId`` применяются на сервере (замерено: точное/
+        подстрочное имя ~0.5 c, ``folderId`` фильтрует). ``sort`` обязателен
+        для стабильной пагинации ``skip``/``take``. ``recursive: true`` обязателен
+        (замерено: без него ``objects/list`` отдаёт ``Count: 0``) - тело
+        консистентно ``get_all_objects``.
+
+        :param db_name: Имя БД
+        :param content_type: Тип объекта MPContentTypes
+        :param search: Серверный подстрочный фильтр по имени
+        :param folder_id: Серверный фильтр по каталогу
+        :param timeout: Тайм-аут запроса (по умолчанию -
+            ``settings.connection_timeout``)
+        :return: Итератор строк ``objects/list`` (DTO Row)
+        """
+        body: dict[str, Any] = {
+            "filters": {"SiemObjectType": [content_type]},
+            "search": search,
+            "sort": [{"name": "objectId", "order": 0, "type": 1}],
+            "recursive": True,
+            "withoutGroups": False,
+            "skip": 0,
+            "take": self.settings.kb_objects_batch_size,
+        }
+        if folder_id is not None:
+            body["folderId"] = folder_id
+
+        action = "iterate_" + content_type.lower() + "_rules_studio"
+        while True:
+            page = self.__studio_rules_page(db_name, body, action, timeout=timeout)
+            rows = page.get("Rows") or []
+            if not rows:
+                break
+            yield from rows
+            if len(rows) < body["take"]:
+                break
+            body["skip"] += body["take"]
+
+    @staticmethod
+    def __rule_dto_to_studio_create(
+        body: dict[str, Any], content_type: str
+    ) -> dict[str, Any]:
+        """Тело контрактного создания -> тело kb-ui создания.
+
+        Контракт ``*RuleCreateParamsCoreDto`` (PascalCase: ``SystemName``,
+        ``Formula``, ``FolderId``, ``Locales``, ``RuleClassIds``,
+        ``IsSuffixRule``) -> kb-ui ``{systemName, formula, description,
+        folderId, groupsToSave, ...}`` (camelCase, как живой 26.0
+        ``create_co_rule``). ``RuleClassIds`` игнорируется сервером и на
+        26.0 (см. ``create_co_rule``) - привязка отдельно через
+        ``link_content_to_groups``. Ключи, уже данные в camelCase,
+        сохраняются как есть.
+        """
+        lowered = {str(k).lower(): v for k, v in body.items()}
+        description: dict[str, Any] = {}
+        for loc in lowered.get("locales") or []:
+            if not isinstance(loc, dict):
+                continue
+            locale = str(loc.get("Locale") or "").upper()
+            if locale and loc.get("Description"):
+                description[locale] = loc["Description"]
+
+        studio: dict[str, Any] = {
+            "systemName": lowered.get("systemname") or lowered.get("systemname_"),
+            "formula": lowered.get("formula"),
+            "description": description,
+            "folderId": lowered.get("folderid"),
+            "groupsToSave": [],
+            "localizationRulesToAdd": [],
+            "mappingConflictAction": "exception",
+        }
+        if content_type == MPContentTypes.NORMALIZATION:
+            studio["isSuffixRule"] = bool(lowered.get("issuffixrule", False))
+        if lowered.get("jsonformula") is not None:
+            studio["constructorData"] = lowered.get("jsonformula")
+        return studio
+
+    @staticmethod
+    def __rule_dto_to_studio_edit(
+        form: dict[str, Any], body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Контрактное ``*RuleEditParamsCoreDto`` -> edit-форма kb-ui.
+
+        Берёт живую edit-форму правила и подменяет в ней поля из тела
+        контракта: ``SystemName``/``systemName``, ``Formula``/``formula``,
+        ``FolderId``/``folderId``.
+        """
+        lowered = {str(k).lower(): v for k, v in body.items()}
+        edited = dict(form)
+        for form_key, body_key in (
+            ("SystemName", "systemname"),
+            ("Formula", "formula"),
+            ("FolderId", "folderid"),
+        ):
+            if body_key in lowered:
+                edited[form_key] = lowered[body_key]
+        return edited
+
+    def __export_kb_package_studio(
+        self, db_name: str, group_id: str, local_filepath: str
+    ) -> int:
+        """KB-экспорт набора через kb-ui (ветка R28.0).
+
+        Контракт kb-ui ``POST /api-studio/siem/export`` с телом формы
+        ``{mode: 'deploymentSet', setId}`` (форма ``ExportForm`` legacy UI)
+        отдаёт ``application/octet-stream`` пакет - замена контрактного
+        ``GET /api/siem/export/kbpackage``, удалённого на R28.0.
+
+        :param db_name: Имя БД
+        :param group_id: ID набора установки
+        :param local_filepath: файл для сохранения пакета
+        :return: Размер сохранённого файла (0 при пустом ответе)
+        """
+        headers = {"Content-Database": db_name, "Content-Locale": "RUS"}
+        url = f"https://{self.__kb_hostname}:{self.__kb_port}{self.__api_siem}/export"
+        r = exec_request(
+            self.__kb_session,
+            url,
+            method="POST",
+            timeout=self.settings.connection_timeout,
+            headers=headers,
+            json={"mode": self.MASS_OPERATION_MODE_DEPLOYMENT_SET, "setId": group_id},
+        )
+
+        if r.status_code not in (200, 201):
+            raise RuntimeError(f"Failed to export deployment set {group_id}: {r.text}")
+
+        size = 0
+        with open(local_filepath, "wb") as kbfile:
+            size = kbfile.write(r.content)
+
+        self.log.info(
+            f"status=success, action=export_kb_package_studio, "
+            f'msg="exported {size} bytes", hostname="{self.__kb_hostname}", '
+            f'db="{db_name}", group_id="{group_id}"'
+        )
+        return size
+
     def get_groups_list(
         self, db_name: str | None = None, do_refresh: bool = False
     ) -> dict:
         """Получить список наборов установки.
 
-        В MP SIEM 26.0 «наборы для установки» реализованы как классы правил
-        (`RuleClasses`): прежний эндпоинт `GET /api-studio/siem/groups` удалён
-        (404). Миграция: контракт `CoreApi.RuleClasses.yaml`
-        `GET /api/RuleClasses/` (GetRuleClasses) c
-        `consideringParentId=false` - плоский список всех узлов дерева.
+        «Наборы для установки» реализованы как классы правил (`RuleClasses`):
+        прежний эндпоинт `GET /api-studio/siem/groups` удалён (404).
+
+        - 26.x-27.x: контракт `CoreApi.RuleClasses.yaml` `GET
+          /api/RuleClasses/` (GetRuleClasses) c `consideringParentId=false` -
+          плоский список всех узлов дерева.
+        - R28.0: контрактный Content API удалён (404), тот же результат
+          отдаёт kb-ui `GET /api-studio/siem/deploymentSets` (плоский список
+          с `ParentSetId`).
 
         :param db_name: Имя БД (None - первая deployable)
         :param do_refresh: Обновить кэш
@@ -839,18 +1126,23 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         if not do_refresh and len(self.__groups) != 0:
             return self.__groups
 
-        groups = self.__content_api_request(
-            db_name,
-            self.__api_content_rule_classes,
-            "get_groups_list",
-            params={"consideringParentId": "false"},
-        )
+        if self.__use_studio_content_api:
+            groups: Any = self.__deployment_sets_studio(db_name)
+            key_parent, key_name = "ParentSetId", "SystemName"
+        else:
+            groups = self.__content_api_request(
+                db_name,
+                self.__api_content_rule_classes,
+                "get_groups_list",
+                params={"consideringParentId": "false"},
+            )
+            key_parent, key_name = "ParentRuleClassId", "SystemName"
         self.__groups.clear()
 
         for i in groups:
             self.__groups[i.get("Id")] = {
-                "parent_id": i.get("ParentRuleClassId"),
-                "name": i.get("SystemName"),
+                "parent_id": i.get(key_parent),
+                "name": i.get(key_name),
             }
 
         self.log.info(
@@ -1552,8 +1844,15 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     ) -> str:
         """Создать набор установки.
 
-        MP SIEM 26.0: наборы установки - классы правил. Контракт
-        `CoreApi.RuleClasses.yaml` `POST /api/RuleClasses/` (AddRuleClass).
+        Наборы установки - классы правил.
+
+        - 26.x-27.x: контракт `CoreApi.RuleClasses.yaml` `POST
+          /api/RuleClasses/` (AddRuleClass).
+        - R28.0: контрактный Content API удалён (404), создание доступно
+          только kb-ui `POST /api-studio/siem/deploymentSets` с телом формы
+          создания `{systemName, parentSetId, deployInPipelines, locales}`
+          (замерено: `201` + ID; PascalCase-тело контрактного вида сервер
+          принимает, но на часть полей отвечает `500`).
 
         :param db_name: Имя БД (None - первая deployable)
         :param name: Имя набора установки
@@ -1563,14 +1862,28 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :return: ID созданного набора установки
         """
         db_name = self.__resolve_db_name(db_name)
-        params: dict[str, Any] = {
-            "SystemName": name,
-            "ParentRuleClassId": parent_id or self.GROUPS_ROOT_ID,
-            "Locales": [],
-        }
-
         headers = {"Content-Database": db_name, "Content-Locale": "RUS"}
-        url = f"https://{self.__kb_hostname}:{self.__kb_port}{self.__api_content_rule_classes}"
+
+        if self.__use_studio_content_api:
+            url = (
+                f"https://{self.__kb_hostname}:{self.__kb_port}"
+                f"{self.__api_deployment_sets}"
+            )
+            params: dict[str, Any] = {
+                "systemName": name,
+                "parentSetId": parent_id or self.GROUPS_ROOT_ID,
+                "deployInPipelines": [],
+                "locales": [],
+            }
+            request_params: dict[str, Any] | None = None
+        else:
+            url = f"https://{self.__kb_hostname}:{self.__kb_port}{self.__api_content_rule_classes}"
+            params = {
+                "SystemName": name,
+                "ParentRuleClassId": parent_id or self.GROUPS_ROOT_ID,
+                "Locales": [],
+            }
+            request_params = {"contentDatabase": db_name}
 
         r = exec_request(
             self.__kb_session,
@@ -1578,7 +1891,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             method="POST",
             timeout=self.settings.connection_timeout,
             headers=headers,
-            params={"contentDatabase": db_name},
+            params=request_params,
             json=params,
         )
 
@@ -1602,11 +1915,14 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     def delete_group(self, db_name: str | None, group_id: str) -> requests.Response:
         """Удалить набор установки.
 
-        MP SIEM 26.0: наборы установки - классы правил. Контракт
-        `CoreApi.RuleClasses.yaml` `DELETE /api/RuleClasses/{ruleClassId}`
-        (RemoveRuleClass). KB отвечает 500 на попытку удалить набор с
-        присвоенными объектами, поэтому непустой набор сначала требуется
-        очистить (`link_content_to_groups`).
+        Наборы установки - классы правил. KB отвечает 500 на попытку удалить
+        набор с присвоенными объектами, поэтому непустой набор сначала
+        требуется очистить (`link_content_to_groups`).
+
+        - 26.x-27.x: контракт `CoreApi.RuleClasses.yaml` `DELETE
+          /api/RuleClasses/{ruleClassId}` (RemoveRuleClass).
+        - R28.0: контрактный Content API удалён (404), kb-ui `DELETE
+          /api-studio/siem/deploymentSets/{id}` (`204`).
 
         :param db_name: Имя БД (None - первая deployable)
         :param group_id: ID удаляемого набора установки
@@ -1629,7 +1945,14 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         headers = {"Content-Database": db_name, "Content-Locale": "RUS"}
 
-        url = f"https://{self.__kb_hostname}:{self.__kb_port}{self.__api_content_rule_classes}/{group_id}"
+        if self.__use_studio_content_api:
+            api_base = self.__api_deployment_sets
+            request_params: dict[str, Any] | None = None
+        else:
+            api_base = self.__api_content_rule_classes
+            request_params = {"contentDatabase": db_name}
+
+        url = f"https://{self.__kb_hostname}:{self.__kb_port}{api_base}/{group_id}"
 
         r = exec_request(
             self.__kb_session,
@@ -1637,7 +1960,7 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             method="DELETE",
             timeout=self.settings.connection_timeout,
             headers=headers,
-            params={"contentDatabase": db_name},
+            params=request_params,
         )
 
         if r.status_code == 204:
@@ -1829,6 +2152,19 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         group_path = self.get_group_path_by_id(db_name, group_id)
 
         headers = {"Content-Database": db_name, "Content-Locale": "RUS"}
+
+        if self.__use_studio_content_api and export_format == self.EXPORT_FORMAT_KB:
+            # Контрактный GET /api/siem/export/kbpackage на R28.0 не работает
+            # (маршрут матчится как /api/siem/export/{groupId} и отдаёт 400 на
+            # 'kbpackage'), экспорт набора отдаёт kb-ui POST /api-studio/siem/export
+            if self.is_group_empty(db_name, group_id):
+                self.log.info(
+                    f'status=success, action=export_group, msg="group {group_path} with id {group_id} is empty", '
+                    f'hostname="{self.__kb_hostname}", db="{db_name}"'
+                )
+                return 0
+
+            return self.__export_kb_package_studio(db_name, group_id, local_filepath)
 
         if export_format == self.EXPORT_FORMAT_SIEM_LITE:
             url = (
@@ -2658,14 +2994,30 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     def get_rule_classes(self, db_name: str | None = None) -> list[dict[str, Any]]:
         """Получить классы правил.
 
-        Контракт: `CoreApi.RuleClasses.yaml` `GET /api/RuleClasses/`
-        (GetRuleClasses).
+        - 26.x-27.x: контракт `CoreApi.RuleClasses.yaml` `GET /api/RuleClasses/`
+          (GetRuleClasses).
+        - R28.0: контрактный Content API удалён (404), те же узлы дерева
+          отдаёт kb-ui `GET /api-studio/siem/deploymentSets`. Отличие:
+          kb-ui не возвращает `Locales` в списке (`locales` - пустой список),
+          локали отдаёт `GET` по идентификатору (``get_rule_class``).
 
         :param db_name: Имя БД (None - первая deployable)
         :return: [{"id": ..., "system_name": ..., "parent_id": ...,
             "name": ..., "locales": [...]}]
         """
         db_name = self.__resolve_db_name(db_name)
+        if self.__use_studio_content_api:
+            return [
+                {
+                    "id": i.get("Id"),
+                    "system_name": i.get("SystemName"),
+                    "parent_id": i.get("ParentSetId"),
+                    "name": i.get("Name") or i.get("SystemName") or "",
+                    "locales": i.get("Locales") or [],
+                }
+                for i in self.__deployment_sets_studio(db_name)
+            ]
+
         classes = self.__content_api_request(
             db_name, self.__api_content_rule_classes, "get_rule_classes"
         )
@@ -2684,14 +3036,34 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     def get_rule_class(self, db_name: str | None, rule_class_id: str) -> dict[str, Any]:
         """Получить класс правила по идентификатору.
 
-        Контракт: `CoreApi.RuleClasses.yaml` `GET /api/RuleClasses/{ruleClassId}`
-        (GetRuleClass).
+        - 26.x-27.x: контракт `CoreApi.RuleClasses.yaml`
+          `GET /api/RuleClasses/{ruleClassId}` (GetRuleClass).
+        - R28.0: kb-ui `GET /api-studio/siem/deploymentSets/{id}` (тот же
+          набор без `Locales`; локали берутся из `Name`/edit-формы).
 
         :param db_name: Имя БД (None - первая deployable)
         :param rule_class_id: Идентификатор класса правил
         :return: Описание класса правил
         """
         db_name = self.__resolve_db_name(db_name)
+        if self.__use_studio_content_api:
+            api_path = f"{self.__api_deployment_sets}/{rule_class_id}"
+            rule_class = self.__studio_api_request(
+                db_name, api_path, "get_rule_class_studio"
+            )
+            locales = rule_class.get("Locales") or []
+            if not locales and rule_class.get("Name"):
+                locales = [{"Locale": "RUS", "Name": rule_class["Name"]}]
+
+            return {
+                "id": rule_class.get("Id"),
+                "system_name": rule_class.get("SystemName"),
+                "parent_id": rule_class.get("ParentSetId"),
+                "name": rule_class.get("Name")
+                or KnowledgeBase.__localization_name(locales),
+                "locales": locales,
+            }
+
         api_path = f"{self.__api_content_rule_classes}/{rule_class_id}"
         rule_class = self.__content_api_request(db_name, api_path, "get_rule_class")
 
@@ -2715,9 +3087,21 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         мегабайт), поэтому метод имеет смысл вызывать один раз и переиспользовать
         результат.
 
+        R28.0: контрактный Content API удалён (404), глобального списка
+        локализаций kb-ui не отдаёт; локализации конкретного правила доступны
+        через ``get_content_rule`` (поле ``localizations``).
+
         :param db_name: Имя БД (None - первая deployable)
         :return: [{"id": ..., "criteria": ..., "name": ..., "locales": [...]}]
+        :raises NotImplementedError: на R28.0+ (эндпоинт удалён)
         """
+        if self.__use_studio_content_api:
+            raise NotImplementedError(
+                f"SIEM core {self.__core_version} does not expose the global "
+                f"rule localizations list (GET /api/RuleLocalizations removed, "
+                f"404); use get_content_rule() 'localizations' per rule"
+            )
+
         db_name = self.__resolve_db_name(db_name)
         localizations = self.__content_api_request(
             db_name, self.__api_content_rule_localizations, "get_rule_localizations"
@@ -2744,6 +3128,27 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             if not isinstance(loc, dict):
                 continue
             name = str(loc.get("Name") or "")
+            if str(loc.get("Locale") or "").upper() == "RUS":
+                return name
+            if not preferred:
+                preferred = name
+
+        return preferred
+
+    @staticmethod
+    def __studio_locale_name(locales: Any) -> str:
+        """Имя локали из kb-ui ``LocalizationRules[].Locales``.
+
+        kb-ui отдаёт текст в ``Value`` (контрактный Content API - в ``Name``).
+        """
+        if not isinstance(locales, list):
+            return ""
+
+        preferred = ""
+        for loc in locales:
+            if not isinstance(loc, dict):
+                continue
+            name = str(loc.get("Value") or "")
             if str(loc.get("Locale") or "").upper() == "RUS":
                 return name
             if not preferred:
@@ -2795,10 +3200,14 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     ) -> list[dict[str, Any]]:
         """Список правил через контрактный Content API (краткая сводка).
 
-        Контракт: ``CoreApi.{Correlation,Aggregation,Enrichment,Normalization}
-        Rules.yaml`` ``GET /api/{Type}Rules/`` (Get*Rules). Возвращает DTO без
-        Formula — полный код правила отдаёт ``get_rule`` (studio API) либо
-        ``get_content_rule``.
+        - 26.x-27.x: контракт ``CoreApi.{Correlation,Aggregation,Enrichment,
+          Normalization}Rules.yaml`` ``GET /api/{Type}Rules/`` (Get*Rules).
+          Возвращает DTO без Formula — полный код правила отдаёт ``get_rule``
+          (studio API) либо ``get_content_rule``.
+        - R28.0: контрактный Content API удалён (404), список отдаёт kb-ui
+          ``POST /api-studio/siem/objects/list``. Отличие: ``objects/list`` не
+          возвращает ``Classes``/``Localizations`` (``classes``/``localizations``
+          — пустые списки), их отдаёт ``get_content_rule``.
 
         Фильтры применяются на сервере; без фильтра на большой БД (тысячи
         правил) ответ формируется медленно - при необходимости увеличить
@@ -2816,6 +3225,21 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             "localizations": [...]}]
         """
         db_name = self.__resolve_db_name(db_name)
+
+        if self.__use_studio_content_api:
+            # objects/list не имеет точного равенства - equals гоняем как
+            # подстроку в search (быстрый серверный фильтр) с точной
+            # доводкой на клиенте
+            search = system_name_contains or system_name_equals or ""
+            rows = self.__iterate_content_rules_studio(
+                db_name, content_type, search, folder_id, timeout=timeout
+            )
+            rules = [KnowledgeBase.__normalize_content_rule_row(row) for row in rows]
+            if system_name_equals is not None:
+                rules = [r for r in rules if r.get("system_name") == system_name_equals]
+
+            return rules
+
         api_path = self.__content_rules_api(content_type)
         params: dict[str, Any] = {}
         if system_name_equals is not None:
@@ -2832,16 +3256,40 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         return [self.__normalize_content_rule(r) for r in rules]
 
+    @staticmethod
+    def __normalize_content_rule_row(row: dict[str, Any]) -> dict[str, Any]:
+        """Привести строку kb-ui ``objects/list`` к формату ``list_content_rules``."""
+        compilation = row.get("CompilationStatus") or {}
+
+        return {
+            "id": row.get("Id"),
+            "guid": row.get("ObjectId"),
+            "system_name": row.get("SystemName"),
+            "folder_id": row.get("FolderId"),
+            "origin_id": row.get("OriginId"),
+            "origin_name": (row.get("Origin") or {}).get("Name"),
+            "deployment_status": str(row.get("GeneralDeploymentStatus") or "").lower(),
+            "copy_of": (row.get("CopyOf") or {}).get("Name"),
+            "classes": [],
+            "localizations": [],
+            "locales": row.get("Locales") or [],
+            "compilation_sdk": compilation.get("SdkVersion"),
+            "compilation_status": compilation.get("CompilationStatusId"),
+        }
+
     def get_content_rule(
         self, db_name: str | None, content_type: str, rule_id: str
     ) -> dict[str, Any]:
         """Полное правило через контрактный Content API.
 
-        Контракт: ``CoreApi.{Correlation,Aggregation,Enrichment,Normalization}
-        Rules.yaml`` ``GET /api/{Type}Rules/{id}`` (Get*Rule). В отличие от
-        ``get_rule`` (``/api-studio``) возвращает ``Classes``/``Localizations``
-        как DTO ``RuleClassCoreDto``/``RuleLocalizationCoreDto``, но не
-        возвращает состояние компиляции.
+        - 26.x-27.x: контракт ``CoreApi.{Correlation,Aggregation,Enrichment,
+          Normalization}Rules.yaml`` ``GET /api/{Type}Rules/{id}`` (Get*Rule).
+          В отличие от ``get_rule`` (``/api-studio``) возвращает
+          ``Classes``/``Localizations`` как DTO ``RuleClassCoreDto``/
+          ``RuleLocalizationCoreDto``, но не возвращает состояние компиляции.
+        - R28.0: контрактный Content API удалён (404), kb-ui ``GET
+          /api-studio/siem/{type}-rules/{id}`` - те же поля, ``DeploymentSets``
+          отдаются как ``classes``, ``LocalizationRules`` - как ``localizations``.
 
         :param db_name: Имя БД (None - первая deployable)
         :param content_type: Тип объекта MPContentType
@@ -2850,6 +3298,13 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             ``classes``, ``localizations``
         """
         db_name = self.__resolve_db_name(db_name)
+        if self.__use_studio_content_api:
+            dto = self.__content_rule_studio_dto(db_name, content_type, rule_id)
+
+            return KnowledgeBase.__content_rule_studio_normalized(
+                dto, include_formula=True
+            )
+
         api_path = f"{self.__content_rules_api(content_type)}/{rule_id}"
         action = "get_" + content_type.lower() + "_rule"
         rule = self.__content_api_request(db_name, api_path, action)
@@ -2899,11 +3354,16 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     ) -> str:
         """Создать правило через контрактный Content API.
 
-        Контракт: ``POST /api/{Type}Rules/`` (Add*Rule). Тело запроса —
-        ``*RuleCreateParamsCoreDto`` с PascalCase-ключами (``SystemName``,
-        ``Formula``, ``FolderId``, ``Locales``, ``RuleClassIds``; для
-        нормализаций — ``IsSuffixRule``; для корреляций — ``JsonFormula``,
-        ``JsonFormulaVersion``).
+        - 26.x-27.x: контракт ``POST /api/{Type}Rules/`` (Add*Rule). Тело
+          запроса — ``*RuleCreateParamsCoreDto`` с PascalCase-ключами
+          (``SystemName``, ``Formula``, ``FolderId``, ``Locales``,
+          ``RuleClassIds``; для нормализаций — ``IsSuffixRule``; для
+          корреляций — ``JsonFormula``, ``JsonFormulaVersion``).
+        - R28.0: контрактный Content API удалён (404), создание доступно kb-ui
+          ``POST /api-studio/siem/{type}-rules`` с camelCase-телом формы
+          создания; PascalCase-тело контракта конвертируется автоматически
+          (``RuleClassIds`` на обеих ветках сервер игнорирует - см.
+          ``create_co_rule``).
 
         :param db_name: Имя БД (None - первая deployable)
         :param content_type: Тип объекта MPContentType
@@ -2911,8 +3371,21 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :return: ID созданного правила
         """
         db_name = self.__resolve_db_name(db_name)
-        api_path = self.__content_rules_api(content_type)
         action = "create_" + content_type.lower() + "_rule"
+
+        if self.__use_studio_content_api:
+            api_path = f"{self.__api_siem}/{self.__content_rule_path(content_type)}"
+            rule_id = self.__studio_api_request(
+                db_name,
+                api_path,
+                action,
+                method="POST",
+                body=KnowledgeBase.__rule_dto_to_studio_create(body, content_type),
+            )
+
+            return str(rule_id)
+
+        api_path = self.__content_rules_api(content_type)
 
         rule_id = self.__content_api_request(
             db_name,
@@ -2933,8 +3406,12 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     ) -> str:
         """Обновить правило через контрактный Content API.
 
-        Контракт: ``PUT /api/{Type}Rules/{id}`` (Change*Rule). Тело —
-        ``*RuleEditParamsCoreDto``: ``FolderId``/``SystemName``/``Formula``.
+        - 26.x-27.x: контракт ``PUT /api/{Type}Rules/{id}`` (Change*Rule). Тело —
+          ``*RuleEditParamsCoreDto``: ``FolderId``/``SystemName``/``Formula``.
+        - R28.0: контрактный Content API удалён (404), изменение доступно kb-ui
+          ``PUT /api-studio/siem/{type}-rules/{id}`` с телом формы редактирования
+          (``get_content_rule_edit_form``), в которую подложены поля из
+          контрактного тела; тело контракта конвертируется автоматически.
 
         :param db_name: Имя БД (None - первая deployable)
         :param content_type: Тип объекта MPContentType
@@ -2943,8 +3420,32 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :return: Текст ответа (пустой при 204 No Content)
         """
         db_name = self.__resolve_db_name(db_name)
-        api_path = f"{self.__content_rules_api(content_type)}/{rule_id}"
         action = "update_" + content_type.lower() + "_rule"
+
+        if self.__use_studio_content_api:
+            rule_path = self.__content_rule_path(content_type)
+            form = cast(
+                "dict[str, Any]",
+                self.__studio_api_request(
+                    db_name,
+                    f"{self.__api_siem}/{rule_path}/{rule_id}/edit",
+                    action + "_form",
+                ),
+            )
+            api_path = f"{self.__api_siem}/{rule_path}/{rule_id}"
+
+            return cast(
+                str,
+                self.__studio_api_request(
+                    db_name,
+                    api_path,
+                    action,
+                    method="PUT",
+                    body=KnowledgeBase.__rule_dto_to_studio_edit(form, body),
+                ),
+            )
+
+        api_path = f"{self.__content_rules_api(content_type)}/{rule_id}"
 
         return cast(
             str,
@@ -2962,7 +3463,9 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     ) -> str:
         """Удалить правило через контрактный Content API.
 
-        Контракт: ``DELETE /api/{Type}Rules/{id}`` (Remove*Rule).
+        - 26.x-27.x: контракт ``DELETE /api/{Type}Rules/{id}`` (Remove*Rule).
+        - R28.0: контрактный Content API удалён (404), kb-ui ``DELETE
+          /api-studio/siem/{type}-rules/{id}`` (``204``).
 
         :param db_name: Имя БД (None - первая deployable)
         :param content_type: Тип объекта MPContentType
@@ -2970,8 +3473,24 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :return: Текст ответа (пустой при 204 No Content)
         """
         db_name = self.__resolve_db_name(db_name)
-        api_path = f"{self.__content_rules_api(content_type)}/{rule_id}"
         action = "delete_" + content_type.lower() + "_rule"
+
+        if self.__use_studio_content_api:
+            api_path = (
+                f"{self.__api_siem}/{self.__content_rule_path(content_type)}/{rule_id}"
+            )
+
+            return cast(
+                str,
+                self.__studio_api_request(
+                    db_name,
+                    api_path,
+                    action,
+                    method="DELETE",
+                ),
+            )
+
+        api_path = f"{self.__content_rules_api(content_type)}/{rule_id}"
 
         return cast(
             str,
@@ -2991,9 +3510,14 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
     ) -> str:
         """Изменить класс правил (набор установки).
 
-        Контракт: ``CoreApi.RuleClasses.yaml`` ``PUT
-        /api/RuleClasses/{ruleClassId}`` (ChangeRuleClass). Тело —
-        ``RuleClassParamsCoreDto`` (``SystemName``, ``ParentRuleClassId``).
+        - 26.x-27.x: контракт ``CoreApi.RuleClasses.yaml`` ``PUT
+          /api/RuleClasses/{ruleClassId}`` (ChangeRuleClass). Тело —
+          ``RuleClassParamsCoreDto`` (``SystemName``, ``ParentRuleClassId``).
+        - R28.0: контрактный Content API удалён (404), изменение доступно kb-ui
+          ``PUT /api-studio/siem/deploymentSets/{id}`` c diff-телом
+          (``localesToSave``/``localesToRemove``/``pipelinesTo*``), которое
+          считается из текущей формы ``GET /deploymentSets/{id}/edit`` и
+          контрактного тела.
 
         :param db_name: Имя БД (None - первая deployable)
         :param rule_class_id: ID класса правил
@@ -3001,6 +3525,19 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         :return: Текст ответа (пустой при 204 No Content)
         """
         db_name = self.__resolve_db_name(db_name)
+
+        if self.__use_studio_content_api:
+            return cast(
+                str,
+                self.__studio_api_request(
+                    db_name,
+                    f"{self.__api_deployment_sets}/{rule_class_id}",
+                    "update_rule_class",
+                    method="PUT",
+                    body=self.__deployment_set_diff_body(db_name, rule_class_id, body),
+                ),
+            )
+
         api_path = f"{self.__api_content_rule_classes}/{rule_class_id}"
 
         return cast(
@@ -3014,13 +3551,66 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
             ),
         )
 
+    def __deployment_set_diff_body(
+        self, db_name: str, rule_class_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """``RuleClassParamsCoreDto`` -> diff-форма изменения набора kb-ui.
+
+        kb-ui ждёт не полное состояние, а разницу с текущим: локали, которых
+        нет в форме, кладутся в ``localesToSave``, отсутствующие в теле - в
+        ``localesToRemove``.
+
+        :param db_name: Имя БД
+        :param rule_class_id: ID класса правил
+        :param body: Тело ``RuleClassParamsCoreDto``
+        :return: Тело ``PUT /api-studio/siem/deploymentSets/{id}``
+        """
+        form = cast(
+            "dict[str, Any]",
+            self.__studio_api_request(
+                db_name,
+                f"{self.__api_deployment_sets}/{rule_class_id}/edit",
+                "update_rule_class_form",
+            ),
+        )
+        lowered = {str(k).lower(): v for k, v in body.items()}
+
+        current: dict[str, dict[str, Any]] = {
+            str(loc.get("Locale") or "").upper(): loc
+            for loc in form.get("Locales") or []
+            if isinstance(loc, dict)
+        }
+        wanted: dict[str, dict[str, Any]] = {}
+        for loc in lowered.get("locales") or []:
+            if not isinstance(loc, dict):
+                continue
+            locale = str(loc.get("Locale") or "").upper()
+            if locale:
+                wanted[locale] = loc
+
+        to_save = [
+            {"Name": loc.get("Name"), "Locale": locale}
+            for locale, loc in wanted.items()
+            if (current.get(locale) or {}).get("Name") != loc.get("Name")
+        ]
+        to_remove = [locale for locale in current if locale not in wanted]
+
+        return {
+            "systemName": lowered.get("systemname") or form.get("SystemName"),
+            "parentSetId": lowered.get("parentruleclassid", form.get("ParentSetId")),
+            "localesToSave": to_save,
+            "localesToRemove": to_remove,
+            "pipelinesToSave": [],
+            "pipelinesToRemove": [],
+        }
+
     def bulk_add_rule_class(
         self,
         db_name: str | None,
         rule_class_id: str,
         siem_object_ids: list[str],
     ) -> str:
-        """Массово присвоить объектам класс правил (на 26.0 - NO-OP).
+        """Массово присвоить объектам класс правил (NO-OP на стенде).
 
         Контракт: ``CoreApi.RuleClasses.yaml`` ``POST
         /api/RuleClasses/{ruleClassId}/bulk-add`` (BulkAddRuleClass). Тело —
@@ -3028,23 +3618,26 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
 
         MP SIEM 26.0: эндпоинт отвечает ``204 No Content``, но привязку не
         выполняет - объект остаётся в прежних классах (проверено на стенде как
-        на KB id, так и на ``ObjectId``). Единственный рабочий механизм
-        привязки - ``link_content_to_groups`` (``mass-operations``). Метод
-        сохраняет запрос для совместимости сигнатуры, но полагаться на него
-        нельзя.
+        на KB id, так и на ``ObjectId``). R28.0: контрактный Content API удалён
+        (404), студийной замены bulk-add нет - привязка только
+        ``link_content_to_groups`` (``mass-operations``). На обеих ветках метод
+        сохраняет сигнатуру, но полагаться на него нельзя.
 
         :param db_name: Имя БД (None - первая deployable)
         :param rule_class_id: ID класса правил
         :param siem_object_ids: идентификаторы объектов (``ObjectId``)
-        :return: Текст ответа (пустой при 204 No Content)
+        :return: Текст ответа (пустой при 204 No Content) либо ``""`` на R28.0
         """
         db_name = self.__resolve_db_name(db_name)
         self.log.warning(
             f'status=warning, action=bulk_add_rule_class, msg="bulk-add is a no-op '
-            f"on MP SIEM 26.0 (returns 204 without linking); use "
-            f'link_content_to_groups instead", hostname="{self.__kb_hostname}", '
+            f"(26.0 returns 204 without linking, R28.0 removed the endpoint); "
+            f'use link_content_to_groups instead", hostname="{self.__kb_hostname}", '
             f'db="{db_name}", rule_class_id="{rule_class_id}"'
         )
+        if self.__use_studio_content_api:
+            return ""
+
         api_path = f"{self.__api_content_rule_classes}/{rule_class_id}/bulk-add"
 
         return cast(
@@ -3066,11 +3659,23 @@ class KnowledgeBase(ModuleInterface, LoggingHandler):
         Контракт: ``CoreApi.RuleLocalizations.yaml`` ``GET
         /api/RuleLocalizations/{ruleLocalizationId}`` (GetRuleLocalization).
 
+        R28.0: контрактный Content API удалён (404), локализации по ID kb-ui
+        не отдаются; локализации конкретного правила доступны через
+        ``get_content_rule`` (поле ``localizations``).
+
         :param db_name: Имя БД (None - первая deployable)
         :param rule_localization_id: ID локализации правила
         :return: {"id": ..., "criteria": ..., "name": ..., "locales": [...]}
+        :raises NotImplementedError: на R28.0+ (эндпоинт удалён)
         """
         db_name = self.__resolve_db_name(db_name)
+        if self.__use_studio_content_api:
+            raise NotImplementedError(
+                f"SIEM core {self.__core_version} does not expose rule "
+                f"localizations by id (GET /api/RuleLocalizations removed, 404); "
+                f"use get_content_rule() 'localizations' per rule"
+            )
+
         api_path = f"{self.__api_content_rule_localizations}/{rule_localization_id}"
         loc = self.__content_api_request(db_name, api_path, "get_rule_localization")
 
