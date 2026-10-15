@@ -1,5 +1,7 @@
 from mpsiemlib.modules import MPSIEMWorker
 
+__all__ = ["MPSIEMWorker"]
+
 __title__ = "mpsiemlib"
 __description__ = "MaxPatrol SIEM API SDK"
 __url__ = "https://github.com/GenRockeR/mpsiemlib"
