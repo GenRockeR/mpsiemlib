@@ -1,4 +1,5 @@
-dynaconf==3.2.3
-prometheus-client==0.17.0
-requests~=2.31.0
-mpsiemlib
+# Python 3.12+ (mpsiemlib требует >=3.12)
+dynaconf>=3.2.3
+prometheus-client>=0.20.0
+requests>=2.31.0
+mpsiemlib>=1.7.1

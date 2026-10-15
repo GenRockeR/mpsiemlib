@@ -64,7 +64,7 @@ if __name__ == "__main__":
     try:
         mpsiemworker = MPSIEMWorker(creds, settings)
         module = mpsiemworker.get_module(ModuleNames.ASSETS)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         log.error(e)
         sys.exit(255)
 
