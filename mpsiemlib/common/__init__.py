@@ -17,7 +17,7 @@ from .Interfaces import (
     StorageVersion,
     WorkerInterface,
 )
-from .MPSIEMAuth import AuthError, MPSIEMAuth
+from .MPSIEMAuth import AuthError, MPSIEMAuth, StorageNotSupportedError
 
 __all__ = [
     "AuthError",
@@ -31,6 +31,7 @@ __all__ = [
     "ModuleInterface",
     "ModuleNames",
     "Settings",
+    "StorageNotSupportedError",
     "StorageVersion",
     "WorkerInterface",
     "exec_request",

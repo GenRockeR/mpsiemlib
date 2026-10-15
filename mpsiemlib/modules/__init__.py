@@ -28,6 +28,7 @@ from .UsersAndRoles import UsersAndRoles
 class MPSIEMWorker(WorkerInterface, LoggingHandler):
     def __init__(self, creds: Creds, settings: Settings) -> None:
         WorkerInterface.__init__(self, creds, settings)
+        self.creds = creds
         LoggingHandler.__init__(self)
         self.__auth = MPSIEMAuth(self.creds, self.settings)
         sessions = {}

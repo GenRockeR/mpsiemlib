@@ -1,5 +1,7 @@
 from typing import Any, cast
 
+import requests
+
 from mpsiemlib.common import (
     AuthError,
     LoggingHandler,
@@ -14,8 +16,10 @@ class Filters(ModuleInterface, LoggingHandler):
     """Filters module."""
 
     __api_filters_list = "/api/v2/events/filters_hierarchy"
+    __api_filters_list_notifications = "/api/v2/events/filters_hierarchy_notifications"
     __api_filter_v3 = "/api/v3/events/filters"
     __api_filter_v2 = "/api/v2/events/filters"
+    __api_filters_validate_v3 = "/api/v3/events/filters/validate"
     __api_filters_by_tag = "/api/v3/events/filters_by_tags"
     __api_folder = "/api/v2/events/folders"
 
@@ -30,7 +34,7 @@ class Filters(ModuleInterface, LoggingHandler):
         self.__core_session = auth.sessions["core"]
         self.__core_hostname = creds.core_hostname
         self.__core_version = auth.get_core_version()
-        # Релиз ядра (MAJOR, MINOR) из версии "27.6.40521". Сравнение кортежем,
+        # Релиз ядра (MAJOR, MINOR) из версии "28.0.45355". Сравнение кортежем,
         # а не float: "26.10" превращается в 26.1 и неотличим от 26.1.
         version_parts = self.__core_version.split(".")
         self.__core_release: tuple[int, int] = (
@@ -53,16 +57,9 @@ class Filters(ModuleInterface, LoggingHandler):
             "source": "value"}}
         """
         if len(self.__folders) == 0:
-            url = f"https://{self.__core_hostname}{self.__api_filters_list}"
-
-            response: dict[str, Any] = exec_request(
-                self.__core_session,
-                url,
-                method="GET",
-                timeout=self.settings.connection_timeout,
-            ).json()
-
-            self.__iterate_folders_tree(response.get("roots", []))
+            self.__collect_hierarchy(
+                self.__api_filters_list, self.__folders, self.__filters
+            )
 
             self.log.info(
                 f"status=success, action=get_folders_list, "
@@ -71,6 +68,54 @@ class Filters(ModuleInterface, LoggingHandler):
             )
 
         return dict(self.__folders)
+
+    def get_folders_list_for_notifications(self) -> dict[str, dict[str, Any]]:
+        """Получить список папок с фильтрами для подсистемы нотификаций.
+
+        Отдельный контракт GetFilterFolderTreeForNotifications
+        (`GET /api/v2/events/filters_hierarchy_notifications`): структура
+        ответа совпадает с ``get_folders_list``, но срез прав свой - у
+        read-only токена обычная иерархия может быть шире (или уже), чем
+        видимая для правил нотификаций. На R28.0 ответы идентичны
+        (159 узлов, расхождений нет) - разница проявляется на других
+        ролях, поэтому метод сохранён отдельным, а не как параметр
+        ``get_folders_list``.
+
+        Результат не кэшируется: кэш относится к основной иерархии.
+
+        :return: {"id": {"parent_id": "value", "name": "value",
+            "source": "value"}}
+        """
+        folders: dict[str, dict[str, Any]] = {}
+        filters: dict[str, dict[str, Any]] = {}
+        self.__collect_hierarchy(
+            self.__api_filters_list_notifications, folders, filters
+        )
+
+        self.log.info(
+            f"status=success, action=get_folders_list_for_notifications, "
+            f'msg="Got {len(folders)!r} folders", '
+            f"hostname={self.__core_hostname!r}"
+        )
+        return folders
+
+    def __collect_hierarchy(
+        self,
+        api_path: str,
+        folders: dict[str, dict[str, Any]],
+        filters: dict[str, dict[str, Any]],
+    ) -> None:
+        """Запросить иерархию и разложить её по переданным словарям."""
+        url = f"https://{self.__core_hostname}{api_path}"
+
+        response: dict[str, Any] = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout,
+        ).json()
+
+        self.__iterate_folders_tree(response.get("roots", []), folders, filters)
 
     def create_event_filter_folder(self, folder_name: str, parent_id: str) -> str:
         """Создать директорию для фильтров.
@@ -341,7 +386,11 @@ class Filters(ModuleInterface, LoggingHandler):
         return dict(self.__filters)
 
     def __iterate_folders_tree(
-        self, root_node: list[dict[str, Any]], parent_id: str | None = None
+        self,
+        root_node: list[dict[str, Any]],
+        folders: dict[str, dict[str, Any]],
+        filters: dict[str, dict[str, Any]],
+        parent_id: str | None = None,
     ) -> None:
         for node in root_node:
             # id и type обязательны по контракту HierarchyNode
@@ -349,40 +398,47 @@ class Filters(ModuleInterface, LoggingHandler):
             node_name = node.get("name")
             node_source = node.get("meta", {}).get("source")
             if node["type"] == "filter_node":
-                self.__filters[node_id] = {
+                filters[node_id] = {
                     "folder_id": parent_id,
                     "name": node_name,
                     "source": node_source,
                 }
                 continue
             if node["type"] == "folder_node":
-                self.__folders[node_id] = {
+                folders[node_id] = {
                     "parent_id": parent_id,
                     "name": node_name,
                     "source": node_source,
                 }
                 node_children = node.get("children") or []
                 if len(node_children) != 0:
-                    self.__iterate_folders_tree(node_children, node_id)
+                    self.__iterate_folders_tree(
+                        node_children, folders, filters, node_id
+                    )
 
-    def get_filter_info(self, filter_id: str) -> dict:
+    def get_filter_info(self, filter_id: str, with_removed: bool = False) -> dict:
         """Получить информацию по фильтру (контракт по версии ядра).
 
         :param filter_id: ID фильтра
+        :param with_removed: Читать ли удалённый фильтр (см.
+            ``get_filter_info_v3``)
         :return: {"param1": "value", "param2": "value"}
         """
         self.log.debug(f"Current core version: {self.__core_version!r}")
         if self.__core_release < (26, 1):
             self.log.debug("Using get_filter_info_v2")
-            return self.get_filter_info_v2(filter_id)
+            return self.get_filter_info_v2(filter_id, with_removed)
         else:
             self.log.debug("Using get_filter_info_v3")
-            return self.get_filter_info_v3(filter_id)
+            return self.get_filter_info_v3(filter_id, with_removed)
 
-    def get_filter_info_v2(self, filter_id: str) -> dict:
+    def get_filter_info_v2(self, filter_id: str, with_removed: bool = False) -> dict:
         """Получить информацию по фильтру (контракт v2).
 
         :param filter_id: ID фильтра
+        :param with_removed: Читать ли удалённый фильтр. Удалённый фильтр без
+            этого признака сервер отдаёт 400 ``FilterDoesNotExists.Error``
+            (измерено на R28.0)
         :return: {"param1": "value", "param2": "value"}
         """
         api_url = f"{self.__api_filter_v2}/{filter_id}"
@@ -393,6 +449,7 @@ class Filters(ModuleInterface, LoggingHandler):
             url,
             method="GET",
             timeout=self.settings.connection_timeout,
+            params={"withRemoved": "true" if with_removed else "false"},
         ).json()
 
         self.log.info(
@@ -418,10 +475,13 @@ class Filters(ModuleInterface, LoggingHandler):
             },
         }
 
-    def get_filter_info_v3(self, filter_id: str) -> dict:
+    def get_filter_info_v3(self, filter_id: str, with_removed: bool = False) -> dict:
         """Получить информацию по фильтру (контракт v3).
 
         :param filter_id: ID фильтра
+        :param with_removed: Читать ли удалённый фильтр. Удалённый фильтр без
+            этого признака сервер отдаёт 400 ``FilterDoesNotExists.Error``
+            (измерено на R28.0)
         :return: {"param1": "value", "param2": "value"}
         """
         api_url = f"{self.__api_filter_v3}/{filter_id}"
@@ -432,6 +492,7 @@ class Filters(ModuleInterface, LoggingHandler):
             url,
             method="GET",
             timeout=self.settings.connection_timeout,
+            params={"withRemoved": "true" if with_removed else "false"},
         ).json()
 
         self.log.info(
@@ -453,12 +514,15 @@ class Filters(ModuleInterface, LoggingHandler):
     ) -> list[dict]:
         """Получить фильтры по списку идентификаторов (контракт v3).
 
-        Эндпоинт v2 (`GET /api/v2/events/filters?filterId=`) на стенде R27.6
-        отвечает 500 Internal Server Error, поэтому маршрут выбран v3.
+        Маршрут выбран v3 за единообразие с get_default_filter и
+        get_filters_by_tag; аналог v2 (`GET /api/v2/events/filters?filterId=`)
+        жив на R28.0 и отвечает тем же FilterInfo без поля `definedId`
+        (измерено), поэтому отдельный v2-метод не вводится.
 
         :param filter_ids: Идентификаторы фильтров
         :param with_removed: Нужно ли вернуть удалённые фильтры
-        :return: [{"id": "...", "name": "...", "isRemoved": false}, ...]
+        :return: [{"id": "...", "name": "...", "definedId": "...",
+            "isRemoved": false}, ...]
         """
         params: dict[str, Any] = {
             "filterId": filter_ids,
@@ -487,13 +551,14 @@ class Filters(ModuleInterface, LoggingHandler):
 
         Теги фильтрам присваивает не Events API: модель фильтра (v2 и v3) поля
         для тегов не имеет, а сервер молча игнорирует `tags` в теле POST/PUT
-        (измерено на R27.6). Источник тегов - внешняя относительно Core Events
-        подсистема, поэтому метод возвращает [] для тегов, проставленных не
-        через неё, и это не ошибка.
+        (измерено на R28.0: фильтр создан с `tags`, при чтении поля нет,
+        `filters_by_tags` по этому тегу отдаёт []). Источник тегов - внешняя
+        относительно Core Events подсистема, поэтому метод возвращает [] для
+        тегов, проставленных не через неё, и это не ошибка.
 
-        Эндпоинт v2 (`GET /api/v2/events/filters_by_tags`) отвечает так же
-        (измерено), маршрут выбран v3 за единообразие с get_filters_by_ids и
-        get_default_filter.
+        Эндпоинт v2 (`GET /api/v2/events/filters_by_tags`) на R28.0 отвечает
+        так же (200/400), маршрут выбран v3 за единообразие с
+        get_filters_by_ids и get_default_filter.
 
         :param tag: Тег
         :param with_removed: Нужно ли вернуть удалённые фильтры
@@ -501,8 +566,8 @@ class Filters(ModuleInterface, LoggingHandler):
             "isRemoved": false, "source": "user", ...}, ...]
         """
         # Сервер требует непустой tag и отвечает на него 400 BadRequest
-        # (измерено: пустая строка и пробелы тоже 400), local-check даёт
-        # внятную ошибку вместо round-trip
+        # (измерено на R28.0: пустая строка и пробелы тоже 400), local-check
+        # даёт внятную ошибку вместо round-trip
         if not tag.strip():
             raise ValueError("Тег не может быть пустым")
 
@@ -548,6 +613,74 @@ class Filters(ModuleInterface, LoggingHandler):
             f"hostname={self.__core_hostname!r}"
         )
         return response
+
+    def validate_filter(self, pdql_query: str) -> dict[str, Any]:
+        """Проверить PDQL-строку фильтра, не создавая фильтр (контракт v3).
+
+        Сервер отвечает 200 с пустым телом на валидный запрос и 400 с
+        структурированной ошибкой на невалидный, поэтому невалидность - это
+        ожидаемый результат, а не исключение: она возвращается в `errors`.
+        Ошибки, не связанные с корректностью PDQL (401/403/500), пробрасываются
+        как `requests.HTTPError`.
+
+        :param pdql_query: Текст запроса PDQL
+        :return: {"valid": bool, "errors": [{"type": "...", "message": "..."},
+            ...]} - в elements ошибок также бывают `field` (для
+            `...Pdql.FieldNotFound.Error`) и `text`/`startIndex` (для
+            `...Pdql.Format.Error`)
+        :raises requests.HTTPError: при ошибке, отличной от 400
+        """
+        url = f"https://{self.__core_hostname}{self.__api_filters_validate_v3}"
+
+        try:
+            exec_request(
+                self.__core_session,
+                url,
+                method="POST",
+                timeout=self.settings.connection_timeout,
+                json={"pdqlQuery": pdql_query},
+            )
+        except requests.HTTPError as err:
+            response = err.response
+            if response is None or response.status_code != 400:
+                raise
+
+            errors = self.__extract_validation_errors(response)
+            self.log.info(
+                f"status=success, action=validate_filter, "
+                f'msg="PDQL is not valid: {len(errors)!r} error(s)", '
+                f"hostname={self.__core_hostname!r}"
+            )
+            return {"valid": False, "errors": errors}
+
+        self.log.info(
+            f"status=success, action=validate_filter, "
+            f'msg="PDQL is valid", hostname={self.__core_hostname!r}'
+        )
+        return {"valid": True, "errors": []}
+
+    @staticmethod
+    def __extract_validation_errors(
+        response: requests.Response,
+    ) -> list[dict[str, Any]]:
+        """Разобрать тело 400 валидации: внутренний объект error каждого элемента.
+
+        Ответ Core обёрнут в транспортную оболочку (`message`/`code`/`errors`),
+        а описание валидации лежит во вложенном `error` - его и возвращаем,
+        наружные поля дублируют HTTP-статус.
+        """
+        try:
+            body: dict[str, Any] = response.json()
+        except ValueError:
+            return [{"type": "unknown.error", "message": response.text}]
+
+        errors: list[dict[str, Any]] = []
+        for item in body.get("errors") or []:
+            if isinstance(item, dict) and isinstance(item.get("error"), dict):
+                errors.append(item["error"])
+        if len(errors) == 0:
+            errors.append({"type": "unknown.error", "message": response.text})
+        return errors
 
     def update_event_filter_v3(
         self, filter_id: str, filter_name: str, folder_id: str, pdql_query: str

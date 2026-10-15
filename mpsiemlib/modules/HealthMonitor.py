@@ -1,10 +1,13 @@
 from collections.abc import Iterator
 from typing import Any, cast
 
+import requests
+
 from mpsiemlib.common import (
     AuthError,
     LoggingHandler,
     ModuleInterface,
+    MPComponents,
     MPSIEMAuth,
     Settings,
     exec_request,
@@ -31,6 +34,15 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
     __api_agents_by_ids = "/api/agents/scanner_agents"
     __api_agents_validate_delete = "/api/agents/validateDelete"
     __api_kb_status = "/api/v1/knowledgeBase"
+    # Studio-замена статуса KB (ветка R28.0, где `/api/v1/knowledgeBase` удалён)
+    __api_studio_root = "/api-studio"
+    __api_studio_content_databases = (
+        f"{__api_studio_root}/content-database-selector/content-databases"
+    )
+    __api_studio_db_revisions = f"{__api_studio_root}/databases/revisions"
+    __api_studio_parent_top_revision = (
+        f"{__api_studio_root}/databases/content-databases/parent/revisions/top"
+    )
     __checks_limit = 1000
     __kb_port = 8091
     __mc_port = 3334
@@ -45,6 +57,10 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
             raise AuthError("Core hostname is not set")
         self.__core_session = auth.sessions["core"]
         self.__core_hostname = creds.core_hostname
+        # KB-сессия нужна версионно-адаптивной ветке get_health_kb_status();
+        # поднимается лениво (MPSIEMWorker подключает только core/ms)
+        self.__auth = auth
+        self.__kb_session: requests.Session | None = None
         self.__core_version = auth.get_core_version()
         # Релиз ядра (MAJOR, MINOR) из версии "27.6.40521". Сравнение кортежем,
         # а не float: "26.10" превращается в 26.1 и неотличим от 26.1.
@@ -628,11 +644,36 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
             "siem_id": agent.get("siemId"),
         }
 
-    def get_health_kb_status(self) -> dict[str, Any]:
+    def get_health_kb_status(self, db_name: str | None = None) -> dict[str, Any]:
         """Получить статус обновления VM контента в Core.
 
-        :return: dict.
+        До R28.0: ``GET :8091/api/v1/knowledgeBase`` (статус KB-стороны, вне
+        сборника контрактов). С R28.0 эндпоинт удалён (404; без заголовка
+        ``Content-Database`` - 400 "Content Database is not initialized"),
+        статус собирается через Studio API: ревизии БД (``/databases/revisions``),
+        верхняя ревизия родительской БД (``.../parent/revisions/top``) и
+        селектор БД (``content-database-selector/content-databases``).
+
+        :param db_name: Имя контентной БД (None - первая deployable)
+        :return: {"status", "local_updated", "local_current_revision",
+            "local_global_revision", "kb_db_name"}
+        :raises requests.HTTPError: 404 ContentDatabase.NotFound на неизвестную
+            ``db_name``
+        :raises ValueError: если deployable БД на стенде нет
         """
+        if self.__core_release >= (28, 0):
+            status = self.__kb_status_studio(db_name)
+        else:
+            status = self.__kb_status_contract()
+
+        self.log.info(
+            f'status=success, action=get_health_kb_status, msg="Got KB status", '
+            f"hostname={self.__core_hostname!r}"
+        )
+        return status
+
+    def __kb_status_contract(self) -> dict[str, Any]:
+        """Статус KB контрактовым путём (26.x-27.x, ``/api/v1/knowledgeBase``)."""
         url = f"https://{self.__core_hostname}:{self.__kb_port}{self.__api_kb_status}"
         response: dict[str, Any] = exec_request(
             self.__core_session,
@@ -643,7 +684,7 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
 
         local: dict[str, Any] = response.get("localKnowledgeBase") or {}
         remote: dict[str, Any] = response.get("remoteKnowledgeBase") or {}
-        status = {
+        return {
             "status": response.get("status"),
             "local_updated": local.get("lastUpdate"),
             "local_current_revision": local.get("localRevision"),
@@ -651,13 +692,144 @@ class HealthMonitor(ModuleInterface, LoggingHandler):
             "kb_db_name": remote.get("name"),
         }
 
-        self.log.info(
-            f'status=success, action=get_health_kb_status, msg="Got KB status", '
-            f"hostname={self.__core_hostname!r}"
+    def __kb_status_studio(self, db_name: str | None) -> dict[str, Any]:
+        """Статус KB через Studio API (ветка R28.0).
+
+        Поля соответствуют контрактной ветке: `local_current_revision` и
+        `local_updated` - верхняя ревизия самой БД, `local_global_revision` -
+        верхняя ревизия родительской БД-источника контента (для БД без
+        родителя - None), `kb_db_name` - имя родителя (контрактная ветка
+        отдавала в нём имя remote KB).
+        """
+        session = self.__get_kb_session()
+        databases: list[dict[str, Any]] = self.__studio_kb_request(
+            session,
+            None,
+            self.__api_studio_content_databases,
+            "get_health_kb_status.databases",
+        )
+        name = self.__resolve_db_name(databases, db_name)
+        current = next(
+            (db for db in databases if db.get("Name") == name),
+            {},
         )
 
-        return status
+        revisions: list[dict[str, Any]] = self.__studio_kb_request(
+            session,
+            name,
+            self.__api_studio_db_revisions,
+            "get_health_kb_status.revisions",
+            params={"minRevision": 1, "take": 1},
+        )
+        top: dict[str, Any] = revisions[0] if revisions else {}
+
+        parent_name = next(
+            (
+                str(db.get("ParentName"))
+                for db in databases
+                if db.get("Name") == name and db.get("ParentName")
+            ),
+            None,
+        )
+        parent_top = (
+            self.__studio_parent_top_revision(session, name)
+            if parent_name is not None
+            else None
+        )
+
+        # Контрактная `status` описывала процесс обновления контента; в Studio
+        # этому соответствует признак доступности обновления у селектора БД.
+        return {
+            "status": "outdated" if current.get("IsUpdatable") else "updated",
+            "local_updated": top.get("ChangeTime"),
+            "local_current_revision": top.get("Revision"),
+            "local_global_revision": parent_top,
+            "kb_db_name": parent_name,
+        }
+
+    @staticmethod
+    def __resolve_db_name(databases: list[dict[str, Any]], db_name: str | None) -> str:
+        """Использовать первую deployable БД, если ``db_name`` не указан."""
+        if db_name is not None:
+            return db_name
+
+        for db in databases:
+            if db.get("IsDeployable") and db.get("Name"):
+                return str(db["Name"])
+
+        raise ValueError("No deployable content database on stand")
+
+    def __studio_parent_top_revision(
+        self, session: requests.Session, db_name: str
+    ) -> int | None:
+        """Верхняя ревизия родительской БД; None, если родителя нет (404)."""
+        url = (
+            f"https://{self.__core_hostname}:{self.__kb_port}"
+            f"{self.__api_studio_parent_top_revision}"
+        )
+        try:
+            response = exec_request(
+                session,
+                url,
+                method="GET",
+                timeout=self.settings.connection_timeout,
+                headers=self.__kb_headers(db_name),
+            )
+        except requests.HTTPError as err:
+            if err.response is not None and err.response.status_code == 404:
+                # "Content database '...' has no parent"
+                return None
+            raise
+
+        return int(response.text)
+
+    @staticmethod
+    def __kb_headers(db_name: str | None) -> dict[str, str] | None:
+        if db_name is None:
+            return None
+        return {"Content-Database": db_name, "Content-Locale": "RUS"}
+
+    def __studio_kb_request(
+        self,
+        session: requests.Session,
+        db_name: str | None,
+        api_path: str,
+        action: str,
+        params: dict[str, Any] | None = None,
+    ) -> Any:
+        """Запрос к Studio API KB-стороны (``/api-studio/...``)."""
+        url = f"https://{self.__core_hostname}:{self.__kb_port}{api_path}"
+        response = exec_request(
+            session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout,
+            headers=self.__kb_headers(db_name),
+            params=params,
+        )
+
+        payload: Any = response.json()
+        if isinstance(payload, list):
+            self.log.info(
+                f"status=success, action={action}, "
+                f'msg="Got {len(payload)} items", '
+                f"hostname={self.__core_hostname!r}, db={db_name!r}"
+            )
+
+        return payload
+
+    def __get_kb_session(self) -> requests.Session:
+        """KB-сессия (лениво, как в модуле KnowledgeBase)."""
+        kb_session = self.__kb_session
+        if kb_session is None:
+            sessions = self.__auth.sessions or {}
+            kb_session = sessions.get("kb") or self.__auth.connect(MPComponents.KB)
+            self.__kb_session = kb_session
+        return kb_session
 
     def close(self) -> None:
         if self.__core_session is not None:
             self.__core_session.close()
+        kb_session = self.__kb_session
+        if kb_session is not None:
+            kb_session.close()

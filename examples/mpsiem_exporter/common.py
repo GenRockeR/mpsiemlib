@@ -1,36 +1,73 @@
-import requests
+"""Сбор данных метрик через модули mpsiemlib (MP SIEM 26.x-28.x).
+
+Раньше exporter ходил напрямую по порту 8013 (``/events/counter/simple``,
+``/v2/control/tables``) - прямой интерфейс хранилища выведен из MP SIEM
+и на R28.0 недоступен (даже порт закрыт; хранилище - Logspace). Все метрики
+теперь берутся через REST API ядра силами SDK:
+
+- EPS - ``SourceMonitor.get_average_eps``
+  (``GET /api/events_monitoring/v3/sources/eps/average``, Monitoring v3);
+  прежняя разбивка raw/norm/corr_in/corr_out контрактом не отдаётся -
+  доступен средний EPS по всем (или одному) источникам;
+- размеры табличных списков - ``Tables.get_tables_list`` +
+  ``Tables.get_table_info`` (``currentSize``).
+"""
+
+from datetime import UTC, datetime
+from typing import Any
+
+from mpsiemlib.common import ModuleNames
+from mpsiemlib.modules import MPSIEMWorker
 
 
-def get_eps(siem_address="localhost"):
-    raw_addr = (
-        f"http://{siem_address}:8013/events/counter/simple?name=storage.events_raw.in&granularity=300"
-        f"&aggregation=avg"
-    )
-    norm_addr = (
-        f"http://{siem_address}:8013/events/counter/simple?name=storage.events_norm.in&granularity=300"
-        f"&aggregation=avg"
-    )
-    corr_in_addr = (
-        f"http://{siem_address}:8013/events/counter/simple?name=correlator.events.in&granularity=300"
-        f"&aggregation=avg"
-    )
-    corr_out_addr = (
-        f"http://{siem_address}:8013/events/counter/simple?name=correlator.events.out&granularity=300"
-        f"&aggregation=avg"
-    )
-    parsed_string_r = round(requests.get(url=raw_addr).json().get("count")[0])
-    parsed_string_n = round(requests.get(url=norm_addr).json().get("count")[0])
-    parsed_string_ci = round(requests.get(url=corr_in_addr).json().get("count")[0])
-    parsed_string_co = round(requests.get(url=corr_out_addr).json().get("count")[0])
+def get_eps(worker: MPSIEMWorker, window_minutes: int = 5) -> dict[str, float]:
+    """Средний EPS по всем источникам за окно последних N минут.
 
-    keys_list = ["raw_eps", "norm_eps", "corr_in", "corr_out"]
-    metric_list = [parsed_string_r, parsed_string_n, parsed_string_ci, parsed_string_co]
-    new_list = dict(zip(keys_list, metric_list))
+    Границы контракта задаются в минутах от 00:00 UTC, окно строго короче
+    24 часов (замерено на R28.0); при переходе через полночь окно сжимается
+    до [0, текущая минута].
 
-    return new_list
+    :param worker: Инициализированный MPSIEMWorker
+    :param window_minutes: размер окна наблюдения в минутах (1..1439)
+    :return: {"average_eps": <float>}
+    """
+    window_minutes = min(max(window_minutes, 1), 1439)
+    now = datetime.now(UTC)
+    end = max(now.hour * 60 + now.minute, 1)
+    begin = max(end - window_minutes, 0)
+
+    module = worker.get_module(ModuleNames.SOURCE_MONITOR)
+    try:
+        return {"average_eps": module.get_average_eps(begin, end)}
+    finally:
+        module.close()
 
 
-def get_siem_tables(siem_address="localhost"):
-    tables_request = f"http://{siem_address}:8013/v2/control/tables"
-    req = requests.get(tables_request).json()
-    return req
+def get_siem_tables(
+    worker: MPSIEMWorker, siem_id: str | None = None
+) -> list[dict[str, Any]]:
+    """Список табличных списков с текущими размерами.
+
+    ``get_tables_list`` отдаёт имена без размеров, поэтому по каждой таблице
+    идёт отдельный ``get_table_info`` (``currentSize``).
+
+    :param worker: Инициализированный MPSIEMWorker
+    :param siem_id: id конвейера (GUID); обязателен при нескольких конвейерах
+    :return: [{"name", "id", "fillType", "currentSize"}, ...]
+    """
+    module = worker.get_module(ModuleNames.TABLES)
+    try:
+        tables = []
+        for name in module.get_tables_list(siem_id):
+            info = module.get_table_info(name, siem_id)
+            tables.append(
+                {
+                    "name": info.get("name"),
+                    "id": info.get("id"),
+                    "fillType": info.get("type"),
+                    "currentSize": info.get("size_current"),
+                }
+            )
+        return tables
+    finally:
+        module.close()

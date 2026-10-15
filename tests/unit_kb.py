@@ -74,21 +74,11 @@ class KBTestCase(unittest.TestCase):
 
     def test_get_all_objects(self):
         db_name = self.__choose_any_db()
-        norm = []
-        for i in self.__module.get_normalizations_list(db_name):
-            norm.append(i)
-        corr = []
-        for i in self.__module.get_correlations_list(db_name):
-            corr.append(i)
-        agg = []
-        for i in self.__module.get_aggregations_list(db_name):
-            agg.append(i)
-        enrich = []
-        for i in self.__module.get_enrichments_list(db_name):
-            enrich.append(i)
-        tbls = []
-        for i in self.__module.get_tables_list(db_name):
-            tbls.append(i)
+        norm = list(self.__module.get_normalizations_list(db_name))
+        corr = list(self.__module.get_correlations_list(db_name))
+        agg = list(self.__module.get_aggregations_list(db_name))
+        enrich = list(self.__module.get_enrichments_list(db_name))
+        tbls = list(self.__module.get_tables_list(db_name))
 
         self.assertTrue(
             (len(norm) != 0)
@@ -471,7 +461,7 @@ class KBTestCase(unittest.TestCase):
         child_group_name = gen_uppercase_string(12)
         grandchild_group_name = gen_uppercase_string(12)
 
-        path = "/".join((root_group_name, child_group_name, grandchild_group_name))
+        path = f"{root_group_name}/{child_group_name}/{grandchild_group_name}"
 
         self.__module.create_group_path(db_name, path)
         group_id = self.__module.get_group_id_by_path(db_name, path)
@@ -496,7 +486,7 @@ class KBTestCase(unittest.TestCase):
 
         self.assertEqual(
             self.__module.get_group_path_by_id(db_name, child_group_id_str),
-            "/".join((root_group_name, child_group_name)),
+            f"{root_group_name}/{child_group_name}",
         )
 
     def test_get_group_id_by_path(self):
@@ -524,7 +514,7 @@ class KBTestCase(unittest.TestCase):
         )
         self.assertIsNotNone(new_rule_id_str)
 
-        search_str = "/".join((group_name, nested_group_name))
+        search_str = f"{group_name}/{nested_group_name}"
         self.assertEqual(
             self.__module.get_group_id_by_path(db_name, search_str), nested_group_id_str
         )
@@ -594,7 +584,7 @@ class KBTestCase(unittest.TestCase):
             db_name, nested_folder_name, parent_folder_id
         )
         self.assertEqual(
-            "/".join((root_folder_name, nested_folder_name)),
+            f"{root_folder_name}/{nested_folder_name}",
             self.__module.get_folder_path_by_id(db_name, nested_folder_id),
         )
 
@@ -609,7 +599,7 @@ class KBTestCase(unittest.TestCase):
         self.assertEqual(
             nested_folder_id,
             self.__module.get_folder_id_by_path(
-                db_name, "/".join((root_folder_name, nested_folder_name))
+                db_name, f"{root_folder_name}/{nested_folder_name}"
             ),
         )
 
@@ -675,7 +665,7 @@ class KBTestCase(unittest.TestCase):
         self.__module.move_folder(db_name, nested_folder_id, dst_folder_id)
         self.__module.get_folders_list(db_name, do_refresh=True)
         self.assertEqual(
-            "/".join((dst_folder_name, nested_folder_name)),
+            f"{dst_folder_name}/{nested_folder_name}",
             self.__module.get_folder_path_by_id(db_name, nested_folder_id),
         )
 
@@ -742,7 +732,7 @@ class KBTestCase(unittest.TestCase):
 
         self.assertEqual(dst_folder_id, rule_data.get("Folder").get("Id"))
         self.assertEqual(
-            "/".join((dst_folder_name, child_folder_name)),
+            f"{dst_folder_name}/{child_folder_name}",
             self.__module.get_folder_path_by_id(db_name, child_folder_id),
         )
 
@@ -795,6 +785,17 @@ class KBTestCase(unittest.TestCase):
 
     def test_get_rule_localizations_and_localization(self):
         db_name = self.__choose_deployable_db()
+
+        # R28.0: контрактный GET /api/RuleLocalizations удалён (404), а
+        # студийной глобальной замены нет (локализации отдаются только в
+        # DTO отдельного правила) - метод осознанно бросает
+        # NotImplementedError.
+        if self.__module.auth.get_core_release() >= (28, 0):
+            with self.assertRaises(NotImplementedError):
+                self.__module.get_rule_localizations(db_name)
+            with self.assertRaises(NotImplementedError):
+                self.__module.get_rule_localization(db_name, "any-id")
+            return
 
         localizations = self.__module.get_rule_localizations(db_name)
         self.assertGreater(len(localizations), 0)
@@ -1195,7 +1196,7 @@ class KBTestCase(unittest.TestCase):
         old_revisions = self.__module.get_content_database_revisions(db_name, 1, 50)
         if not old_revisions:
             self.skipTest("No revisions in db")
-        early = max(r.get("revision") for r in old_revisions)
+        early: int = max(int(r.get("revision")) for r in old_revisions)
 
         # Создаём папку и правило - это порождает новые ревизии
         folder_name = gen_uppercase_string(12)
@@ -1209,14 +1210,13 @@ class KBTestCase(unittest.TestCase):
             new_revisions = self.__module.get_content_database_revisions(
                 db_name, early + 1, 50
             )
-            late = max((r.get("revision") for r in new_revisions), default=None)
+            late_values = [int(r.get("revision")) for r in new_revisions]
+            late: int | None = max(late_values) if late_values else None
             if late is None or late <= early:
                 self.skipTest("New revision did not appear after content change")
 
             # Порядок ревизий намеренно обратный: метод сам расставляет early/late
-            revisions_diff = self.__module.get_revisions_diff(
-                db_name, late, early
-            )
+            revisions_diff = self.__module.get_revisions_diff(db_name, late, early)
             self.assertIsInstance(revisions_diff, dict)
             self.assertGreater(len(revisions_diff), 0)
 

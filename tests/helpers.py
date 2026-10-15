@@ -43,7 +43,7 @@ def clean_kb_trash(module, db_name, prefixes=KB_TRASH_PREFIXES):
     тестов, не удаляющих свои объекты). Best-effort: возвращает список
     строк-ошибок, исключений не поднимает.
 
-    :param module: экземпляр KnowledgeBase
+    :param module: Экземпляр KnowledgeBase
     :param db_name: имя БД
     :param prefixes: префиксы имён тестового мусора (по умолчанию unittest_)
     :return: список строк-ошибок (пустой при полном успехе)
@@ -60,7 +60,7 @@ def clean_kb(module, db_name, prefixes):
     конвейера) -> удаление объектов -> удаление папок (глубина вниз) ->
     удаление наборов (глубина вниз).
 
-    :param module: экземпляр KnowledgeBase
+    :param module: Экземпляр KnowledgeBase
     :param db_name: имя БД
     :param prefixes: префиксы имён тестового мусора
     :return: список строк-ошибок (пустой при полном успехе)
@@ -71,7 +71,7 @@ def clean_kb(module, db_name, prefixes):
         return any(str(obj_name or "").startswith(p) for p in prefixes)
 
     # 1. Контент (правила) - серверный поиск по префиксу, серверный фильтр
-    # по типу быстрее полной выгрузки. search совпадения неточные - имя
+    # по типу быстрее полной выгрузки. Search совпадения неточные - имя
     # проверяем на клиенте.
     junk_items = []
     junk_ids = set()
@@ -86,7 +86,7 @@ def clean_kb(module, db_name, prefixes):
                     if is_junk(obj.get("name")) and obj["id"] not in junk_ids:
                         junk_ids.add(obj["id"])
                         junk_items.append((obj["id"], kind, obj.get("name")))
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001
                 errors.append(f"list content {siem_type} {prefix!r}: {err!r}")
 
     groups = module.get_groups_list(db_name, do_refresh=True)
@@ -100,14 +100,14 @@ def clean_kb(module, db_name, prefixes):
     remove_ids = list(junk_group_ids)
     try:
         remove_ids.append(module.get_install_deployment_set_id(db_name))
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         errors.append(f"install set: {err!r}")
     if junk_ids and remove_ids:
         try:
             module.link_content_to_groups(
                 db_name, list(junk_ids), [], remove_group_ids=remove_ids
             )
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             errors.append(f"unlink: {err!r}")
 
     # 3. Удалить контент
@@ -116,7 +116,7 @@ def clean_kb(module, db_name, prefixes):
             r = module.delete_content_item(db_name, obj_id, kind)
             if r.status_code != 204:
                 errors.append(f"delete rule {name}: {r.status_code}")
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             errors.append(f"delete rule {name}: {err!r}")
 
     # 4. Папки - от вложенных к корню (непустая/родительская не удалится раньше)
@@ -131,7 +131,7 @@ def clean_kb(module, db_name, prefixes):
             r = module.delete_folder(db_name, fid)
             if r.status_code != 204:
                 errors.append(f"delete folder {folders[fid]['name']}: {r.status_code}")
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             errors.append(f"delete folder {folders[fid]['name']}: {err!r}")
 
     # 5. Наборы установки - от вложенных к корню
@@ -140,7 +140,7 @@ def clean_kb(module, db_name, prefixes):
             r = module.delete_group(db_name, gid)
             if r.status_code != 204:
                 errors.append(f"delete group {groups[gid]['name']}: {r.status_code}")
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             errors.append(f"delete group {groups[gid]['name']}: {err!r}")
 
     return errors

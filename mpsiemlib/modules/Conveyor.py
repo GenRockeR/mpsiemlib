@@ -56,7 +56,9 @@ class Conveyor(ModuleInterface, LoggingHandler):
         (контракт GetSiems).
 
         :param refresh: принудительно обновить кэш (по умолчанию — из кэша)
-        :return: [{id, alias, is_primary, status, type, address, version}]
+        :return: [{id, alias, is_primary, status, type, address, version,
+            uri_scheme, port, db_type, db_host, db_port, db_cross_port,
+            seed_host, taxonomy_version}]
         """
         if self.__conveyor and not refresh:
             return [dict(conveyor) for conveyor in self.__conveyor]
@@ -78,6 +80,14 @@ class Conveyor(ModuleInterface, LoggingHandler):
                 "type": item.get("type"),
                 "address": item.get("address"),
                 "version": item.get("version"),
+                "uri_scheme": item.get("uriScheme"),
+                "port": item.get("port"),
+                "db_type": item.get("dbType"),
+                "db_host": item.get("dbHost"),
+                "db_port": item.get("dbPort"),
+                "db_cross_port": item.get("dbCrossPort"),
+                "seed_host": item.get("seedHost"),
+                "taxonomy_version": item.get("taxonomyVersion"),
             }
             for item in response
         ]
@@ -252,8 +262,14 @@ class Conveyor(ModuleInterface, LoggingHandler):
         ipAddresses, osType, version, agents, dbHost, dbPort, dbCrossPort,
         dbType).
 
+        На R28.0 эндпоинт закрыт на стороне ядра: отвечает `403` с пустым
+        телом и под PAT, и под Local Administrator (измерено); студийной
+        замены нет. Метод сохранён — блокировка не зависит от версии SDK и
+        может быть снята вендором.
+
         :param siem_id: id конвейера (GUID)
         :param siem_info: SiemInfo
+        :raises requests.HTTPError: 403 на R28.0 (эндпоинт закрыт ядром)
         """
         api_url = f"{self.__api_conveyor_list}/{siem_id}"
         url = f"https://{self.__core_hostname}{api_url}"
@@ -275,6 +291,9 @@ class Conveyor(ModuleInterface, LoggingHandler):
         """Удалить конвейер (контракт DeleteSiem).
 
         :param siem_id: id конвейера (GUID)
+        :raises requests.HTTPError: 400 SM.SiemNotFound.Error /
+            SiemDeletionIsNotPossible (контракт) — на R28.0 оба случая
+            отвечают 400 (измерено)
         """
         api_url = f"{self.__api_conveyor_list}/{siem_id}"
         url = f"https://{self.__core_hostname}{api_url}"
@@ -295,8 +314,13 @@ class Conveyor(ModuleInterface, LoggingHandler):
         """Изменить псевдоним конвейера (контракт UpdateSiemInfo,
         SiemShortInfo).
 
+        В отличие от UpdateSiem/UpdateSiemAgents, на R28.0 эндпоинт жив
+        (измерено: 204 под PAT).
+
         :param siem_id: id конвейера (GUID)
         :param alias: Новый псевдоним
+        :raises requests.HTTPError: 400 SM.SiemNotFound.Error /
+            SiemAliasIsNotUnique (контракт)
         """
         api_url = f"{self.__api_conveyor_list}/{siem_id}/info"
         url = f"https://{self.__core_hostname}{api_url}"
@@ -317,8 +341,14 @@ class Conveyor(ModuleInterface, LoggingHandler):
     def update_conveyor_agents(self, siem_id: str, agents: list[str]) -> None:
         """Обновить состав агентов конвейера (контракт UpdateSiemAgents).
 
+        На R28.0 эндпоинт закрыт на стороне ядра, как и `UpdateSiem`: `403`
+        с пустым телом под PAT и под Local Administrator (измерено). Метод
+        сохранён ради совместимости с ядрами, где он открыт.
+
         :param siem_id: id конвейера (GUID)
         :param agents: Список id агентов (GUID)
+        :raises requests.HTTPError: 400 SM.SiemNotFound.Error, если конвейер
+            не найден; 403 на R28.0 (эндпоинт закрыт ядром)
         """
         api_url = f"{self.__api_conveyor_list}/{siem_id}/agents"
         url = f"https://{self.__core_hostname}{api_url}"

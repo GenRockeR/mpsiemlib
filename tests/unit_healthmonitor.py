@@ -10,7 +10,7 @@ from mpsiemlib.common import *
 from mpsiemlib.modules import MPSIEMWorker
 
 
-class KBTestCase(unittest.TestCase):
+class HealthMonitorTestCase(unittest.TestCase):
     __mpsiemworker = None
     __module = None
     __creds = creds_pat
@@ -192,13 +192,27 @@ class KBTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.__module.validate_health_agents_delete([])
 
-    @unittest.skip("Not implemented")
     def test_get_kb_status(self):
         ret = self.__module.get_health_kb_status()
 
         print(json.dumps(ret, indent=4, ensure_ascii=False))
 
         self.assertGreater(len(ret), 0)
+        for key in (
+            "status",
+            "local_updated",
+            "local_current_revision",
+            "local_global_revision",
+            "kb_db_name",
+        ):
+            self.assertIn(key, ret)
+        if ret.get("local_current_revision") is not None:
+            self.assertIsInstance(ret["local_current_revision"], int)
+
+    def test_get_kb_status_unknown_db(self):
+        with self.assertRaises(requests.HTTPError) as ctx:
+            self.__module.get_health_kb_status("sdk-no-such-db")
+        self.assertEqual(ctx.exception.response.status_code, 404)
 
 
 if __name__ == "__main__":

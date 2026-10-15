@@ -1,6 +1,9 @@
 from collections.abc import Iterator
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime, timedelta
+from typing import Any, NoReturn
+from urllib.parse import unquote
+
+import requests
 
 from mpsiemlib.common import (
     AuthError,
@@ -17,18 +20,23 @@ from mpsiemlib.common import (
 class SourceMonitor(ModuleInterface, LoggingHandler):
     """Source monitor module.
 
-    MP SIEM 27.x: контракт ``Monitoring.yaml`` (``/api/events_monitoring/v3``)
+    MP SIEM 27.x+: контракт ``Monitoring.yaml`` (``/api/events_monitoring/v3``)
     - ``POST /assets`` и ``POST /forwarders``: фильтр (время, группы, активы,
     форвардеры) передаётся в теле запроса, ``stateFilter``/``limit``/``offset``
     - в query; ответ - ``{totalItems, items}``.
+    - ``GET /{assets,forwarders}/stat``, ``GET /unidentified/{sources,forwarders}``,
+    графики EPS (``.../eps/graph``), средний EPS (``/sources/eps/average``) и
+    экспорт в CSV (``.../export``, ``.../export_specified``).
 
     MP SIEM 26.x: ``GET /api/events_monitoring/v2/{sources,forwarders}`` с
     ``timeFrom``/``timeTo``/``controlState`` в query и плоским списком в ответе
-    (в контрактах 27.x v2 отсутствует).
+    (в контрактах 27.x v2 отсутствует). Остальные методы (stat, unidentified,
+    графики, средний EPS, экспорт) описаны только для v3 и на 26.x недоступны.
     """
 
     __api_sources_v2 = "/api/events_monitoring/v2/sources"
     __api_forwarders_v2 = "/api/events_monitoring/v2/forwarders"
+    __api_v3 = "/api/events_monitoring/v3"
     __api_assets_v3 = "/api/events_monitoring/v3/assets"
     __api_forwarders_v3 = "/api/events_monitoring/v3/forwarders"
 
@@ -49,6 +57,8 @@ class SourceMonitor(ModuleInterface, LoggingHandler):
         "noEventsAlerted",
         "delayAlerted",
     )
+    # assetSourceType для /unidentified/{id}/eps/graph (Monitoring.yaml)
+    ASSET_SOURCE_TYPES = ("Source", "Forwarder")
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings) -> None:
         ModuleInterface.__init__(self, auth, settings)
@@ -100,7 +110,7 @@ class SourceMonitor(ModuleInterface, LoggingHandler):
         :param state_filter: фильтр по состоянию, см. ``ASSET_STATE_FILTERS``
         :return: Итератор по источникам
         """
-        self.__check_state_filter(state_filter, self.ASSET_STATE_FILTERS)
+        self.__check_enum_value(state_filter, self.ASSET_STATE_FILTERS)
 
         if self.__core_release >= (27, 0):
             yield from self.__iterate_assets_v3(
@@ -129,7 +139,7 @@ class SourceMonitor(ModuleInterface, LoggingHandler):
             ``FORWARDER_STATE_FILTERS``
         :return: Итератор по форвардерам
         """
-        self.__check_state_filter(state_filter, self.FORWARDER_STATE_FILTERS)
+        self.__check_enum_value(state_filter, self.FORWARDER_STATE_FILTERS)
 
         if self.__core_release >= (27, 0):
             yield from self.__iterate_forwarders_v3(begin, end, group_ids, state_filter)
@@ -156,6 +166,377 @@ class SourceMonitor(ModuleInterface, LoggingHandler):
         :return: Итератор по источникам
         """
         return self.get_sources_list(begin, end, forwarder_id, group_ids, state_filter)
+
+    # ------------------------------------------------------------------ #
+    # Статистика (v3, Monitoring.yaml GetAssetsStat / GetForwardersStat)
+    # ------------------------------------------------------------------ #
+
+    def get_assets_statistics(
+        self,
+        begin: int,
+        end: int | None = None,
+        group_ids: list[str] | None = None,
+        recursive: bool = True,
+        asset_ids: list[str] | None = None,
+        forwarder_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Статистика по активам (``GET /api/events_monitoring/v3/assets/stat``).
+
+        Счётчики в ответе: ``withoutRules``, ``withRules``, ``activityAlerted``,
+        ``flowAlerted``, ``delayAlerted``, ``unidentifiedSources``.
+
+        :param begin: timestamp начала диапазона (UTC); параметр обязателен для
+            сервера (замерено на R28.0)
+        :param end: timestamp конца диапазона
+        :param group_ids: фильтр по группам активов (UUID)
+        :param recursive: рекурсивно ли учитывать вложенные группы
+        :param asset_ids: фильтр по активам (UUID)
+        :param forwarder_ids: фильтр по форвардерам (UUID)
+        :return: ``AssetsStatisticsData``
+        """
+        params: dict[str, Any] = {"fromDateTime": self.__iso_time(begin)}
+        if end is not None:
+            params["toDateTime"] = self.__iso_time(end)
+        self.__add_array_params(
+            params,
+            groupIds=group_ids,
+            assetIds=asset_ids,
+            forwarderIds=forwarder_ids,
+        )
+        if group_ids is not None:
+            params["recursive"] = recursive
+
+        return self.__get_json_dict(
+            "get_assets_statistics", f"{self.__api_v3}/assets/stat", params
+        )
+
+    def get_forwarders_statistics(
+        self,
+        begin: int,
+        end: int | None = None,
+        group_ids: list[str] | None = None,
+        recursive: bool = True,
+        asset_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Статистика по форвардерам (``GET .../v3/forwarders/stat``).
+
+        Счётчики в ответе: ``withoutRules``, ``withRules``, ``noEventsAlerted``,
+        ``delayAlerted``, ``unidentifiedForwarders``.
+
+        :param begin: timestamp начала диапазона (UTC)
+        :param end: timestamp конца диапазона
+        :param group_ids: фильтр по группам активов (UUID)
+        :param recursive: рекурсивно ли учитывать вложенные группы
+        :param asset_ids: фильтр по активам (UUID)
+        :return: ``ForwardersStatisticsData``
+        """
+        params: dict[str, Any] = {"fromDateTime": self.__iso_time(begin)}
+        if end is not None:
+            params["toDateTime"] = self.__iso_time(end)
+        self.__add_array_params(params, groupIds=group_ids, assetIds=asset_ids)
+        if group_ids is not None:
+            params["recursive"] = recursive
+
+        return self.__get_json_dict(
+            "get_forwarders_statistics", f"{self.__api_v3}/forwarders/stat", params
+        )
+
+    # ------------------------------------------------------------------ #
+    # Неидентифицированные источники и форвардеры
+    # ------------------------------------------------------------------ #
+
+    def get_unidentified_sources(
+        self, begin: int, end: int | None = None
+    ) -> dict[str, Any]:
+        """Неидентифицированные источники (``GET .../v3/unidentified/sources``).
+
+        :param begin: timestamp начала диапазона (UTC)
+        :param end: timestamp конца диапазона
+        :return: ``UnidentifiedItems`` - ``{items, totalItems}``, где элемент
+            ``items`` содержит ``source`` (id/vendor/title/subsystem),
+            ``lastEventDateTime``, ``eps``, ``delay`` (ISO 8601 duration)
+        """
+        params: dict[str, Any] = {"fromDateTime": self.__iso_time(begin)}
+        if end is not None:
+            params["toDateTime"] = self.__iso_time(end)
+
+        return self.__get_json_dict(
+            "get_unidentified_sources", f"{self.__api_v3}/unidentified/sources", params
+        )
+
+    def get_unidentified_forwarders(
+        self, begin: int, end: int | None = None
+    ) -> dict[str, Any]:
+        """Неидентифицированные форвардеры (``GET .../v3/unidentified/forwarders``).
+
+        :param begin: timestamp начала диапазона (UTC)
+        :param end: timestamp конца диапазона
+        :return: ``UnidentifiedItems`` - см. :meth:`get_unidentified_sources`
+        """
+        params: dict[str, Any] = {"fromDateTime": self.__iso_time(begin)}
+        if end is not None:
+            params["toDateTime"] = self.__iso_time(end)
+
+        return self.__get_json_dict(
+            "get_unidentified_forwarders",
+            f"{self.__api_v3}/unidentified/forwarders",
+            params,
+        )
+
+    # ------------------------------------------------------------------ #
+    # Графики EPS и средний EPS
+    # ------------------------------------------------------------------ #
+
+    def get_asset_source_eps_graph(
+        self,
+        asset_id: str,
+        source_description_id: str,
+        begin: int,
+        end: int,
+        granularity: str = "PT5M",
+    ) -> list[dict[str, Any]]:
+        """График EPS источника на активе (``GET .../v3/assets/{assetId}/{sourceDescriptionId}/eps/graph``).
+
+        :param asset_id: UUID актива
+        :param source_description_id: идентификатор SourceDescription
+        :param begin: timestamp начала диапазона (UTC)
+        :param end: timestamp конца диапазона
+        :param granularity: шаг графика в ISO 8601 duration (``PT1M``, ``PT5M``,
+            ``PT1H``); сервер не принимает ``HH:mm``
+        :return: ``GraphData`` - список ``{dateTime, value}``
+        """
+        params = self.__graph_params(begin, end, granularity)
+        return self.__get_json_list(
+            "get_asset_source_eps_graph",
+            f"{self.__api_v3}/assets/{asset_id}/{source_description_id}/eps/graph",
+            params,
+        )
+
+    def get_forwarder_eps_graph(
+        self,
+        forwarder_id: str,
+        begin: int,
+        end: int,
+        granularity: str = "PT5M",
+    ) -> list[dict[str, Any]]:
+        """График EPS форвардера (``GET .../v3/forwarders/{id}/eps/graph``).
+
+        :param forwarder_id: UUID форвардера (в v3 форвардер - это актив,
+            см. :meth:`get_forwarders_list`)
+        :param begin: timestamp начала диапазона (UTC)
+        :param end: timestamp конца диапазона
+        :param granularity: шаг графика в ISO 8601 duration
+        :return: ``GraphData`` - список ``{dateTime, value}``
+        """
+        params = self.__graph_params(begin, end, granularity)
+        return self.__get_json_list(
+            "get_forwarder_eps_graph",
+            f"{self.__api_v3}/forwarders/{forwarder_id}/eps/graph",
+            params,
+        )
+
+    def get_unidentified_source_eps_graph(
+        self,
+        source_description_id: str,
+        source_type: str,
+        begin_minutes: int,
+        end_minutes: int,
+        granularity: str = "PT5M",
+    ) -> list[dict[str, Any]]:
+        """График EPS неидентифицированного источника (``GET .../v3/unidentified/{sourceDescriptionId}/eps/graph``).
+
+        В отличие от остальных графиков, сервер ждёт время суток относительно
+        00:00 в формате ``HH:mm`` (замерено на R28.0: ISO duration отбивается с
+        ``validation.error``). Точки в ответе сервер привязывает к текущим
+        суткам в UTC.
+
+        :param source_description_id: идентификатор SourceDescription
+        :param source_type: ``Source`` или ``Forwarder`` (``AssetSourceType``)
+        :param begin_minutes: левая граница, минут от 00:00 UTC (0..1439)
+        :param end_minutes: правая граница, минут от 00:00 UTC (0..1439)
+        :param granularity: шаг графика в ISO 8601 duration
+        :return: ``GraphData`` - список ``{dateTime, value}``
+        """
+        self.__check_enum_value(source_type, self.ASSET_SOURCE_TYPES, "assetSourceType")
+        params: dict[str, Any] = {
+            "assetSourceType": source_type,
+            "granularity": granularity,
+            "fromDateTime": self.__minutes_to_hhmm(begin_minutes),
+            "toDateTime": self.__minutes_to_hhmm(end_minutes),
+        }
+
+        return self.__get_json_list(
+            "get_unidentified_source_eps_graph",
+            f"{self.__api_v3}/unidentified/{source_description_id}/eps/graph",
+            params,
+        )
+
+    def get_average_eps(
+        self,
+        begin_minutes: int,
+        end_minutes: int,
+        source_description_id: str | None = None,
+    ) -> float:
+        """Средний EPS (``GET .../v3/sources/eps/average``).
+
+        Границы передаются как ISO 8601 duration относительно 00:00 UTC; сервер
+        принимает значения строго меньше 24 часов (``PT24H`` отбивается с
+        ``BadRequest``, замерено на R28.0). ``HH:mm``, который обещан в
+        контракте, сервером не принимается.
+
+        :param begin_minutes: левая граница, минут от 00:00 UTC (0..1439)
+        :param end_minutes: правая граница, минут от 00:00 UTC (0..1439)
+        :param source_description_id: идентификатор SourceDescription; None -
+            средний EPS по всем источникам
+        :return: ``averageEps``
+        """
+        params: dict[str, Any] = {
+            "fromTime": self.__minutes_to_iso_duration(begin_minutes),
+            "toTime": self.__minutes_to_iso_duration(end_minutes),
+        }
+        if source_description_id is not None:
+            params["sourceDescriptionId"] = source_description_id
+
+        response = self.__get_json_dict(
+            "get_average_eps", f"{self.__api_v3}/sources/eps/average", params
+        )
+
+        return float(response.get("averageEps", 0.0))
+
+    # ------------------------------------------------------------------ #
+    # Экспорт в CSV
+    # ------------------------------------------------------------------ #
+
+    def export_assets(
+        self,
+        begin: int,
+        end: int | None = None,
+        forwarder_id: str | None = None,
+        group_ids: list[str] | None = None,
+        state_filter: str = "all",
+    ) -> str:
+        """Экспорт активов с источниками в CSV (``POST .../v3/assets/export``).
+
+        :param begin: timestamp начала диапазона (UTC)
+        :param end: timestamp конца диапазона
+        :param forwarder_id: ID форвардера, активы которого надо выгрузить
+        :param group_ids: фильтр по группам активов (UUID)
+        :param state_filter: фильтр по состоянию, см. ``ASSET_STATE_FILTERS``
+        :return: Текст CSV (разделитель ``;``, BOM снят)
+        """
+        self.__check_enum_value(state_filter, self.ASSET_STATE_FILTERS)
+        body = self.__prepare_filter(begin, end, forwarder_id, group_ids)
+
+        return self.__post_csv(
+            "export_assets",
+            f"{self.__api_v3}/assets/export",
+            json=body,
+            params={"stateFilter": state_filter},
+        )
+
+    def export_assets_specified(self, assets_with_sources: list[dict[str, Any]]) -> str:
+        """Экспорт выбранных активов (``POST .../v3/assets/export_specified``).
+
+        :param assets_with_sources: ``AssetsWithSourcesFilter`` - список
+            ``{"assetId": <UUID>, "sourceDescriptionId": <id>}``; источники
+            можно не указывать, тогда выгружается актив целиком
+        :return: Текст CSV (разделитель ``;``, BOM снят)
+        """
+        return self.__post_csv(
+            "export_assets_specified",
+            f"{self.__api_v3}/assets/export_specified",
+            json={"assetsWithSources": assets_with_sources},
+        )
+
+    def export_forwarders(
+        self,
+        begin: int,
+        end: int | None = None,
+        group_ids: list[str] | None = None,
+        state_filter: str = "all",
+    ) -> str:
+        """Экспорт форвардеров в CSV (``POST .../v3/forwarders/export``).
+
+        :param begin: timestamp начала диапазона (UTC)
+        :param end: timestamp конца диапазона
+        :param group_ids: фильтр по группам активов (UUID)
+        :param state_filter: фильтр по состоянию, см.
+            ``FORWARDER_STATE_FILTERS``
+        :return: Текст CSV (разделитель ``;``, BOM снят)
+        """
+        self.__check_enum_value(state_filter, self.FORWARDER_STATE_FILTERS)
+        body = self.__prepare_filter(begin, end, None, group_ids)
+
+        return self.__post_csv(
+            "export_forwarders",
+            f"{self.__api_v3}/forwarders/export",
+            json=body,
+            params={"stateFilter": state_filter},
+        )
+
+    def export_forwarders_specified(
+        self, assets_with_sources: list[dict[str, Any]]
+    ) -> str:
+        """Экспорт выбранных форвардеров (``POST .../v3/forwarders/export_specified``).
+
+        :param assets_with_sources: список ``{"assetId": <UUID>}``; по контракту
+            источники в этом фильтре заполнять не нужно
+        :return: Текст CSV (разделитель ``;``, BOM снят); пустой список
+            отдаётся как CSV с одной строкой заголовков
+        """
+        return self.__post_csv(
+            "export_forwarders_specified",
+            f"{self.__api_v3}/forwarders/export_specified",
+            json={"assetsWithSources": assets_with_sources},
+        )
+
+    def export_unidentified_sources(
+        self,
+        begin: int,
+        end: int | None = None,
+        source_description_ids: list[str] | None = None,
+    ) -> str:
+        """Экспорт неидентифицированных источников (``GET .../v3/unidentified/sources/export``).
+
+        :param begin: timestamp начала диапазона (UTC)
+        :param end: timestamp конца диапазона
+        :param source_description_ids: конкретные источники; None - все
+        :return: Текст CSV (разделитель ``;``, BOM снят)
+        """
+        params: dict[str, Any] = {"fromDateTime": self.__iso_time(begin)}
+        if end is not None:
+            params["toDateTime"] = self.__iso_time(end)
+        self.__add_array_params(params, sourceDescriptionIds=source_description_ids)
+
+        return self.__get_csv(
+            "export_unidentified_sources",
+            f"{self.__api_v3}/unidentified/sources/export",
+            params,
+        )
+
+    def export_unidentified_forwarders(
+        self,
+        begin: int,
+        end: int | None = None,
+        source_description_ids: list[str] | None = None,
+    ) -> str:
+        """Экспорт неидентифицированных форвардеров (``GET .../v3/unidentified/forwarders/export``).
+
+        :param begin: timestamp начала диапазона (UTC)
+        :param end: timestamp конца диапазона
+        :param source_description_ids: конкретные источники; None - все
+        :return: Текст CSV (разделитель ``;``, BOM снят)
+        """
+        params: dict[str, Any] = {"fromDateTime": self.__iso_time(begin)}
+        if end is not None:
+            params["toDateTime"] = self.__iso_time(end)
+        self.__add_array_params(params, sourceDescriptionIds=source_description_ids)
+
+        return self.__get_csv(
+            "export_unidentified_forwarders",
+            f"{self.__api_v3}/unidentified/forwarders/export",
+            params,
+        )
 
     # ------------------------------------------------------------------ #
     # v3 (MP SIEM 27.x, Monitoring.yaml)
@@ -436,18 +817,188 @@ class SourceMonitor(ModuleInterface, LoggingHandler):
     # Общее
     # ------------------------------------------------------------------ #
 
+    def __url(self, api_path: str) -> str:
+        return f"https://{self.__core_hostname}{api_path}"
+
+    def __check_v3(self, action: str) -> None:
+        """Методы Monitoring.yaml (stat, unidentified, графики, экспорт) живут
+        только в ``/api/events_monitoring/v3``; на 26.x их нет."""
+        if self.__core_release < (27, 0):
+            raise NotImplementedError(
+                f"{action} requires MP SIEM >= 27.0 "
+                f"(core {self.__core_version}); on 26.x only "
+                "get_sources_list / get_forwarders_list are available"
+            )
+
+    def __request(
+        self,
+        action: str,
+        api_path: str,
+        method: str = "GET",
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+    ) -> requests.Response:
+        self.__check_v3(action)
+        return exec_request(
+            self.__core_session,
+            self.__url(api_path),
+            method=method,
+            timeout=self.settings.connection_timeout,
+            params=params,
+            json=json_body,
+        )
+
+    def __get_json_dict(
+        self, action: str, api_path: str, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        payload = self.__get_json(action, api_path, params)
+        if not isinstance(payload, dict):
+            self.__wrong_structure_error(action)
+
+        return payload
+
+    def __get_json_list(
+        self, action: str, api_path: str, params: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Ответ - список точек графика (``GraphData``)."""
+        payload = self.__get_json(action, api_path, params)
+        if not isinstance(payload, list):
+            self.__wrong_structure_error(action)
+
+        return payload
+
+    def __get_json(self, action: str, api_path: str, params: dict[str, Any]) -> Any:
+        start_time = get_metrics_start_time()
+        response = self.__request(action, api_path, params=params)
+        payload: Any = response.json()
+
+        self.__log_result(action, start_time, 1)
+        return payload
+
+    def __post_csv(
+        self,
+        action: str,
+        api_path: str,
+        json: dict[str, Any],
+        params: dict[str, Any] | None = None,
+    ) -> str:
+        return self.__csv_result(
+            action,
+            self.__request(
+                action, api_path, method="POST", params=params, json_body=json
+            ),
+        )
+
+    def __get_csv(self, action: str, api_path: str, params: dict[str, Any]) -> str:
+        return self.__csv_result(
+            action, self.__request(action, api_path, params=params)
+        )
+
+    def __csv_result(self, action: str, response: requests.Response) -> str:
+        """Сервер отдаёт CSV с UTF-8 BOM и именем файла в Content-Disposition
+        (замерено на R28.0). BOM снимается, имя файла - только в лог."""
+        content = response.content.decode("utf-8-sig")
+        self.log.info(
+            f"status=success, action={action}, "
+            f'msg="Export prepared", hostname={self.__core_hostname!r}, '
+            f"filename={self.__content_disposition_filename(response)!r}, "
+            f"chars={len(content)}"
+        )
+        return content
+
+    @staticmethod
+    def __content_disposition_filename(response: requests.Response) -> str | None:
+        """Имя файла из Content-Disposition: ``filename*`` (RFC 5987) важнее."""
+        disposition = response.headers.get("content-disposition")
+        if not disposition:
+            return None
+
+        plain: str | None = None
+        for part in disposition.split(";"):
+            key, _, value = part.strip().partition("=")
+            if not value:
+                continue
+            value = value.strip('"')
+            name = key.lower()
+            if name == "filename*":
+                return unquote(value.rsplit("''", 1)[-1])
+            if name == "filename":
+                plain = value
+
+        return plain
+
+    def __wrong_structure_error(self, action: str) -> NoReturn:
+        self.log.error(
+            f"status=failed, action={action}, "
+            f'msg="Core data request has wrong response structure", '
+            f"hostname={self.__core_hostname!r}"
+        )
+        raise RuntimeError("Core data request has wrong response structure")
+
+    @staticmethod
+    def __add_array_params(params: dict[str, Any], **arrays: list[str] | None) -> None:
+        """Массивы в query (requests раскрывает список в повтор параметра,
+        сервер это принимает)."""
+        for name, values in arrays.items():
+            if values is not None:
+                params[name] = values
+
+    @staticmethod
+    def __graph_params(begin: int, end: int, granularity: str) -> dict[str, Any]:
+        return {
+            "granularity": granularity,
+            "fromDateTime": SourceMonitor.__iso_time(begin),
+            "toDateTime": SourceMonitor.__iso_time(end),
+        }
+
+    @staticmethod
+    def __minutes_to_hhmm(minutes: int) -> str:
+        """Минуты от 00:00 -> ``HH:mm`` (формат TimeRange/unidentified graph)."""
+        if not 0 <= minutes <= 1439:
+            raise ValueError(
+                f"Minutes of day must be in 0..1439 range, got {minutes!r}"
+            )
+
+        return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+    @staticmethod
+    def __minutes_to_iso_duration(minutes: int) -> str:
+        """Минуты от 00:00 -> ISO 8601 duration (sources/eps/average).
+
+        Сервер принимает значения строго меньше суток: ``PT24H`` отбивается с
+        BadRequest, поэтому максимум - 1439 минут (23:59).
+        """
+        if not 0 <= minutes <= 1439:
+            raise ValueError(
+                f"Minutes of day must be in 0..1439 range, got {minutes!r}"
+            )
+
+        duration = timedelta(minutes=minutes)
+        hours, remainder = divmod(duration.total_seconds(), 3600)
+        minutes_part, seconds = divmod(int(remainder), 60)
+        result = "PT"
+        if hours:
+            result += f"{int(hours)}H"
+        if minutes_part:
+            result += f"{minutes_part}M"
+        if seconds:
+            result += f"{seconds}S"
+
+        return result if result != "PT" else "PT0M"
+
     @staticmethod
     def __iso_time(timestamp: int) -> str:
         """Unix timestamp -> ISO 8601 в UTC (миллисекунды, суффикс Z)."""
-        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        dt = datetime.fromtimestamp(timestamp, tz=UTC)
         return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
     @staticmethod
-    def __check_state_filter(state_filter: str, allowed: tuple[str, ...]) -> None:
-        if state_filter not in allowed:
+    def __check_enum_value(
+        value: str, allowed: tuple[str, ...], param_name: str = "stateFilter"
+    ) -> None:
+        if value not in allowed:
             raise ValueError(
-                f"Unknown stateFilter {state_filter!r}; "
-                f"expected one of {list(allowed)!r}"
+                f"Unknown {param_name} {value!r}; expected one of {list(allowed)!r}"
             )
 
     def __log_result(self, action: str, start_time: float, line_counter: int) -> None:

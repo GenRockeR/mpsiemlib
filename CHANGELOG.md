@@ -1,4 +1,14 @@
-=======
+# v1.7.1
+- Поддержка R28.0
+- Elasticsearch вынесен в extra `mpsiemlib[events]`: для storage Logspace - `StorageNotSupportedError`
+- KB Studio API вместо удалённого Content API: `KnowledgeBase`, `Macros`, статус БД в `HealthMonitor`; whitelist `Tables` через `/app/kb`
+- `EventsAPI`: события v3 по токену, агрегации, счётчики, подсобытия, группы активов
+- `Incidents`: read/write-домены, фильтры и папки, справочники
+- `Tasks`: read- и write-домены сканера
+- `SourceMonitor`: все 16 путей Monitoring v3
+- Обновлены unit-тесты (543 кейса)
+---
+
 # v1.7.0
 - Добавлен новый метод аутентификации через PAT-токен
 - Обновлены модули

@@ -53,7 +53,7 @@ if __name__ == "__main__":
     try:
         mpsiemworker = MPSIEMWorker(creds, settings)
         events_api = mpsiemworker.get_module(ModuleNames.EVENTSAPI)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         log.error(f"Ошибка при подключении: {e}")
         sys.exit(255)
 

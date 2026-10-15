@@ -1,3 +1,4 @@
+import contextlib
 import unittest
 
 from helpers import gen_uppercase_string
@@ -39,18 +40,14 @@ class URMTestCase(unittest.TestCase):
     def _block_quietly(self, user_name: str) -> None:
         # Удаления пользователей в SSO нет - best-effort блокируем, чтобы
         # тестовый аккаунт не мог аутентифицироваться.
-        try:
+        with contextlib.suppress(Exception):
             self.__module.get_users_list()
             self.__module.lock_user(user_name)
-        except Exception:
-            pass
 
     def _delete_role_quietly(self, role_name: str, component: str) -> None:
-        try:
+        with contextlib.suppress(Exception):
             self.__module.get_roles_list()
             self.__module.delete_role(role_name, component)
-        except Exception:
-            pass
 
     def _role_management_app(self) -> str | None:
         """Первый компонент (MS/KB/CORE) с разрешённым редактированием ролей."""
@@ -121,6 +118,26 @@ class URMTestCase(unittest.TestCase):
         self.assertIsNone(
             self.__module.get_role_info("unittest_no_such_role", MPComponents.MS)
         )
+
+    def test_get_application_roles_short_info(self):
+        roles = self.__module.get_roles_list()
+        app = next(iter(roles))
+        short = self.__module.get_application_roles_short_info(app)
+        self.assertGreater(len(short), 0)
+        for role in short:
+            for field in ("id", "name", "type"):
+                self.assertIn(field, role)
+            # краткая форма не несёт привилегий (в отличие от GetClientRoles)
+            self.assertNotIn("privileges", role)
+        # id кратких ролей совпадают с полной формой того же приложения
+        full_ids = {r["id"] for r in roles[app].values()}
+        self.assertTrue({r["id"] for r in short} <= full_ids)
+
+    def test_get_application_roles_short_info_unknown_app(self):
+        # Контракт обещает 400 ApplicationNotFoundError, но сервер R28.0
+        # отвечает 200 с пустым списком (замерено на стенде)
+        short = self.__module.get_application_roles_short_info("unittest_no_such_app")
+        self.assertEqual(short, [])
 
     def test_get_privileges_list(self):
         privileges = self.__module.get_privileges_list()

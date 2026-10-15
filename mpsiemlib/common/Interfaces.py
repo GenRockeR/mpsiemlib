@@ -110,11 +110,16 @@ class MPContentTypes:
 
 
 class StorageVersion:
+    """Версии хранилища событий, поддерживаемые библиотекой.
+
+    Производитель отказывается от Elasticsearch в пользу Logspace, поэтому
+    значение поддерживается только для Elasticsearch 7.17.x (MP SIEM 26.0 -
+    7.17, далее 7.17.14.1). `ALL` - маркер версии в описании фильтра
+    (`ElasticQueryBuilder`), означающий «применимо к любой supported версии».
+    """
+
     ES7_17 = "7.17"
-    ES7 = "7"
-    ES17 = "1.7"
     ALL = "ALL"
-    LS = "1"
 
 
 class Creds:

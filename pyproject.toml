@@ -1,6 +1,6 @@
 [project]
 name = "mpsiemlib"
-version = "1.7.0"
+version = "1.7.1"
 description = "MaxPatrol SIEM API SDK"
 license = "GPL-3.0-or-later"
 readme = "README.md"

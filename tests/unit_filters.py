@@ -1,7 +1,10 @@
 import unittest
+from functools import partial
 from random import choice
 from string import ascii_lowercase
+from typing import Any
 
+import requests
 from settings import creds_pat, settings
 
 from mpsiemlib.common import *
@@ -18,7 +21,7 @@ class FiltersTestCase(unittest.TestCase):
     """
 
     __mpsiemworker = None
-    __module = None
+    __module: Any = None
     __creds = creds_pat
     __settings = settings
 
@@ -42,7 +45,8 @@ class FiltersTestCase(unittest.TestCase):
     # ------------------------------------------------------------------ #
     # helpers
     # ------------------------------------------------------------------ #
-    def _unique(self, prefix: str) -> str:
+    @staticmethod
+    def _unique(prefix: str) -> str:
         return prefix + "".join(choice(ascii_lowercase) for _ in range(12))
 
     def _user_root_id(self) -> str:
@@ -51,14 +55,13 @@ class FiltersTestCase(unittest.TestCase):
             if folder.get("name") == self._USER_ROOT_NAME:
                 return folder_id
         self.skipTest(f"На стенде нет папки {self._USER_ROOT_NAME!r}")
-        return ""
 
     def _create_probe_folder(self) -> str:
         """Создать папку в пользовательском корне и зарегистрировать удаление."""
         folder_id = self.__module.create_event_filter_folder(
             folder_name=self._unique("sdk-dir-"), parent_id=self._user_root_id()
         )
-        self.addCleanup(self.__module.delete_event_filter_folder, folder_id)
+        self.addCleanup(partial(self.__module.delete_event_filter_folder, folder_id))
         return folder_id
 
     def _create_probe_filter(
@@ -72,13 +75,13 @@ class FiltersTestCase(unittest.TestCase):
             folder_id=folder_id,
             pdql_query=pdql or self._PDQL_V3,
         )
-        self.addCleanup(self.__module.delete_event_filter, filter_id)
+        self.addCleanup(partial(self.__module.delete_event_filter, filter_id))
         return filter_id, filter_name, folder_id
 
     def _fresh_module(self):
         """Свежий экземпляр модуля: читает иерархию заново, без общего кэша.
 
-        close() не зовём: get_module без creds переиспользует ту же сессию
+        Close() не зовём: get_module без creds переиспользует ту же сессию
         авторизации, что и модуль класса.
         """
         return self.__mpsiemworker.get_module(ModuleNames.FILTERS)
@@ -131,6 +134,71 @@ class FiltersTestCase(unittest.TestCase):
         # На ядрах 26.1+ get_filter_info идёт контрактом v3
         self.assertIn("pdqlQuery", info)
 
+    def test_get_filter_info_removed_requires_with_removed(self):
+        """Удалённый фильтр читается только с with_removed (измерено на R28.0).
+
+        Без признака сервер отвечает 400 FilterDoesNotExists.Error - это и есть
+        контрактное поведение, поэтому оно закреплено как негативный кейс.
+        """
+        filter_id, filter_name, _ = self._create_probe_filter()
+        self.__module.delete_event_filter(filter_id)
+
+        with self.assertRaises(requests.HTTPError):
+            self.__module.get_filter_info_v3(filter_id)
+
+        removed_v3 = self.__module.get_filter_info_v3(filter_id, with_removed=True)
+        self.assertEqual(removed_v3.get("name"), filter_name)
+        self.assertEqual(removed_v3.get("removed"), True)
+
+        # v2 контракт жив на R28.0 и ведёт себя так же
+        with self.assertRaises(requests.HTTPError):
+            self.__module.get_filter_info_v2(filter_id)
+        removed_v2 = self.__module.get_filter_info_v2(filter_id, with_removed=True)
+        self.assertEqual(removed_v2.get("removed"), True)
+        self.assertEqual(removed_v2.get("name"), filter_name)
+
+        # get_filter_info прокидывает with_removed в выбранный контракт
+        self.assertEqual(
+            self.__module.get_filter_info(filter_id, with_removed=True).get("removed"),
+            True,
+        )
+
+    # ------------------------------------------------------------------ #
+    # папки: иерархия для нотификаций
+    # ------------------------------------------------------------------ #
+    def test_get_folders_list_for_notifications(self):
+        """Отдельный контракт иерархии для подсистемы нотификаций.
+
+        На R28.0 срез тот же, что и у обычной иерархии (проверено на стенде),
+        поэтому сверяем структуру и совпадение набора id, но не права: они
+        зависят от роли токена.
+        """
+        folders = self.__module.get_folders_list_for_notifications()
+        self.assertTrue(isinstance(folders, dict) and len(folders) > 0)
+        for folder_id, folder in folders.items():
+            self.assertTrue(isinstance(folder_id, str) and len(folder_id) > 0)
+            self.assertIn("name", folder)
+            self.assertIn("source", folder)
+        self.assertTrue(
+            any(f.get("parent_id") is None for f in folders.values()),
+            "в иерархии нотификаций нет ни одной корневой папки",
+        )
+        self.assertEqual(
+            set(folders),
+            set(self.__module.get_folders_list()),
+            "набор папок в иерархии нотификаций отличается от основной",
+        )
+
+    def test_get_folders_list_for_notifications_does_not_touch_cache(self):
+        """Метод не должен подменять собой кэш основной иерархии."""
+        victim = next(iter(self.__module.get_folders_list()))
+        folders = self.__module.get_folders_list_for_notifications()
+        folders[victim] = {"parent_id": None, "name": "HACKED", "source": "user"}
+
+        self.assertNotEqual(
+            self.__module.get_folders_list().get(victim, {}).get("name"), "HACKED"
+        )
+
     # ------------------------------------------------------------------ #
     # папки: создание, чтение, изменение, удаление
     # ------------------------------------------------------------------ #
@@ -142,7 +210,7 @@ class FiltersTestCase(unittest.TestCase):
         # Cleanup выполняется LIFO и переживает падение assert'ов: папка
         # уберётся вместе с вложенным фильтром, даже если тест не дошёл до
         # явного удаления.
-        self.addCleanup(self.__module.delete_event_filter_folder, folder_id)
+        self.addCleanup(partial(self.__module.delete_event_filter_folder, folder_id))
 
         parent_id = self._user_root_id()
         info = self.__module.get_event_filter_folder_info(folder_id)
@@ -220,7 +288,7 @@ class FiltersTestCase(unittest.TestCase):
         parent_id = self._create_probe_folder()
         child_name = self._unique("sdk-child-")
         child_id = self.__module.create_event_filter_folder(child_name, parent_id)
-        self.addCleanup(self.__module.delete_event_filter_folder, child_id)
+        self.addCleanup(partial(self.__module.delete_event_filter_folder, child_id))
 
         children = self.__module.get_event_filter_folders_in_folder(parent_id)
         self.assertEqual(len(children), 1)
@@ -242,11 +310,11 @@ class FiltersTestCase(unittest.TestCase):
         folder_id = self.__module.create_event_filter_folder(
             folder_name=folder_name, parent_id=self._user_root_id()
         )
-        self.addCleanup(self.__module.delete_event_filter_folder, folder_id)
+        self.addCleanup(partial(self.__module.delete_event_filter_folder, folder_id))
         filter_id = self.__module.create_event_filter(
             filter_name=filter_name, folder_id=folder_id, pdql_query=self._PDQL_V3
         )
-        self.addCleanup(self.__module.delete_event_filter, filter_id)
+        self.addCleanup(partial(self.__module.delete_event_filter, filter_id))
 
         module = self._fresh_module()
         self.assertEqual(
@@ -266,7 +334,7 @@ class FiltersTestCase(unittest.TestCase):
         filter_id = self.__module.create_event_filter(
             filter_name=filter_name, folder_id=folder_id, pdql_query=self._PDQL_V3
         )
-        self.addCleanup(self.__module.delete_event_filter, filter_id)
+        self.addCleanup(partial(self.__module.delete_event_filter, filter_id))
 
         info = self.__module.get_filter_info(filter_id)
         self.assertEqual(info.get("name"), filter_name)
@@ -282,7 +350,7 @@ class FiltersTestCase(unittest.TestCase):
         filter_id = self.__module.create_event_filter_v3(
             filter_name=filter_name, folder_id=folder_id, pdql_query=self._PDQL_V3
         )
-        self.addCleanup(self.__module.delete_event_filter, filter_id)
+        self.addCleanup(partial(self.__module.delete_event_filter, filter_id))
 
         info = self.__module.get_filter_info_v3(filter_id)
         self.assertEqual(info.get("name"), filter_name)
@@ -299,7 +367,7 @@ class FiltersTestCase(unittest.TestCase):
         filter_id = self.__module.create_event_filter(
             filter_name=filter_name, folder_id=folder_id, pdql_query=parts
         )
-        self.addCleanup(self.__module.delete_event_filter, filter_id)
+        self.addCleanup(partial(self.__module.delete_event_filter, filter_id))
 
         info = self.__module.get_filter_info_v2(filter_id)
         self.assertEqual(info.get("name"), filter_name)
@@ -317,7 +385,7 @@ class FiltersTestCase(unittest.TestCase):
             folder_id=folder_id,
             pdql_query=parts,
         )
-        self.addCleanup(self.__module.delete_event_filter, filter_id)
+        self.addCleanup(partial(self.__module.delete_event_filter, filter_id))
 
         self.assertEqual(set(parts), {"select", "where"})
 
@@ -351,7 +419,7 @@ class FiltersTestCase(unittest.TestCase):
             folder_id=folder_id,
             params={"select": ["time"], "where": "normalized = true"},
         )
-        self.addCleanup(self.__module.delete_event_filter, filter_id)
+        self.addCleanup(partial(self.__module.delete_event_filter, filter_id))
         new_name = self._unique("sdk-f2-up-")
 
         self.__module.update_event_filter_v2(

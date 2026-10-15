@@ -1,6 +1,6 @@
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from common import get_eps, get_siem_tables
 from config import conf, creds, settings
@@ -17,7 +17,8 @@ def _parse_expiration(value):
     if not value:
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        # fromisoformat понимает 'Z' начиная с Python 3.11
+        return datetime.fromisoformat(value)
     except ValueError:
         return None
 
@@ -37,9 +38,9 @@ class Metrics:
         creds.core_hostname = conf.get("MP_CORE_HOSTNAME")
 
         self.worker = MPSIEMWorker(creds=creds, settings=settings)
-        self.labels_map = dict(
-            eps=["MP SIEM eps statistics", "type", "server_name", "siem"],
-            siem_table_size=[
+        self.labels_map = {
+            "eps": ["MP SIEM eps statistics", "type", "server_name", "siem"],
+            "siem_table_size": [
                 "MP SIEM table size",
                 "fill_type",
                 "name",
@@ -47,7 +48,7 @@ class Metrics:
                 "server_name",
                 "siem",
             ],
-            siem_lic_expiration_days=[
+            "siem_lic_expiration_days": [
                 "MP SIEM license expiration days",
                 "key",
                 "type",
@@ -55,7 +56,7 @@ class Metrics:
                 "server_name",
                 "assets",
             ],
-        )
+        }
         self.gauges = {}
         self.module = None
 
@@ -67,7 +68,7 @@ class Metrics:
             lic = self.module.get_health_license_status()
             expiration = _parse_expiration(lic.get("expiration"))
             if expiration is not None:
-                now = datetime.now(timezone.utc if expiration.tzinfo else None)
+                now = datetime.now(UTC if expiration.tzinfo else None)
                 lic["expiration_days"] = (expiration - now).days
             else:
                 lic["expiration_days"] = 0
@@ -77,7 +78,7 @@ class Metrics:
             lic.setdefault("assets", None)
             return lic
         except Exception as e:
-            logging.critical(e, exc_info=True)
+            log.critical(e, exc_info=True)
             sys.exit(255)
 
     def clear_metrics(self):
@@ -88,7 +89,7 @@ class Metrics:
         for metric, data in self.labels_map.items():
             if metric not in self.gauges:
                 if metric == "siem_lic_expiration_days" and conf.get("CORE") is True:
-                    logging.info("Prepare EPS metrics")
+                    log.info("Prepare license metrics")
                     raw_data = self.get_license_status()
                     label_values = [
                         raw_data.get("key"),
@@ -103,27 +104,25 @@ class Metrics:
                     )
                 elif metric == "eps":
                     log.info("Prepare EPS metrics")
-                    raw_data = get_eps(siem_address=conf.get("MP_SIEM_HOSTNAME"))
+                    raw_data = get_eps(worker=self.worker)
 
                     self.gauges[metric] = Gauge(metric, data.pop(0), data)
 
-                    for metric_keys in raw_data.keys():
+                    for metric_keys, value in raw_data.items():
                         self.gauges[metric].labels(
                             type=metric_keys,
-                            server_name=conf.get("MP_SIEM_HOSTNAME"),
+                            server_name=conf.get("MP_CORE_HOSTNAME"),
                             siem="on",
-                        ).set(raw_data.get(metric_keys))
+                        ).set(value)
                 elif metric == "siem_table_size" and conf.get("CORE") is True:
                     log.info("Prepare SIEM tables size metrics")
                     self.gauges[metric] = Gauge(metric, data.pop(0), data)
-                    for siem_data in get_siem_tables(
-                        siem_address=conf.get("MP_SIEM_HOSTNAME")
-                    ):
+                    for siem_data in get_siem_tables(worker=self.worker):
                         self.gauges[metric].labels(
                             fill_type=siem_data.get("fillType"),
                             name=siem_data.get("name"),
-                            object_id=siem_data.get("objectId"),
-                            server_name=conf.get("MP_SIEM_HOSTNAME"),
+                            object_id=siem_data.get("id"),
+                            server_name=conf.get("MP_CORE_HOSTNAME"),
                             siem="on",
                         ).set(siem_data.get("currentSize"))
 
