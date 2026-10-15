@@ -534,6 +534,46 @@ class IncidentsTestCase(unittest.TestCase):
                 # ключи локализации соответствуют значениям базового словаря
                 self.assertEqual({item[key_field] for item in localization}, set(base))
 
+    def test_get_incident_dictionaries(self):
+        dictionaries = {
+            "categories": self.__module.get_incident_categories(),
+            "influences": self.__module.get_incident_influences(),
+            "types": self.__module.get_incident_types(),
+            "parameters": self.__module.get_incident_parameters(),
+        }
+
+        for name, items in dictionaries.items():
+            with self.subTest(dictionary=name):
+                print(json.dumps(items, indent=4, ensure_ascii=False))
+                self.assertIsInstance(items, list)
+                for item in items:
+                    self.assertIsInstance(item, dict)
+                    self.assertIn("id", item)
+                    self.assertIn("name", item)
+
+        # типы из справочника типов согласуются с иерархией типов по категориям
+        types = {item["id"] for item in dictionaries["types"]}
+        hierarchy = self.__module.get_incident_types_hierarchy()
+        print(json.dumps(hierarchy, indent=4, ensure_ascii=False))
+        self.assertIsInstance(hierarchy, list)
+        hierarchical = set()
+        for category in hierarchy:
+            self.assertIn("categoryId", category)
+            self.assertIn("name", category)
+            for incident_type in category.get("types") or []:
+                # сервер отдаёт элемент иерархии как {"typeId", "name"}
+                # (контракт IncidentTypesHierarchyType подписывает его "id")
+                self.assertIn("typeId", incident_type)
+                hierarchical.add(incident_type["typeId"])
+        self.assertTrue({t.lower() for t in hierarchical} <= {t.lower() for t in types})
+
+    def test_get_incident_parameters_match_types(self):
+        types = {item["id"].lower() for item in self.__module.get_incident_types()}
+        for parameter in self.__module.get_incident_parameters():
+            self.assertIn("incidentTypeId", parameter)
+            if parameter["incidentTypeId"]:
+                self.assertIn(parameter["incidentTypeId"].lower(), types)
+
     # ------------------------- статистика ------------------------- #
 
     def test_statistics(self):
@@ -1008,7 +1048,7 @@ class IncidentsTestCase(unittest.TestCase):
         self.__folders.remove(folder_id)
         self.__filters.remove(filter_id)
 
-        # иерархия - источник истины: каскадно сняты и вложенная папка, и её
+        # Иерархия - источник истины: каскадно сняты и вложенная папка, и её
         # фильтр. Отдельное чтение фильтра после каскада остаётся 200
         # (read-model устаревает), поэтому на него не опираемся
         after = self.__hierarchy_node_ids(system_only=False)

@@ -40,6 +40,12 @@ class EventsAPI(ModuleInterface, LoggingHandler):
     __api_events_subevents_countminmax_v2 = "/api/events/v2/subevents_countminmax"
     __api_incidents = "/api/incidents"
     __api_events_aggregation = f"{__api_events_v2}/aggregation?offset=0"
+    # Контракт `EventsGroupsV2.Contracts.yaml`: `/api/events/v2/events_groups`
+    __api_events_groups = "/api/events/v2/events_groups"
+    __api_events_groups_asset_groups = f"{__api_events_groups}/asset_groups"
+    __api_events_groups_hierarchy = f"{__api_events_groups}/asset_groups_hierarchy"
+    GROUP_TYPE_FILTERS = ("static", "dynamic", "all")
+    GROUP_CATEGORY_FILTERS = ("none", "territory", "organization", "functional", "all")
 
     def __init__(self, auth: MPSIEMAuth, settings: Settings) -> None:
         ModuleInterface.__init__(self, auth, settings)
@@ -853,6 +859,102 @@ class EventsAPI(ModuleInterface, LoggingHandler):
             raise RuntimeError(
                 "Core data request return None or has wrong response structure"
             )
+        return response
+
+    # ------------------------------------------------------------------ #
+    # Группы активов (EventsGroupsV2.Contracts.yaml, GetGroups / GetHierarchy)
+    # ------------------------------------------------------------------ #
+
+    def __events_groups_params(self, group_type: str, category: str) -> dict[str, str]:
+        """Собрать query-фильтры для запросов групп активов.
+
+        :raises ValueError: если фильтр вне перечня контракта
+        """
+        if group_type not in self.GROUP_TYPE_FILTERS:
+            raise ValueError(
+                f"Unknown group type filter {group_type!r}; "
+                f"expected one of {', '.join(self.GROUP_TYPE_FILTERS)}"
+            )
+        if category not in self.GROUP_CATEGORY_FILTERS:
+            raise ValueError(
+                f"Unknown group category filter {category!r}; "
+                f"expected one of {', '.join(self.GROUP_CATEGORY_FILTERS)}"
+            )
+        return {"type": group_type, "category": category}
+
+    def get_asset_groups(
+        self,
+        group_type: str = "all",
+        category: str = "all",
+    ) -> list[dict[str, Any]]:
+        """Получить список групп активов (контракт ``GetGroups``).
+
+        GET /api/events/v2/events_groups/asset_groups.
+
+        Примечание R28.0: сервер принимает ``type``/``category``, но выборку по
+        ним не сужает (замерено: отдаёт все группы независимо от значений).
+
+        :param group_type: фильтр по типу группы (``static``/``dynamic``/``all``)
+        :param category: фильтр по категории группы
+            (``none``/``territory``/``organization``/``functional``/``all``)
+        :return: список ``ShortGroupViewModel``
+        """
+        params = self.__events_groups_params(group_type, category)
+        url = f"https://{self.__core_hostname}{self.__api_events_groups_asset_groups}"
+
+        response: list[dict[str, Any]] | None = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout,
+            params=params,
+        ).json()
+
+        if response is None:
+            self.log.error(
+                'status=failed, action=get_asset_groups, msg="Core data request '
+                f'return None", hostname={self.__core_hostname!r}'
+            )
+            raise RuntimeError("Core data request return None")
+        return response
+
+    def get_asset_groups_hierarchy(
+        self,
+        group_type: str = "all",
+        category: str = "all",
+        active_only: bool | None = None,
+    ) -> dict[str, Any]:
+        """Получить иерархию групп активов (контракт ``GetHierarchy``).
+
+        GET /api/events/v2/events_groups/asset_groups_hierarchy. Ответ -
+        ``{"roots": [GroupHierarchyItemViewModel...]}``.
+
+        :param group_type: фильтр по типу группы (``static``/``dynamic``/``all``)
+        :param category: фильтр по категории группы
+            (``none``/``territory``/``organization``/``functional``/``all``)
+        :param active_only: только активные группы (``activeOnly``); по умолчанию
+            сервер отдаёт все
+        :return: ``GroupHierarchyViewModel``
+        """
+        params: dict[str, Any] = dict(self.__events_groups_params(group_type, category))
+        if active_only is not None:
+            params["activeOnly"] = str(active_only).lower()
+        url = f"https://{self.__core_hostname}{self.__api_events_groups_hierarchy}"
+
+        response: dict[str, Any] | None = exec_request(
+            self.__core_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout,
+            params=params,
+        ).json()
+
+        if response is None:
+            self.log.error(
+                'status=failed, action=get_asset_groups_hierarchy, msg="Core data '
+                f'request return None", hostname={self.__core_hostname!r}'
+            )
+            raise RuntimeError("Core data request return None")
         return response
 
     # ------------------------------------------------------------------ #

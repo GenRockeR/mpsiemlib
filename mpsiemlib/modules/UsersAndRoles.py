@@ -437,6 +437,38 @@ class UsersAndRoles(ModuleInterface, LoggingHandler):
         role = self.__roles.get(component, {}).get(role_name)
         return dict(role) if role is not None else None
 
+    def get_application_roles_short_info(
+        self, application_id: str
+    ) -> list[dict[str, Any]]:
+        """Краткая информация о ролях приложения (GetClientRolesShortInfo).
+
+        ``GET /ptms/api/sso/v2/applications/{clientId}/roles_short_info`` -
+        облегчённая версия ``GetClientRoles`` без привилегий.
+
+        :param application_id: id приложения (``MPComponents``)
+        :return: список ``RoleShortInfo``
+            ({"id", "name", "nonLocalizedName", "type", "description"});
+            неизвестное приложение - пустой список (контракт обещает 400,
+            но сервер R28.0 отвечает 200 ``[]``)
+        """
+        url = (
+            f"https://{self.__ms_hostname}:{self.__ms_port}"
+            f"{self.__api_applications_v2}/{application_id}/roles_short_info"
+        )
+        response: list[dict[str, Any]] = exec_request(
+            self.__ms_session,
+            url,
+            method="GET",
+            timeout=self.settings.connection_timeout,
+        ).json()
+
+        self.log.info(
+            "status=success, action=get_application_roles_short_info, "
+            f'msg="Got {len(response)} short roles from {application_id!r}", '
+            f"hostname={self.__ms_hostname!r}"
+        )
+        return response
+
     def create_role(
         self,
         role_name: str,

@@ -37,6 +37,16 @@ class Incidents(ModuleInterface, LoggingHandler):
     __api_task_types = "/api/taskTypes"
     __api_task_statuses_localizations = "/api/issues/dictionaries/statuses"
     __api_task_types_localizations = "/api/issues/dictionaries/types"
+    # Справочники контракта `Dictionaries.yaml`: `GET /api/incidents/dictionaries/*`.
+    # Статусы и критичности дублируют семейства `IncidentStatus`/
+    # `IncidentSeverity`, поэтому берются через специализированные эндпоинты
+    # выше; типы инцидентов есть только здесь.
+    __api_dictionaries = "/api/incidents/dictionaries"
+    __api_dictionary_categories = f"{__api_dictionaries}/categories"
+    __api_dictionary_influences = f"{__api_dictionaries}/influences"
+    __api_dictionary_types = f"{__api_dictionaries}/types"
+    __api_dictionary_parameters = f"{__api_dictionaries}/parameters"
+    __api_dictionary_types_hierarchy = f"{__api_dictionaries}/types/hierarchy"
     __netfor_batch_size = 2000
 
     # Read-контракты: статистика (IncidentStatistics.yaml), задачи/коллекции
@@ -987,6 +997,67 @@ class Incidents(ModuleInterface, LoggingHandler):
             "get_incident_task_types_localizations",
         )
 
+    def get_incident_categories(self) -> list[dict]:
+        """Получить справочник категорий инцидентов.
+
+        Контракт: `Dictionaries.yaml` `GET /api/incidents/dictionaries/categories`
+        (GetIncidentCategoriesDictionary).
+
+        :return: [{"id": "...", "name": "..."}, ...]
+        """
+        return self.__load_dictionary(
+            self.__api_dictionary_categories, "get_incident_categories"
+        )
+
+    def get_incident_influences(self) -> list[dict]:
+        """Получить справочник влияний инцидентов.
+
+        Контракт: `Dictionaries.yaml` `GET /api/incidents/dictionaries/influences`
+        (GetIncidentInfluencesDictionary).
+
+        :return: [{"id": "...", "name": "..."}, ...]
+        """
+        return self.__load_dictionary(
+            self.__api_dictionary_influences, "get_incident_influences"
+        )
+
+    def get_incident_types(self) -> list[dict]:
+        """Получить справочник типов инцидентов.
+
+        Контракт: `Dictionaries.yaml` `GET /api/incidents/dictionaries/types`
+        (GetIncidentTypesDictionary).
+
+        :return: [{"id": "...", "name": "..."}, ...]
+        """
+        return self.__load_dictionary(self.__api_dictionary_types, "get_incident_types")
+
+    def get_incident_parameters(self) -> list[dict]:
+        """Получить справочник параметров инцидентов.
+
+        Контракт: `Dictionaries.yaml` `GET /api/incidents/dictionaries/parameters`
+        (GetIncidentParametersDictionary).
+
+        :return: [{"id": "...", "name": "...", "incidentTypeId": "...",
+            "isHidden": ...}, ...]
+        """
+        return self.__load_dictionary(
+            self.__api_dictionary_parameters, "get_incident_parameters"
+        )
+
+    def get_incident_types_hierarchy(self) -> list[dict]:
+        """Получить иерархию типов инцидентов по категориям.
+
+        Контракт: `Dictionaries.yaml`
+        `GET /api/incidents/dictionaries/types/hierarchy`
+        (GetIncidentTypesHierarchy).
+
+        :return: [{"categoryId": "...", "name": "...",
+            "types": [{"typeId": "...", "name": "..."}]}, ...]
+        """
+        return self.__load_dictionary(
+            self.__api_dictionary_types_hierarchy, "get_incident_types_hierarchy"
+        )
+
     def __load_dictionary(self, api_url: str, action: str) -> list[Any]:
         """Запросить справочник инцидентов (значения или локализации).
 
@@ -1033,7 +1104,7 @@ class Incidents(ModuleInterface, LoggingHandler):
         :param method: GET|POST|PUT|DELETE
         :param params: Query-параметры
         :param json_body: Тело запроса
-        :param timeout_up: увеличение таймаута (для экспорта)
+        :param timeout_up: увеличение тайм-аута (для экспорта)
         :return: Распарсенный JSON либо None, если тело пустое
         :raises requests.RequestException: при ошибке выполнения запроса
         """
@@ -1434,7 +1505,7 @@ class Incidents(ModuleInterface, LoggingHandler):
         return version
 
     def get_public_incident_id(self, incident_id: str) -> dict[str, Any]:
-        """Получить публичный (Key) идентификатор инцидента по внутреннему ID.
+        """Получить публичный (Key) идентификатор инцидента по-внутреннему ID.
 
         Контракт: `IncidentsReadPublic.yaml` `GET
         /api/v1/external_incident_ids/{internalId}` (GetPublicByInternalId).
@@ -1829,7 +1900,7 @@ class Incidents(ModuleInterface, LoggingHandler):
 
         Внимание: read-model удалённых вместе с папкой фильтров устаревает -
         :meth:`get_incident_filter` ещё отвечает 200. Проверять факт удаления
-        нужно по :meth:`get_incident_filters_hierarchy`.
+        нужно по:meth:`get_incident_filters_hierarchy`.
 
         :return: True при успехе (204)
         """

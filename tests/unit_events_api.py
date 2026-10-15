@@ -37,7 +37,7 @@ class TestEventsAPITestCase(unittest.TestCase):
         # выборка может оказаться пустой.
         cls.__begin = cls.__end - 3600
         # Для v3 окно уже: итератор выгружает выборку целиком, а стенд даёт
-        # ~67k событий в час (~100 c на выгрузку). 5 минут достаточно, чтобы
+        # ~67k событий в час (~100с на выгрузку). 5 минут достаточно, чтобы
         # выборка была непустой, и держит тест в пределах нескольких пачек.
         cls.__v3_begin = cls.__end - 300
 
@@ -262,6 +262,52 @@ class TestEventsAPITestCase(unittest.TestCase):
         settings_map = self.__module.get_events_settings()
         self.assertIsInstance(settings_map, dict)
         self.assertIn("showContentFromDescendants", settings_map)
+
+    # ------------------------------------------------------------------ #
+    # Группы активов (EventsGroupsV2: GetGroups / GetHierarchy)
+    # ------------------------------------------------------------------ #
+    def test_get_asset_groups(self):
+        groups = self.__module.get_asset_groups()
+        self.assertIsInstance(groups, list)
+        for group in groups:
+            self.assertIn("id", group)
+            self.assertIn("name", group)
+
+    def test_get_asset_groups_filtered(self):
+        # Сервер R28.0 принимает query-фильтры, но выборку по ним не сужает
+        # (замерено: возвращает все группы независимо от type/category), поэтому
+        # проверяем только корректность запроса с валидными значениями enum.
+        groups = self.__module.get_asset_groups(
+            group_type="static", category="territory"
+        )
+        self.assertIsInstance(groups, list)
+        for group in groups:
+            self.assertIn("id", group)
+            self.assertIn("name", group)
+
+    def test_get_asset_groups_bad_type(self):
+        with self.assertRaises(ValueError):
+            self.__module.get_asset_groups(group_type="bogus")
+
+    def test_get_asset_groups_bad_category(self):
+        with self.assertRaises(ValueError):
+            self.__module.get_asset_groups(category="bogus")
+
+    def test_get_asset_groups_hierarchy(self):
+        hierarchy = self.__module.get_asset_groups_hierarchy()
+        self.assertIsInstance(hierarchy, dict)
+        self.assertIn("roots", hierarchy)
+        for root in hierarchy["roots"]:
+            self.assertIn("id", root)
+            self.assertIsInstance(root.get("children") or [], list)
+
+    def test_get_asset_groups_hierarchy_active_only(self):
+        hierarchy = self.__module.get_asset_groups_hierarchy(active_only=True)
+        self.assertIn("roots", hierarchy)
+
+    def test_get_asset_groups_hierarchy_bad_type(self):
+        with self.assertRaises(ValueError):
+            self.__module.get_asset_groups_hierarchy(group_type="bogus")
 
     # ------------------------------------------------------------------ #
     # Постраничная выдача v3 и счётчик по токену
